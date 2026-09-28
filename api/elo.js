@@ -102,7 +102,15 @@ function leaguePoints(p, delta) {
 }
 
 // next opponent with at least `wins` wins: other players first, then your own older teams
-async function nextOpponent(st, wins, pid, teamId) { return (await st.pickOpponent(wins, pid, false)) || (await st.pickOpponent(wins, pid, true, teamId)); }
+// review #23 (David): every saved ghost counts (finished, crowned or abandoned mid-gauntlet) and the pool grows with each
+// run; floor k draws at RANDOM among all ghosts with at least k wins (it used to take the lowest record only, so with
+// few players it was always the same ghost). Other players' ghosts first, then your own; a ghost this run already
+// faced comes back only when there is no one else.
+async function nextOpponent(st, wins, pid, teamId, faced) {
+  const seen = [teamId].concat(faced || []);
+  return (await st.pickOpponent(wins, pid, false, seen)) || (await st.pickOpponent(wins, pid, true, seen))
+    || (await st.pickOpponent(wins, pid, false, [teamId])) || (await st.pickOpponent(wins, pid, true, [teamId]));
+}
 
 module.exports = async (req, res) => {
   const st = getStore();
@@ -159,7 +167,7 @@ module.exports = async (req, res) => {
       await rateContent(st, ipHash(req), [{ used: rt ? usedIn(rt, relicList(b.reached.relics)) : usedIn(team, relics), score: 1 }]);
       const opp = await nextOpponent(st, 0, pid, id), peak = await st.maxWins(id);
       if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, peak, champion: true, over: true })); }
-      await st.updateTeam(id, { wins: 0, status: 'running', opp: opp.id }); await save({});
+      await st.updateTeam(id, { wins: 0, status: 'running', opp: opp.id, faced: [opp.id] }); await save({});
       return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, peak, opponent: oppView(opp, pid) }));
     }
 
@@ -195,10 +203,11 @@ module.exports = async (req, res) => {
         return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, wins: t.wins, over: true }));
       }
       const wins = t.wins + 1;
-      const next = await nextOpponent(st, wins, pid, t.id);
+      let faced = []; try { faced = JSON.parse(t.faced || '[]'); } catch (_) {}
+      const next = await nextOpponent(st, wins, pid, t.id, faced);
       p.best = Math.max(p.best, wins);
       if (!next) { await st.updateTeam(t.id, { wins, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, lg, wins, champion: true, over: true })); }
-      await st.updateTeam(t.id, { wins, status: 'running', opp: next.id }); await save({});
+      await st.updateTeam(t.id, { wins, status: 'running', opp: next.id, faced: faced.concat(next.id) }); await save({});
       return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, lg, wins, round: wins, opponent: oppView(next, pid) }));
     }
     return send(res, 400, { error: 'Unknown op' });
@@ -211,3 +220,4 @@ module.exports.eloAfter = eloAfter;
 module.exports.usedIn = usedIn;
 module.exports.cleanTeam = cleanTeam;
 module.exports.leaguePoints = leaguePoints;
+module.exports.nextOpponent = nextOpponent;

@@ -121,6 +121,14 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v25 (2026-09-28), lote 23 do David** ("all ghosts are saved ... a random ghost is used, not the first ghost ever to
+  lose at a level. The pool expands"): o sorteio pegava só os fantasmas com o MENOR recorde ≥ k (com poucos jogadores,
+  sempre o mesmo) e ignorava fantasmas de Gauntlets abandonados (status 'running' para sempre). Agora
+  `pickOpponent` sorteia entre TODOS os times salvos (qualquer status, menos o próprio) com wins ≥ k; outros jogadores
+  antes dos seus; coluna `teams.faced` guarda quem a run já enfrentou e ele só volta se não houver mais ninguém
+  (`nextOpponent`). `maxWins` (altura da torre) conta todos os status. `run-all.js` repete 1 vez os testes de Chrome
+  quando falham (esperas fixas sob carga) e avisa "(2nd try)".
+
 - **v24 (2026-09-28), lote 22 do David** (começa com 1 herói e 1 relíquia; +1 luta e +1 loja/evento antes de cada
   chefe): `CFG.seq` com 17 passos (F X F X F X B X F X F X F X B S G), chefes nas lutas 4 e 8. A run guarda `seq` e
   `fightScale` (save v5; runs antigas continuam com os 13 passos). Início: 3 heróis e 3 relíquias oferecidos, escolhe 1

@@ -451,7 +451,7 @@
     if (g.status === 'intro') {
       if (g.peak == null && !ui.peakAsked) { ui.peakAsked = true; Net.get('elo?peak=1').then(r => { g.peak = r.peak; if (run.g === g && g.status === 'intro') render(); }).catch(() => {}); }
       return `<section class="title"><h2 class="sc">The Gauntlet</h2>
-        <div class="card gintro"><p class="small">Your team is saved as a <b>ghost</b> and duels the ghosts of other players' runs. Round 1 is against a ghost that lost its first duel, round 2 against one that won once, and so on. Reaching the Gauntlet already counts as an Elo win against a 1000 rated opponent. Each duel is a 1v1 Elo game. One loss ends your run. Go further than every ghost before you and you are crowned champion.</p>
+        <div class="card gintro"><p class="small">Your team is saved as a <b>ghost</b> and duels the ghosts of other players' runs. Every run that reaches the Gauntlet leaves a ghost, so the pool keeps growing. Floor 1 draws a random ghost, floor 2 a random ghost that won at least once, and so on (other players' ghosts first, and never the same ghost twice while there is someone else). Reaching the Gauntlet already counts as an Elo win against a 1000 rated opponent. Each duel is a 1v1 Elo game. One loss ends your run. Go further than every ghost before you and you are crowned champion.</p>
           ${teamRow(Run.teamSnapshot(run), run.relics)}
           ${g.peak != null ? towerHTML(g, 'intro') : ''}
           <form class="stack" data-form="gauntlet"><input name="name" maxlength="16" placeholder="Your name on the ladder" value="${esc(myName())}" required><button class="primary big">Enter the Gauntlet</button></form></div></section>`;
