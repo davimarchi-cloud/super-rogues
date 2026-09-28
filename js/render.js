@@ -14,7 +14,20 @@
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
     const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { canvas, ctx, size, w, h, top, slab };
+    return { canvas, ctx, size, w, h, top, slab, grit: grit(ctx) };
+  }
+  // review #8: stone texture for the tiles (made once, deterministic)
+  let gritCanvas = null;
+  function grit(ctx) {
+    if (!gritCanvas && typeof document !== 'undefined') {
+      const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+      let seed = 7; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 900; i++) { const v = r() < 0.5 ? 0 : 255; g.fillStyle = `rgba(${v},${v},${v},${0.04 + r() * 0.08})`; g.fillRect(r() * 128, r() * 128, 1 + r() * 2, 1 + r() * 2); }
+      g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1;
+      for (let i = 0; i < 7; i++) { let x = r() * 128, y = r() * 128; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (r() - 0.5) * 22; y += (r() - 0.5) * 22; g.lineTo(x, y); } g.stroke(); }
+      gritCanvas = c;
+    }
+    return gritCanvas ? ctx.createPattern(gritCanvas, 'repeat') : null;
   }
   const proj = (v, p) => ({ x: p.x, y: v.top + p.y * K });
   const hexScreen = (v, c, r) => proj(v, Hx.px(c, r, v.size));
@@ -59,10 +72,15 @@
         ctx.fillStyle = i === 1 ? '#0e1016' : i === 0 ? '#151922' : '#12151d';
         ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.lineTo(pts[j].x, pts[j].y + th); ctx.lineTo(pts[i].x, pts[i].y + th); ctx.closePath(); ctx.fill();
       }
-      path(ctx, corners(v, c, r, size * 0.94));
+      const top = corners(v, c, r, size * 0.94);
+      path(ctx, top);
       const drop = o.drop && o.drop.c === c && o.drop.r === r;
       ctx.fillStyle = drop ? '#4466a8' : tileColor(c, r, o); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; ctx.stroke();
+      if (v.grit) { ctx.fillStyle = v.grit; ctx.fill(); }
+      // bevel: lit upper-left edges, shaded lower-right edges
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.13)'; ctx.beginPath(); ctx.moveTo(top[3].x, top[3].y); ctx.lineTo(top[4].x, top[4].y); ctx.lineTo(top[5].x, top[5].y); ctx.lineTo(top[0].x, top[0].y); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.moveTo(top[0].x, top[0].y); ctx.lineTo(top[1].x, top[1].y); ctx.lineTo(top[2].x, top[2].y); ctx.lineTo(top[3].x, top[3].y); ctx.stroke();
     }
     if (o.deploy) { const y = hexScreen(v, 0, 4).y - size * 0.75 * K; ctx.strokeStyle = 'rgba(95,168,255,0.5)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(v.w, y); ctx.stroke(); ctx.setLineDash([]); }
   }
@@ -120,6 +138,8 @@
   function draw(v, W, T, o = {}) {
     const { ctx, size } = v;
     ctx.clearRect(0, 0, v.w, v.h);
+    const bg = ctx.createRadialGradient(v.w / 2, v.h * 0.55, v.w * 0.1, v.w / 2, v.h * 0.55, v.w * 0.8);
+    bg.addColorStop(0, '#1d2230'); bg.addColorStop(1, '#0b0d12'); ctx.fillStyle = bg; ctx.fillRect(0, 0, v.w, v.h);
     drawBoard(v, o);
     if (!W) return;
     for (const z of W.zones) if (z.until > W.t) for (const h of Hx.within(z.c, z.r, z.rad)) {
@@ -173,6 +193,8 @@
         ctx.fillStyle = '#ffcf5a'; ctx.fillText(f.text.toUpperCase(), v.w / 2, v.h * 0.4); ctx.globalAlpha = 1;
       }
     }
+    const vg = ctx.createRadialGradient(v.w / 2, v.h * 0.5, v.w * 0.35, v.w / 2, v.h * 0.5, v.w * 0.85);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, v.w, v.h);
     if (o.dragGhost) { ctx.globalAlpha = 0.65; B.Models.draw(ctx, o.dragGhost.key, o.dragGhost.x, o.dragGhost.y + size * 0.5, size * 1.3, { t: T / 20, face: 1 }); ctx.globalAlpha = 1; }
   }
 

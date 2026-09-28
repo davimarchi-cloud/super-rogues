@@ -30,6 +30,8 @@
   };
   const por = (key, px = 44, full) => B.Models.portrait(key === 'clone' ? 'mirage' : key, px, !full);
   const img = (key, px, cls = 'por') => `<img class="${cls}" src="${por(key, px)}" alt="">`;
+  const EMBLEM = '<svg class="emblem" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 9v45M20 56h24M9 17h46"/><path d="M9 17 3 35M9 17l6 18M55 17l-6 18M55 17l6 18"/></g><path d="M1 35a8 6 0 0 0 16 0zM47 35a8 6 0 0 0 16 0z" fill="currentColor"/><circle cx="32" cy="8" r="4" fill="currentColor"/></svg>';
+  const ico = (kind, id, px = 36, cls = 'ico') => `<img class="${cls}" src="${kind === 'item' ? B.Icons.item(id, px) : B.Icons.relic(id, px)}" alt="">`;
   const TIER_COLOR = { common: '#b8c0cc', rare: '#5fa8ff', epic: '#c77dff' };
   const NODE_ICON = { F: '⚔', X: '?', B: '☠', S: '🛒', G: '♛' };
   const SHOP_NAME = { heroShop: 'Hero Shop', itemShop: 'Item Shop', relicShop: 'Relic Shop' };
@@ -39,14 +41,14 @@
   function header() {
     const h = $('#top');
     if (!run || screen === 'title') {
-      h.innerHTML = `<b class="logo">Balance</b><span class="grow"></span><button data-act="scores">🏆</button><button data-act="suggest" class="sugg">💡 Suggest</button>`;
+      h.innerHTML = `<b class="logo">${EMBLEM}Balance</b><span class="grow"></span><button data-act="scores" aria-label="Ladder">🏆</button><button data-act="suggest" class="sugg">💡 Suggest</button>`;
       return;
     }
     const stepN = Math.max(0, run.step);
     const elo = store.get('balance.elo', null), g = run.g;
     const prog = g ? (g.round != null ? 'Gauntlet · round ' + (g.round + 1) : 'Gauntlet') : 'Day ' + (stepN + 1) + '/' + CFG.seq.length;
     h.innerHTML = `${elo != null ? `<span class="elo" title="Your Elo rating">⚜ ${elo}</span>` : ''}
-      <span class="gold">💰 ${run.gold}</span><span class="prog">${prog}</span>
+      <span class="gold" title="Gold">${run.gold}</span><span class="prog">${prog}</span>
       <span class="grow"></span>${battle ? '' : '<button data-act="team">Team</button>'}<button data-act="suggest" class="sugg">💡</button><button data-act="menu">☰</button>`;
   }
 
@@ -69,20 +71,23 @@
 
   function titleHTML() {
     const has = run && run.phase !== 'over';
+    const lineup = ui.lineup = ui.lineup || Object.keys(HEROES).sort(() => Math.random() - 0.5).slice(0, 3);
     return `<section class="title">
+      <div class="crest">${EMBLEM}</div>
       <h1 class="sc">Balance</h1>
-      <p class="tag">Pick heroes. Deploy them on the hex board. Watch them fight.<br>Beat two bosses, then duel the ghosts of other players' runs in the Gauntlet.</p>
+      <p class="tag">A roguelike of heroes, hexes and ghosts</p>
+      <div class="lineup">${lineup.map((k, i) => `<img class="${i === 1 ? 'mid' : ''}" src="${por(k, 120, true)}" alt="">`).join('')}</div>
+      <p class="small dim">Deploy your champions, let them fight, beat two bosses, then climb the Gauntlet of other players' ghosts.</p>
       <div class="stack">
         ${has ? '<button class="primary big" data-act="continue-run">Continue run</button>' : ''}
         <button class="${has ? '' : 'primary '}big" data-act="new-run">New run</button>
         <button data-act="howto">How to play</button>
         <button data-act="scores">🏆 Ladder</button>
       </div>
-      <div class="live"><b>This game is built live from your ideas.</b><br>Write down your changes (a new hero, a rebalance, a whole restructure), press Send for review, and Claude reviews them and ships what fits.
+      <div class="live"><b class="sc">Forged by its players</b><br>Write down your changes (a new hero, a rebalance, a whole restructure), press Send for review, and Claude reviews them and ships what fits.
         <button class="primary" data-act="suggest">💡 Suggest a change</button></div>
     </section>`;
   }
-
   function heroCard(key, extra = '') {
     const h = HEROES[key];
     return `<div class="hcard">
@@ -166,17 +171,17 @@
   function resultHTML() {
     const r = ui.result;
     const table = r.gauntlet ? '' : `<table class="tbl"><tr><th>Hero</th><th>Damage</th><th>XP</th><th>Level</th></tr>
-      ${r.xp.map(x => `<tr><td>${esc(x.name)}</td><td>${Math.round(r.dmg[x.uid] || 0)}</td><td>+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`).join('')}</table>`;
+      ${r.xp.map(x => { const hk = (run.heroes.find(h => h.uid === x.uid) || {}).key; return `<tr><td class="who">${hk ? img(hk, 28, 'por sm') : ''}${esc(x.name)}</td><td>${Math.round(r.dmg[x.uid] || 0)}</td><td>+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`; }).join('')}</table>`;
     const sub = r.gauntlet ? `${r.win ? 'You beat' : 'You fell to'} ${esc(r.opp.name)}'s team.`
       : r.win ? '+' + r.gold + ' gold' : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
-    return `<section><h2 class="${r.win ? 'win' : 'lose'} sc">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${table}
+    return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${table}
       <div class="bar"><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
   }
 
   // ---------------- gauntlet (reviews #3 #4 by David)
   function teamRow(team, relics) {
     return `<div class="gteam">${team.map(h => `<div class="gh">${img(h.key, 56)}<b>${esc(HEROES[h.key].name)}</b><span>Lv ${h.lvl}${h.items.length ? ' · ' + h.items.length + ' item' + (h.items.length > 1 ? 's' : '') : ''}</span></div>`).join('')}</div>
-      ${relics && relics.length ? `<div class="small dim">Relics: ${relics.map(id => esc(RELIC[id] ? RELIC[id].name : id)).join(', ')}</div>` : ''}`;
+      ${relics && relics.length ? `<div class="relics inline">${relics.filter(id => RELIC[id]).map(id => `<img class="ico sm" title="${esc(RELIC[id].name)}" src="${B.Icons.relic(id, 26)}" alt="">`).join('')}</div>` : ''}`;
   }
   function gauntletHTML() {
     const g = run.g;
@@ -198,9 +203,9 @@
     const dis = s.sold || run.gold < s.price || (s.kind === 'hero' && run.heroes.length >= Run.teamMax(run));
     let body = '';
     if (s.kind === 'hero') body = heroCard(s.id);
-    else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div><div class="small">${esc(it.desc)}</div><div class="tier">${it.tier}</div>`; }
-    else { const r = RELIC[s.id]; body = `<div class="ctitle relic">◆ ${esc(r.name)}</div><div class="small">${esc(r.desc)}</div>`; }
-    return `<div class="card stock ${s.sold ? 'sold' : ''}">${body}<button class="${dis ? '' : 'primary'}" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''}>${s.sold ? 'Sold' : 'Buy · ' + s.price + 'g'}</button></div>`;
+    else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div><div class="tier">${it.tier}</div></div></div><div class="small">${esc(it.desc)}</div>`; }
+    else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier">relic</div></div></div><div class="small">${esc(r.desc)}</div>`; }
+    return `<div class="card stock ${s.sold ? 'sold' : ''}">${body}<button class="${dis ? '' : 'primary'}" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''}>${s.sold ? 'Sold' : `Buy <span class="price">${s.price}</span>`}</button></div>`;
   }
   function shopHTML() {
     const c = run.cur, rc = Run.rerollCost(run);
@@ -339,7 +344,7 @@
   function teamHTML() {
     const selId = ui.selBag >= 0 ? run.bag[ui.selBag] : null, sel = selId ? ITEM[selId] : null;
     const items = run.bag.map((id, i) => { const it = ITEM[id]; return `<button class="eqitem ${ui.selBag === i ? 'on' : ''}" style="--tier:${TIER_COLOR[it.tier]}" data-act="bag" data-arg="${i}">
-      <b>${esc(it.name)}</b><span>${esc(it.desc)}</span></button>`; }).join('');
+      ${ico('item', id, 34)}<span class="t"><b>${esc(it.name)}</b><span>${esc(it.desc)}</span></span></button>`; }).join('');
     const heroes = run.heroes.map(h => {
       const d = HEROES[h.key], def = Run.heroDef(run, h), sl = Run.slots(run, h), full = h.items.length >= sl;
       const next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null, prev = CFG.xpLevels[h.lvl] || 0;
@@ -347,7 +352,7 @@
       const slots = [];
       for (let i = 0; i < sl; i++) {
         const id = h.items[i];
-        slots.push(id ? `<button class="chip" style="border-color:${TIER_COLOR[ITEM[id].tier]}" data-act="unequip" data-arg="${h.uid}:${i}" title="${esc(ITEM[id].desc)}">${esc(ITEM[id].name)} ✕</button>`
+        slots.push(id ? `<button class="chip slot" style="border-color:${TIER_COLOR[ITEM[id].tier]}" data-act="unequip" data-arg="${h.uid}:${i}" title="${esc(ITEM[id].desc)}">${ico('item', id, 22, 'ico sm')}${esc(ITEM[id].name)} ✕</button>`
           : `<span class="chip empty">empty</span>`);
       }
       const target = sel && !full;
@@ -366,7 +371,7 @@
         <div class="eqcol"><h3>Items (${run.bag.length})</h3>${items || '<p class="dim small">Bag is empty. Buy items in the Item Shop.</p>'}</div>
         <div class="eqcol"><h3>Heroes (${run.heroes.length}/${Run.teamMax(run)})</h3>${heroes}</div>
       </div>
-      <h3>Relics</h3>${run.relics.length ? run.relics.map(id => `<div class="small">◆ <b>${esc(RELIC[id].name)}</b>: ${esc(RELIC[id].desc)}</div>`).join('') : '<p class="dim small">None yet.</p>'}`;
+      <h3>Relics</h3>${run.relics.length ? `<div class="relics">${run.relics.map(id => `<div class="relic-row">${ico('relic', id, 30)}<span><b>${esc(RELIC[id].name)}</b> <span class="dim">${esc(RELIC[id].desc)}</span></span></div>`).join('')}</div>` : '<p class="dim small">None yet.</p>'}`;
   }
 
   function ago(ms, now) { const s = Math.max(0, Math.round((now - ms) / 1000)); return s < 60 ? s + 's ago' : s < 3600 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago'; }

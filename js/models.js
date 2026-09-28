@@ -51,14 +51,45 @@
 
   // ------------------------------------------------------------------ helpers
   const TAU = Math.PI * 2;
-  function shade(hex, f) {
-    const n = parseInt(hex.slice(1), 16); let r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+  // ---- review #8 "more HD": every part is drawn cel-shaded: dark ink outline, shaded body, a light rim toward the
+  // upper-left light, and a specular glint on round parts. All models go through these helpers.
+  const LIGHT = 0.38, INK = 'rgba(12,10,16,0.9)';
+  function rgbOf(col) {
+    if (col[0] === '#') { const n = parseInt(col.length === 4 ? col.slice(1).split('').map(x => x + x).join('') : col.slice(1, 7), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+    const m = col.match(/[\d.]+/g); return m ? [+m[0], +m[1], +m[2]] : [128, 128, 128];
+  }
+  function shade(col, f) {
+    let [r, g, b] = rgbOf(col);
     if (f < 0) { r *= 1 + f; g *= 1 + f; b *= 1 + f; } else { r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
     return 'rgb(' + (r | 0) + ',' + (g | 0) + ',' + (b | 0) + ')';
   }
-  function limb(c, x1, y1, x2, y2, w, col) { c.strokeStyle = col; c.lineWidth = w; c.lineCap = 'round'; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); }
-  function ball(c, x, y, r, col, line) { c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); if (line) { c.strokeStyle = line; c.lineWidth = 1; c.stroke(); } }
-  function poly(c, pts, col, line) { c.fillStyle = col; c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath(); c.fill(); if (line) { c.strokeStyle = line; c.lineWidth = 1.2; c.stroke(); } }
+  const isColor = col => typeof col === 'string' && (col[0] === '#' || col.startsWith('rgb'));
+  function seg(c, x1, y1, x2, y2) { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); }
+  function limb(c, x1, y1, x2, y2, w, col) {
+    c.lineCap = 'round';
+    if (w < 2) { c.strokeStyle = col; c.lineWidth = w; seg(c, x1, y1, x2, y2); return; }
+    c.strokeStyle = INK; c.lineWidth = w + 2; seg(c, x1, y1, x2, y2);
+    c.strokeStyle = isColor(col) ? shade(col, -0.12) : col; c.lineWidth = w; seg(c, x1, y1, x2, y2);
+    if (isColor(col) && w >= 3) { const o = w * 0.2; c.strokeStyle = shade(col, LIGHT); c.lineWidth = Math.max(1, w * 0.3); seg(c, x1 - o, y1 - o, x2 - o, y2 - o); }
+  }
+  function ball(c, x, y, r, col, line) {
+    c.beginPath(); c.arc(x, y, r, 0, TAU);
+    if (isColor(col) && r >= 3) {
+      const g = c.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+      g.addColorStop(0, shade(col, LIGHT)); g.addColorStop(0.55, col); g.addColorStop(1, shade(col, -0.35)); c.fillStyle = g;
+    } else c.fillStyle = col;
+    c.fill();
+    if (r >= 2.5) { c.strokeStyle = INK; c.lineWidth = r > 6 ? 1.4 : 1; c.stroke(); }
+    if (isColor(col) && r >= 4) { c.fillStyle = 'rgba(255,255,255,0.55)'; c.beginPath(); c.arc(x - r * 0.38, y - r * 0.42, r * 0.16, 0, TAU); c.fill(); }
+  }
+  function poly(c, pts, col, line) {
+    c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath();
+    if (isColor(col)) {
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      const g = c.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, shade(col, 0.28)); g.addColorStop(0.5, col); g.addColorStop(1, shade(col, -0.32)); c.fillStyle = g;
+    } else c.fillStyle = col;
+    c.fill(); c.strokeStyle = INK; c.lineWidth = 1.3; c.stroke();
+  }
   const OUT = 'rgba(0,0,0,0.55)';
 
   // arm pose: angle 0 = hanging down, positive = forward. Returns the hand position.
@@ -166,7 +197,9 @@
     // torso with fake light from the upper left
     const tw = s * 0.2 * bulk, bw = s * 0.15 * bulk;
     const g = c.createLinearGradient(-tw, 0, tw, 0); g.addColorStop(0, shade(m.body, 0.25)); g.addColorStop(1, shade(m.body, -0.35));
-    c.fillStyle = g; c.beginPath(); c.moveTo(shX - tw, shY); c.lineTo(shX + tw, shY); c.lineTo(bw, hipY + s * 0.04); c.lineTo(-bw, hipY + s * 0.04); c.closePath(); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1.2; c.stroke();
+    c.fillStyle = g; c.beginPath(); c.moveTo(shX - tw, shY); c.lineTo(shX + tw, shY); c.lineTo(bw, hipY + s * 0.04); c.lineTo(-bw, hipY + s * 0.04); c.closePath(); c.fill(); c.strokeStyle = INK; c.lineWidth = 1.5; c.stroke();
+    c.strokeStyle = shade(m.body, 0.45); c.lineWidth = 1; seg(c, shX - tw + 1.5, shY + 1.5, -bw + 1.5, hipY);
+    c.strokeStyle = shade(m.body, -0.45); c.globalAlpha *= 0.6; seg(c, shX + tw * 0.15, shY + s * 0.1, bw * 0.3, hipY - s * 0.02); c.globalAlpha /= 0.6;
     if (m.paint) { limb(c, shX - tw * 0.6, shY + s * 0.12, shX + tw * 0.2, shY + s * 0.3, 2, '#d4483b'); limb(c, shX - tw * 0.4, shY + s * 0.28, shX + tw * 0.4, shY + s * 0.42, 2, '#d4483b'); }
     if (m.bones) for (let i = 0; i < 3; i++) limb(c, shX - tw * 0.7, shY + s * (0.1 + i * 0.1), shX + tw * 0.7, shY + s * (0.1 + i * 0.1), 1.5, '#8a8474');
     limb(c, -bw, hipY + s * 0.02, bw, hipY + s * 0.02, s * 0.05, m.trim);
@@ -264,7 +297,8 @@
     const m = get(key);
     c.save(); c.translate(x, y);
     // ground shadow (not flipped, not rotated)
-    c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(0, 0, S * 0.42 * (m.bulk || 1) ** 0.5, S * 0.14, 0, 0, TAU); c.fill();
+    { const rx = S * 0.44 * (m.bulk || 1) ** 0.5, g = c.createRadialGradient(0, 0, 0, 0, 0, rx); g.addColorStop(0, 'rgba(0,0,0,0.5)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.save(); c.scale(1, 0.34); c.fillStyle = g; c.beginPath(); c.arc(0, 0, rx, 0, TAU); c.fill(); c.restore(); }
     if (pose.dead) { c.globalAlpha *= 1 - pose.dead; c.rotate(pose.dead * 1.35 * (pose.face || 1)); }
     c.scale(pose.face || 1, 1);
     if (pose.cast != null) {
@@ -280,12 +314,12 @@
     const id = key + ':' + px + ':' + (bust ? 1 : 0);
     if (cache[id]) return cache[id];
     if (typeof document === 'undefined') return '';
-    const cv = document.createElement('canvas'), dpr = 2; cv.width = cv.height = px * dpr;
+    const cv = document.createElement('canvas'), dpr = 3; cv.width = cv.height = px * dpr;
     const c = cv.getContext('2d'); c.scale(dpr, dpr);
     const m = get(key), big = m.type === 'wraith' || (m.bulk || 1) > 1.4;
     const S = bust ? px * (big ? 0.55 : 0.68) : px * (big ? 0.48 : 0.58);
     draw(c, key, px * 0.5, bust ? px * 1.05 + S * 0.15 : px * 0.93, S, { t: 0.4, face: 1 });
     return (cache[id] = cv.toDataURL());
   }
-  B.Models = { get, draw, portrait, list: M };
+  B.Models = { get, draw, portrait, list: M, shade, limb, ball, poly };
 })(typeof window !== 'undefined' ? window : globalThis);

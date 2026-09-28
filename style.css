@@ -227,3 +227,109 @@ main section { padding: 4px 14px; }
 .gteam { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; }
 .gh { display: grid; justify-items: center; text-align: center; gap: 2px; background: var(--panel2); border-radius: 10px; padding: 6px; }
 .gh .por { width: 56px; height: 56px; } .gh span { font-size: 12px; color: var(--dim); }
+
+/* =====================================================================================================
+   v9 identity (review #8, David): "Balance" = the scale between order and chaos. Dark iron and stone,
+   gold for order, crimson for chaos, serif capitals for anything that is a title. Overrides the demo look.
+   ===================================================================================================== */
+:root {
+  --bg: #0c0d11; --panel: #181a21; --panel2: #232631; --line: #383d4d; --text: #ece6d8; --dim: #a39c8c;
+  --gold: #e8b84a; --gold-hi: #ffe3a0; --gold-lo: #9a6a1c; --crimson: #b8323f; --iron: #2a2e39;
+  --plate: linear-gradient(180deg, #232733 0%, #181b23 55%, #14161c 100%);
+}
+html, body { background-color: var(--bg); }
+body {
+  background-image: radial-gradient(ellipse 120% 60% at 50% -10%, #2a2436 0%, transparent 60%), radial-gradient(ellipse 80% 50% at 50% 110%, #1a1016 0%, transparent 60%), var(--grit);
+  background-attachment: fixed; color: var(--text);
+}
+h2 { font-family: var(--serif); letter-spacing: 1.5px; color: #f3e6c4; text-shadow: 0 2px 0 #000, 0 0 18px #e8b84a22; }
+h3 { font-family: var(--serif); text-transform: uppercase; letter-spacing: 2px; font-size: 13px; color: #c8b890; }
+a { color: var(--gold-hi); }
+
+/* header: an iron plate with a gold seam */
+#top { background: var(--plate); border-bottom: 1px solid #000; box-shadow: inset 0 -1px 0 #e8b84a40, 0 6px 16px #000a; }
+#top .logo { display: inline-flex; align-items: center; gap: 6px; font-family: var(--serif); text-transform: uppercase; letter-spacing: 3px; color: var(--gold); text-shadow: 0 1px 0 #000; }
+.emblem { width: 22px; height: 22px; color: var(--gold); filter: drop-shadow(0 1px 0 #000); }
+#top .gold, #top .elo, #top .prog { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: #0009; border: 1px solid #e8b84a33; font-size: 13px; }
+#top .gold::before { content: ''; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff0b8, #e8b84a 45%, #8a5a14); box-shadow: 0 0 0 1px #3a2608; }
+#top .gold { color: var(--gold-hi); }
+#top .prog { color: #c8b890; border-color: #ffffff14; font-family: var(--serif); letter-spacing: 1px; }
+#notice { box-shadow: inset 0 -1px 0 #000; }
+
+/* buttons: forged iron, and gold for the one action that matters */
+button {
+  background: linear-gradient(180deg, #2f3440, #1c1f27); border: 1px solid #4a5063; color: var(--text);
+  box-shadow: inset 0 1px 0 #ffffff1a, 0 2px 0 #000, 0 3px 8px #0006; border-radius: 9px; font-weight: 600;
+}
+button:hover:not(:disabled) { border-color: #6a7288; filter: brightness(1.08); }
+button:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 1px 0 #ffffff14, 0 1px 0 #000; }
+button.primary {
+  background: linear-gradient(180deg, #ffe08a 0%, #e8b84a 45%, #b8842a 100%); color: #2a1804; border: 1px solid #6a4a12;
+  text-shadow: 0 1px 0 #ffefc0; box-shadow: inset 0 1px 0 #fff8, inset 0 -2px 0 #0003, 0 2px 0 #3a2608, 0 0 18px #e8b84a30;
+  font-family: var(--serif); letter-spacing: 1px;
+}
+button.big { font-size: 17px; min-height: 52px; }
+button.on { outline: 2px solid var(--gold); outline-offset: 1px; }
+.chip { background: linear-gradient(180deg, #2a2e3a, #1b1e26); }
+input, select, textarea { background: #0e1015; border: 1px solid #3a3f50; box-shadow: inset 0 2px 4px #0008; }
+input:focus, textarea:focus { outline: 2px solid #e8b84a66; border-color: var(--gold-lo); }
+
+/* framed panels */
+.card, .hero, .eqhero, .review, .sug, .batch, .info, .live {
+  background: linear-gradient(180deg, #1d2029, #15171e); border: 1px solid #3a3f50; border-radius: 10px;
+  box-shadow: inset 0 1px 0 #ffffff0f, inset 0 0 0 1px #00000040, 0 4px 14px #0007;
+}
+.live { border-color: #6a5220; background: linear-gradient(180deg, #221d14, #16140f); }
+.live .sc { color: var(--gold); letter-spacing: 2px; }
+.sheet { background: #101116 var(--grit); border: 1px solid #3a3f50; border-top: 2px solid var(--gold-lo); box-shadow: 0 -10px 40px #000c; }
+.shead { background: linear-gradient(180deg, #101116 70%, transparent); font-family: var(--serif); text-transform: uppercase; letter-spacing: 2px; }
+#toast { background: linear-gradient(180deg, #2a2e3a, #16181f); border: 1px solid var(--gold-lo); color: var(--gold-hi); box-shadow: 0 6px 20px #000c; }
+
+/* title screen */
+.title .crest { width: 84px; height: 84px; margin: 6px auto 0; display: grid; place-items: center; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #3a3322, #14120c); box-shadow: 0 0 0 2px #6a5220, 0 0 0 6px #0008, 0 0 40px #e8b84a33; }
+.title .crest .emblem { width: 52px; height: 52px; }
+.title h1.sc { font-size: 50px; margin: 10px 0 0; color: var(--gold); letter-spacing: 10px; text-shadow: 0 3px 0 #000, 0 0 30px #e8b84a55; }
+.title .tag { font-family: var(--serif); font-style: italic; color: #c8b890; margin-top: 2px; }
+.lineup { display: flex; justify-content: center; align-items: flex-end; gap: 0; margin: 10px 0 4px; }
+.lineup img { width: 96px; height: 96px; filter: drop-shadow(0 8px 10px #000) brightness(.8); margin: 0 -10px; }
+.lineup img.mid { width: 124px; height: 124px; filter: drop-shadow(0 10px 12px #000); z-index: 1; }
+
+/* map medallions */
+.node { border-radius: 50%; background: radial-gradient(circle at 40% 35%, #2c3040, #13151b); border: 1px solid #3a3f50; box-shadow: 0 2px 0 #000; }
+.node.cur { border: 2px solid var(--gold); color: var(--gold-hi); background: radial-gradient(circle at 40% 35%, #4a3f22, #1a160c); box-shadow: 0 0 12px #e8b84a55; }
+.node.done { opacity: .35; }
+
+/* shop cards: framed, tier glow on top, coin price */
+.stock { border-top: 2px solid #4a5063; }
+.stock .srow { display: flex; gap: 10px; align-items: center; }
+.ico { width: 36px; height: 36px; flex: none; filter: drop-shadow(0 2px 3px #000a); }
+.ico.big { width: 52px; height: 52px; } .ico.sm { width: 22px; height: 22px; }
+.price { display: inline-flex; align-items: center; gap: 4px; }
+.price::before { content: ''; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff0b8, #e8b84a 45%, #8a5a14); box-shadow: 0 0 0 1px #3a2608; }
+.tier { font-family: var(--serif); }
+
+/* equip sheet with icons */
+.eqitem { display: flex; gap: 8px; align-items: center; background: linear-gradient(180deg, #22252f, #181a21); }
+.eqitem .t { display: grid; gap: 2px; min-width: 0; }
+.chip.slot { display: inline-flex; align-items: center; gap: 4px; padding-left: 4px; }
+.relics { display: grid; gap: 6px; } .relics.inline { display: flex; flex-wrap: wrap; gap: 4px; }
+.relic-row { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+
+/* start banners, battle frame, results */
+.boardwrap #board { border-radius: 12px; box-shadow: 0 0 0 1px #3a3f50, 0 0 0 4px #0008, 0 10px 30px #000c; }
+.bhead { font-family: var(--serif); letter-spacing: 1px; color: #f3e6c4; }
+.result .headline { font-size: 40px; text-align: center; margin: 18px 0 6px; letter-spacing: 6px; }
+.result .headline.win { color: var(--gold); text-shadow: 0 3px 0 #000, 0 0 30px #e8b84a66; }
+.result .headline.lose { color: #e0606a; text-shadow: 0 3px 0 #000, 0 0 30px #b8323f66; }
+.result > p { text-align: center; }
+.score { color: var(--gold); text-shadow: 0 3px 0 #000, 0 0 30px #e8b84a55; font-family: var(--serif); }
+.banner, .hbanner { filter: none; }
+.hbanner:not(.on):not(.focus) { filter: grayscale(.4) brightness(.8); }
+
+/* screens slide in */
+main > section { animation: rise .28s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { main > section { animation: none; } }
+.tbl td.who { display: flex; align-items: center; gap: 6px; }
+.tbl .por.sm { width: 28px; height: 28px; }

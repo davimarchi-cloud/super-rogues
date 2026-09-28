@@ -29,6 +29,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `js/sim.js` | motor de combate puro e determinístico (20 ticks/s). Roda no navegador e no Node |
 | `js/run.js` | máquina de estados da run (mapa, lutas, lojas, eventos, XP, itens). JSON puro, salvo no localStorage |
 | `js/models.js` | modelos 2.5D desenhados em código (humanoide, fera, bomba, golem, serpente, espectro, torre) com poses parado/andando/ataque/habilidade/morte; `portrait()` gera os retratos dos menus |
+| `js/icons.js` | ícones de itens e relíquias desenhados em código (~60 desenhos; cada item/relíquia mapeado em `IT`/`RE`), moldura na cor do tier, cache em data: URL |
 | `js/render.js` | canvas 2.5D: tabuleiro achatado (K=0.6) com espessura, unidades pelos modelos, barras, efeitos. Interpola posição entre hexes |
 | `js/ui.js` | telas DOM + loop da batalha. Sem handler inline (CSP): todo botão tem `data-act` |
 | `js/net.js` | cliente JSON de `/api` |
@@ -114,6 +115,12 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v9 (2026-09-28), lote 8 do David** ("more HD", ícones, "less demo, more final game with an identity"): modelos
+  cel-shaded (contorno de tinta, volume com gradiente, luz de borda, brilho), tabuleiro com textura de pedra, relevo e
+  vinheta; ícones para os 78 itens e 35 relíquias (lojas, bolsa, espaços, relíquias, fantasmas); identidade "Balance"
+  (a balança entre ordem e caos): emblema de balança em SVG, ferro escuro + ouro + carmesim, títulos em serifa
+  maiúscula, botões forjados, painéis emoldurados, medalhões no mapa, tela inicial com brasão e trio de heróis.
+  Tudo sem fonte/imagem externa (a CSP continua fechada). `tools/tests/icones.mjs` fotografa todos os ícones.
 - **v8 (2026-09-28), lotes 6 e 7 do David**: Onslaught removido por inteiro (modo, ondas, relíquia Onslaught Banner,
   ranking de kills e `api/scores.js`; a tabela `scores` ficou no banco, sem uso). Depois da última loja vem direto o
   Gauntlet. Lote 7 ("should only battle player ghosts"): a companhia aleatória do lote 5 saiu; só fantasmas de
