@@ -178,51 +178,114 @@
     const t = CFG.seq[run.step];
     const title = t === 'B' ? 'A boss blocks the way' : t === 'S' ? 'One last shop' : 'Choose your path';
     return `<section>${trackHTML()}<h2 class="sc">Day ${run.step + 1} · ${title}</h2>${run.nextMod ? `<p class="nextmod">⚑ Next fight: ${fmt(modText(run.nextMod))}</p>` : ''}<div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
-      <p class="hint">${run.heroes.length} hero${run.heroes.length > 1 ? 'es' : ''} · ${run.bag.length} item${run.bag.length === 1 ? '' : 's'} in bag${run.bag.length ? ' (<a href="#" data-act="team">equip them</a>)' : ''}</p></section>`;
+      ${partyHTML()}</section>`;
+  }
+  // review #18: the party under the map (levels, XP, worn items, relics) and the next boss, so each choice is informed
+  function partyHTML() {
+    const heroes = run.heroes.map(h => {
+      const next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null, prev = CFG.xpLevels[h.lvl] || 0;
+      return `<button class="pm" data-act="team">${img(h.key, 38, 'por')}<span class="pmb"><span class="pmn"><b>${esc(HEROES[h.key].name)}</b><span class="lv">Lv ${h.lvl}</span></span>
+        <span class="xpbar"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></span>
+        <span class="pmi">${h.items.map(id => `<img class="ico xs" src="${B.Icons.item(id, 20)}" alt="">`).join('') || '<i class="dim">no items</i>'}</span></span></button>`;
+    }).join('');
+    let boss = '';
+    for (let k = Math.max(0, run.step); k < CFG.seq.length; k++) if (CFG.seq[k] === 'B') {
+      const nth = CFG.seq.slice(0, k + 1).filter(x => x === 'B').length, b = nth === 1 ? B.BOSSES.gorewarden : B.BOSSES.hollowking, d = k - run.step;
+      boss = `<div class="nextboss">${img(b.key, 40, 'por')}<div><b>☠ ${esc(b.name)}</b> <span class="dim">${d <= 0 ? 'today' : 'in ' + d + ' day' + (d > 1 ? 's' : '')}</span><span class="small">${fmt(b.desc)}</span></div></div>`;
+      break;
+    }
+    return `<div class="party"><div class="bph"><b>Your party</b><span class="dim small">${run.bag.length ? `${run.bag.length} in bag · <a href="#" data-act="team">equip</a>` : `${run.heroes.length}/${Run.teamMax(run)} heroes`}</span></div>
+      <div class="pgrid">${heroes}</div>${run.relics.length ? `<div class="relicline"><b>Relics</b>${run.relics.map(id => `<button class="relicbtn" data-act="relic-info" data-arg="${id}" aria-label="${esc(RELIC[id].name)}">${ico('relic', id, 26)}</button>`).join('')}</div>` : ''}${boss}</div>`;
   }
 
   function levelHTML() {
     const p = run.pending[0], h = run.heroes.find(x => x.uid === p.uid), d = HEROES[h.key];
     const pair = d.specs[p.lvl - 2];
-    return `<section><h2>Level up!</h2>
-      <div class="hrow big">${img(h.key, 64)}<b>${esc(d.name)}</b> reached <b>Lv ${p.lvl}</b></div>
-      <p class="small">${fmt('+15% HP and attack, +10 ability power, +4 armor and MR')}${p.lvl >= 3 ? ', <b class="kw-gold">+1 item slot</b>' : ''}.</p>
+    // review #18: a big splash, what the level gives, the two choices as big cards and the whole specialization path
+    const path = d.specs.map((pr, k) => { const lv = k + 2, chosen = h.specs[k]; return `<div class="sp-row ${lv === p.lvl ? 'now' : lv < p.lvl ? 'done' : 'later'}"><span class="sp-lv">Lv ${lv}</span>${pr.map(sp => `<span class="sp-n ${chosen === sp.id ? 'on' : ''}">${esc(sp.name)}</span>`).join('<i>or</i>')}</div>`; }).join('');
+    return `<section class="levelup"><h2 class="sc headline win">Level up!</h2>
+      <div class="luhero"><img class="lufull" src="${por(h.key, 104, true)}" alt=""><div><b class="luname">${esc(d.name)}</b><span class="lulv">Lv ${p.lvl - 1} → <b>Lv ${p.lvl}</b></span>
+        <p class="small">${fmt('+15% HP and attack, +10 ability power, +4 armor and MR')}${p.lvl >= 3 ? ', <b class="kw-gold">+1 item slot</b>' : ''}.</p></div></div>
       <h3>Choose a specialization</h3>
-      <div class="opts">${pair.map((s, i) => `<button class="card opt" data-act="spec" data-arg="${i}"><div class="ctitle spec">★ ${esc(s.name)}</div><div class="small">${fmt(s.desc)}</div></button>`).join('')}</div></section>`;
+      <div class="opts spec2">${pair.map((sp, i) => `<button class="card opt" data-act="spec" data-arg="${i}"><div class="ctitle spec">★ ${esc(sp.name)}</div><div class="small">${fmt(sp.desc)}</div></button>`).join('')}</div>
+      <div class="sp-path"><div class="bph"><b>Specialization path</b><span class="dim small">one choice at each level</span></div>${path}</div></section>`;
   }
 
+  // review #18: the enemy roster on the deploy screen, grouped, with what each one does (positioning is the decision here)
+  function foesHTML(gau, f) {
+    const groups = [];
+    if (gau) for (const h of run.g.opp.team) groups.push({ key: h.key, n: 1, name: HEROES[h.key].name + ' Lv ' + h.lvl, what: HEROES[h.key].abName + ': ' + HEROES[h.key].abDesc });
+    else {
+      const by = {};
+      for (const e of f.enemies) {
+        const k = e.key + '|' + (e.elite || ''), m = B.MOBS[e.key] || B.BOSSES[e.key], el = e.elite && B.ELITES.find(x => x.id === e.elite);
+        if (!by[k]) groups.push(by[k] = { key: e.key, n: 0, boss: !!B.BOSSES[e.key], elite: el ? el.name : '', name: m.name,
+          what: B.BOSSES[e.key] ? m.desc : m.abil ? MOB_ABIL[m.abil] || '' : (m.fl || []).includes('dive') ? 'Leaps to your back line at the start.' : m.range > 1 ? 'Attacks from range.' : 'Fights up close.' });
+        by[k].n++;
+      }
+    }
+    return `<div class="foes"><div class="bph"><b>${gau ? 'Their ghost team' : 'You will face'}</b><span class="dim small">${groups.reduce((a, g) => a + g.n, 0)} ${gau ? 'heroes' : 'enemies'}</span></div>
+      <div class="fgrid">${groups.map(g => `<div class="fo ${g.boss ? 'boss' : ''} ${g.elite ? 'elite' : ''}">${img(g.key, 34, 'por')}<div><b>${esc(g.name)}${g.n > 1 ? ' ×' + g.n : ''}${g.elite ? ` <span class="elt">★ ${esc(g.elite)}</span>` : ''}</b><small class="fw">${fmt(g.what)}</small></div></div>`).join('')}</div></div>`;
+  }
   function deployHTML() {
     const gau = run.cur && run.cur.type === 'gauntlet';
     const f = run.cur;
     return `<section class="deploy">
       <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '☠ Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
-      <p class="hint tight">${!gau && f.mod ? `<span class="nextmod">⚑ ${fmt(modText(f.mod))}</span>` : 'Drag heroes within the blue rows. Tap a unit for details.'}</p>
+      <p class="hint tight">${!gau && f.mod ? `<span class="nextmod">⚑ ${fmt(modText(f.mod))}</span>` : 'Drag heroes within the blue rows: tanks in front, ranged behind. Tap a unit for details.'}</p>
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
+      ${foesHTML(gau, f)}
       <div class="bar sticky"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${gau ? 'Duel!' : 'Fight!'}</button></div>
     </section>`;
   }
+  // review #18 (David: "another pass of the ui and battle ui ... pretty, functional, visible, engaging"): under the
+  // board, a card per hero (HP and shield in numbers, mana bar named after the ability that glows when READY, status
+  // badges, live damage with the leader crowned) and the enemy roster with its own HP bars and a count of who is left.
   function battleHTML() {
     return `<section class="deploy battle">
       <div class="hud"><div id="bhud" class="hud-l"></div>
         <div class="speed">${[1, 2, 4].map(x => `<button class="${ui.speed === x ? 'on' : ''}" data-act="speed" data-arg="${x}">${x}×</button>`).join('')}<button class="skip" data-act="skip" aria-label="Skip">⏭</button></div></div>
       <div class="boardwrap"><canvas id="board"></canvas></div>
-      <div class="teamstrip" id="tstrip"></div>
+      <div class="bpanel"><div class="teamstrip v2" id="tstrip"></div>
+        <div class="bph"><b>Enemies</b><span id="ecount" class="dim small"></span></div><div class="estrip" id="estrip"></div></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div></section>`;
   }
+  const kfmt = n => n >= 10000 ? Math.round(n / 1000) + 'k' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(Math.round(n));
+  // damage per hero, summons counted for their owner
+  function dmgBy(W) { const d = {}; for (const u of W.units) { const o = u.owner && W.byId[u.owner] ? W.byId[u.owner] : u; if (o.side === 0 && o.kind === 'hero') d[o.id] = (d[o.id] || 0) + (u.dmgDone || 0); } return d; }
+  const CC_STATUS = [['stun', 'STUN', 'st'], ['silence', 'SILENCE', 'si'], ['root', 'ROOT', 'ro'], ['frozenU', 'FROZEN', 'fr'], ['confuseU', 'CONFUSED', 'co'], ['blindU', 'BLIND', 'bl'], ['slowU', 'SLOW', 'sl'], ['tauntU', 'TAUNTED', 'ta']];
+  function ccHTML(W, u) { return u.dead ? '' : CC_STATUS.filter(([k]) => u.st[k] > W.t).slice(0, 2).map(([, t, c]) => `<span class="sb sb-${c}">${t}</span>`).join(''); }
   function stripHTML(W) {
-    return W.units.filter(u => u.side === 0 && u.kind === 'hero').map(u => `<div class="ts ${u.dead ? 'dead' : ''}" data-id="${u.id}">${img(u.key, 30, 'por sm')}
-      <div class="tsb"><b>${esc(u.name)}</b><i class="hp"><s style="width:${Math.max(0, 100 * u.hp / u.maxHp)}%"></s></i><i class="mp"><s style="width:${u.maxMana ? Math.min(100, 100 * u.mana / u.maxMana) : 0}%"></s></i></div></div>`).join('');
+    return W.units.filter(u => u.side === 0 && u.kind === 'hero').map(u => `<div class="ts" data-id="${u.id}">
+      <div class="tsp">${img(u.key, 40, 'por')}<span class="tslv">${u.lvl}</span><span class="crown">👑</span></div>
+      <div class="tsb"><div class="tsn"><b>${esc(u.name)}</b><span class="tsst"></span><span class="tsd"></span></div>
+        <i class="hp"><s></s><em></em></i><i class="mp"><s></s><em>${esc((HEROES[u.key] || {}).abName || '')}</em></i><i class="dm"><s></s></i></div></div>`).join('');
   }
   function updateStrip(W) {
     const el = $('#tstrip'); if (!el) return;
-    if (!el.firstChild) { el.innerHTML = stripHTML(W); return; }
+    if (!el.firstChild) el.innerHTML = stripHTML(W);
+    const dmg = dmgBy(W), top = Math.max(1, ...Object.values(dmg));
     for (const d of el.querySelectorAll('.ts')) {
       const u = W.byId[d.dataset.id]; if (!u) continue;
-      d.classList.toggle('dead', !!u.dead);
+      const ready = !u.dead && u.maxMana > 0 && u.mana >= u.maxMana, dd = dmg[u.id] || 0, sh = u.shield > 0 && u.shieldU > W.t ? Math.round(u.shield) : 0;
+      d.classList.toggle('dead', !!u.dead); d.classList.toggle('ready', ready); d.classList.toggle('mvp', dd > 0 && dd >= top);
       d.querySelector('.hp s').style.width = Math.max(0, 100 * u.hp / u.maxHp) + '%';
+      d.querySelector('.hp em').textContent = u.dead ? 'fallen' : Math.max(0, Math.round(u.hp)) + ' / ' + u.maxHp + (sh ? '  +' + sh + ' shield' : '');
       d.querySelector('.mp s').style.width = (u.maxMana ? Math.min(100, 100 * u.mana / u.maxMana) : 0) + '%';
+      d.querySelector('.dm s').style.width = 100 * dd / top + '%';
+      d.querySelector('.tsd').textContent = '⚔ ' + kfmt(dd);
+      const st = ccHTML(W, u), sd = d.querySelector('.tsst'); if (sd.innerHTML !== st) sd.innerHTML = st;
     }
+    const es = $('#estrip'); if (!es) return;
+    const foes = W.units.filter(u => u.side === 1 && u.kind !== 'summon'), summons = W.units.filter(u => u.side === 1 && u.kind === 'summon' && !u.dead).length;
+    for (const u of foes) if (!es.querySelector(`[data-id="${u.id}"]`)) {
+      const c = document.createElement('span'); c.className = 'ec' + (u.boss ? ' boss' : '') + (u.elite ? ' elite' : ''); c.dataset.id = u.id;
+      c.innerHTML = `${img(u.key, u.boss ? 34 : 26, 'por')}<i><s></s></i>`; c.title = u.name; es.appendChild(c);
+    }
+    for (const c of es.querySelectorAll('.ec')) { const u = W.byId[c.dataset.id]; if (!u) continue; c.classList.toggle('dead', !!u.dead); c.querySelector('s').style.width = Math.max(0, 100 * u.hp / u.maxHp) + '%'; }
+    const left = foes.filter(u => !u.dead).length, ec = $('#ecount');
+    if (ec) ec.textContent = `${left} of ${foes.length} left${summons ? ' · +' + summons + ' summoned' : ''}`;
   }
 
 
@@ -233,10 +296,17 @@
   }
   function resultHTML() {
     const r = ui.result;
-    const table = r.gauntlet ? '' : `<table class="tbl"><tr><th>Hero</th><th>Damage</th><th>XP</th><th>Level</th></tr>
-      ${r.xp.map(x => { const hk = (run.heroes.find(h => h.uid === x.uid) || {}).key; return `<tr><td class="who">${hk ? img(hk, 28, 'por sm') : ''}${esc(x.name)}</td><td><b class="num">${Math.round(r.dmg[x.uid] || 0)}</b></td><td class="kw-xp">+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`; }).join('')}</table>`;
+    // review #18: one card per hero: damage bar (the leader is the MVP), XP gained and the bar toward the next level
+    const top = Math.max(1, ...r.xp.map(x => r.dmg[x.uid] || 0));
+    const table = `<div class="rheroes">${r.xp.map(x => {
+      const h = run.heroes.find(q => q.uid === x.uid); if (!h) return '';
+      const dmg = Math.round(r.dmg[x.uid] || 0), mvp = dmg > 0 && dmg >= top, next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null, prev = CFG.xpLevels[h.lvl] || 0;
+      return `<div class="rh ${mvp ? 'mvp' : ''}">${img(h.key, 46, 'por')}<div class="rhb"><div class="rhn"><b>${esc(x.name)}</b>${mvp ? '<span class="mvpb">👑 MVP</span>' : ''}<span class="grow"></span>${x.to > x.from ? `<b class="up">Lv ${x.to} ▲</b>` : `<span class="lv">Lv ${x.to}</span>`}</div>
+        <div class="dmgbar"><s style="width:${100 * dmg / top}%"></s><em>⚔ ${dmg} damage</em></div>
+        ${r.gauntlet ? '' : `<div class="rxp"><span class="xpbar"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></span><span class="kw-xp">+${x.gained} XP</span></div>`}</div></div>`;
+    }).join('')}</div>`;
     const sub = r.gauntlet ? `${r.win ? 'You beat' : 'You fell to'} ${esc(r.opp.name)}'s team.`
-      : r.win ? '+' + r.gold + ' gold' + (r.prize ? ` · prize: <b style="color:${TIER_COLOR[ITEM[r.prize].tier]}">${esc(ITEM[r.prize].name)}</b>` : '') : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
+      : r.win ? `<span class="rewards"><span class="price big">+${r.gold}</span>${r.prize ? `<span class="prize">${ico('item', r.prize, 30)}<b style="color:${TIER_COLOR[ITEM[r.prize].tier]}">${esc(ITEM[r.prize].name)}</b></span>` : ''}</span>` : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
     const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${esc(r.ghost.name)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})${r.ghost.ownerDelta != null ? ` · its player ${r.ghost.ownerDelta >= 0 ? '+' : ''}${r.ghost.ownerDelta}` : ''}</p>` : '';
     return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${gh}${table}
       <div class="bar"><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
@@ -379,10 +449,13 @@
     const vw = window.innerWidth, vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     document.body.classList.toggle('landscape', vw > vh * 1.25 && vh < 600);
     document.body.classList.toggle('wide', vw >= 760 && !document.body.classList.contains('landscape'));
+    document.body.classList.toggle('side', document.body.classList.contains('wide') && vw >= vh * 1.1);  // review #18: panel beside the board
   }
   function boardWidth(wrap) {
     const vw = window.innerWidth, vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     const land = document.body.classList.contains('landscape');
+    // review #18: on tablets/desktops the deploy and battle screens put their panel in a column beside the board
+    if (document.body.classList.contains('side')) return Math.floor(Math.max(300, Math.min(Math.min(vw, 1180) - 36 - 356, (vh - 64 - 8) / BOARD_RATIO, 1000)));
     const reserved = land ? 64 : screen === 'battle' ? 175 : 215;
     const byHeight = Math.max(200, (vh - reserved - 4) / BOARD_RATIO);
     const maxW = land ? vw * 0.62 : 1000;
@@ -436,8 +509,9 @@
     const hud = $('#bhud');
     if (hud) {
       const secs = Math.floor(b.W.t / Sim.TPS);
-      const title = b.gau ? `⚔ Round ${run.g.round + 1} · ${esc(run.g.opp.name)}` : run.cur.diff === 'boss' ? '☠ Boss' : '⚔ ' + B.DIFF[run.cur.diff].name;
-      const str = `<b>${title}</b><span class="clock ${secs >= CFG.suddenDeath ? 'sd' : ''}">${secs >= CFG.suddenDeath ? 'Sudden death · ' : ''}${secs}s</span>`;
+      const title = b.gau ? `⚔ Floor ${run.g.round + 1} · ${esc(run.g.opp.name)}` : run.cur.diff === 'boss' ? '☠ Boss' : '⚔ ' + B.DIFF[run.cur.diff].name;
+      const toSd = CFG.suddenDeath - secs, clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+      const str = `<b>${title}</b><span class="clock ${toSd <= 0 ? 'sd' : toSd <= 10 ? 'warn' : ''}">⏱ ${clock}${toSd <= 0 ? ' · SUDDEN DEATH' : toSd <= 10 ? ' · sudden death in ' + toSd + 's' : ''}</span>`;
       if (str !== b.hudStr) { hud.innerHTML = str; b.hudStr = str; }
     }
     if ((b.frame = (b.frame || 0) + 1) % 6 === 0) { updateStrip(b.W); if (ui.info) { const el = $('#info'); if (el) { el.innerHTML = infoHTML(); el.classList.remove('empty'); } } }

@@ -121,6 +121,16 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v20 (2026-09-28), lote 18 do David** ("another pass of the ui and battle ui ... pretty, functional, visible,
+  engaging"): o celular deixava metade da tela vazia. Batalha: cartão por herói (vida e escudo em números, barra de mana
+  com o nome da habilidade e "READY", selos de controle STUN/SILENCE/..., dano ao vivo com coroa no líder, summons
+  contam para o dono) e a lista de inimigos com vida e "N de M restantes"; relógio m:ss com aviso da morte súbita.
+  Deploy: "You will face" (inimigos agrupados, elite, o que cada um faz; no Gauntlet os heróis do fantasma). Mapa: "Your
+  party" (nível, XP, itens, relíquias) e o próximo chefe com contagem de dias. Resultado: cartões com barra de dano, MVP,
+  barra de XP; prêmio da arena. Level up: splash de corpo inteiro, ganhos e o caminho das 4 specs. Tela larga deitada
+  (`body.side`): painel da batalha/deploy numa coluna ao lado do tabuleiro. Nomes novos no ui.js: `ccHTML`, `CC_STATUS`
+  (já existiam `statusHTML`/`STATUS` da fila de sugestões).
+
 - **v19 (2026-09-28), lote 17 do David** ("the pink events are kinda bad ... more strategic depth"): 16 eventos (12
   refeitos, ids mantidos; novos: scout, arena, armory, collector), todos com 3 escolhas e preço/risco visível. Escolhas
   com alvo (`target: 'hero'|'item'|'type'`: o jogador escolhe o herói/item/tipo; `Run.eventTargets`), custo em ouro,

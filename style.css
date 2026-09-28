@@ -635,3 +635,121 @@ body.wide .gauntlet { max-width: 1000px; margin: 0 auto; }
 .nextmod { margin: 2px 0 8px; padding: 6px 10px; border-radius: 8px; border: 1px dashed #b98cff; background: #2a1f3a; color: #e8dcff; font-size: 13px; }
 .hint .nextmod { display: inline-block; margin: 0; padding: 2px 8px; font-size: 12px; }
 .evch .t { display: block; } .evch .itag, .evch .why { display: block; }
+
+/* =====================================================================================================
+   v20 (review #18): battle panel (hero cards, enemy roster), deploy roster, party + next boss on the map, result
+   cards with MVP, level-up with the specialization path
+   ===================================================================================================== */
+.bph { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 6px 2px 4px; }
+.bph b { font-family: var(--serif); text-transform: uppercase; letter-spacing: 1.5px; font-size: 12px; color: var(--gold); }
+/* battle: hero cards */
+.teamstrip.v2 { display: grid; grid-template-columns: 1fr; gap: 5px; margin-top: 6px; }
+.teamstrip.v2 .ts { display: flex; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 10px; background: linear-gradient(90deg, #1d212b, #15171d); border: 1px solid var(--line); transition: border-color .2s, box-shadow .2s, opacity .3s; }
+.ts .tsp { position: relative; flex: none; }
+.ts .tsp .por { width: 40px; height: 40px; border-radius: 9px; display: block; }
+.ts .tslv { position: absolute; right: -4px; bottom: -4px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: #111; border: 1px solid var(--gold); color: var(--gold); font-size: 10px; font-weight: 800; display: grid; place-items: center; }
+.ts .crown { position: absolute; left: -6px; top: -9px; font-size: 14px; opacity: 0; transform: rotate(-20deg); transition: opacity .3s; }
+.ts.mvp .crown { opacity: 1; }
+.ts .tsb { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.ts .tsn { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.ts .tsn b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ts .tsst { display: flex; gap: 3px; }
+.ts .tsd { margin-left: auto; font-size: 12px; font-weight: 800; color: #ffb38a; font-variant-numeric: tabular-nums; }
+.ts i { position: relative; display: block; height: 12px; border-radius: 6px; background: #0b0c10; overflow: hidden; box-shadow: inset 0 0 0 1px #ffffff14; }
+.ts i s { position: absolute; inset: 0 auto 0 0; display: block; border-radius: 6px; transition: width .15s linear; }
+.ts i em { position: relative; display: block; font-style: normal; font-size: 9.5px; line-height: 12px; padding: 0 6px; color: #fff; text-shadow: 0 1px 2px #000, 0 0 2px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ts .hp s { background: linear-gradient(90deg, #3fae5c, #6be08a); }
+.ts .mp { height: 10px; } .ts .mp em { line-height: 10px; font-size: 9px; }
+.ts .mp s { background: linear-gradient(90deg, #2f63d8, #5fa8ff); }
+.ts .dm { height: 3px; background: none; box-shadow: none; } .ts .dm s { background: linear-gradient(90deg, #ff7a3d, #ffcf5a); }
+.ts.ready { border-color: #5fa8ff; box-shadow: 0 0 0 1px #5fa8ff66, 0 0 14px #5fa8ff44; }
+.ts.ready .mp s { background: linear-gradient(90deg, #7fd0ff, #d8f2ff); animation: readyglow .6s ease-in-out infinite alternate; }
+.ts.ready .mp em::after { content: ' · READY'; color: #fff; font-weight: 800; }
+@keyframes readyglow { from { filter: brightness(1); } to { filter: brightness(1.35); } }
+.ts.mvp { border-color: #b8902c; }
+.ts.dead { opacity: .45; filter: grayscale(.9); }
+.sb { font-size: 8.5px; font-weight: 800; letter-spacing: .5px; padding: 1px 4px; border-radius: 4px; color: #111; background: #ccc; }
+.sb-st { background: #ffd23f; } .sb-si { background: #c77dff; } .sb-ro { background: #8ac43a; } .sb-fr { background: #9fe4ff; } .sb-co { background: #ff7ad9; }
+.sb-bl { background: #888; color: #fff; } .sb-sl { background: #6fb7ff; } .sb-ta { background: #ff8a5c; }
+/* battle: enemy roster */
+.estrip { display: flex; flex-wrap: wrap; gap: 5px; }
+.ec { position: relative; width: 30px; display: grid; gap: 2px; transition: opacity .3s; }
+.ec .por { width: 30px; height: 30px; border-radius: 7px; box-shadow: 0 0 0 1px #e0555566; }
+.ec.boss { width: 38px; } .ec.boss .por { width: 38px; height: 38px; box-shadow: 0 0 0 2px #e05555, 0 0 10px #e0555566; }
+.ec.elite .por { box-shadow: 0 0 0 2px var(--gold); }
+.ec i { display: block; height: 4px; border-radius: 2px; background: #0b0c10; overflow: hidden; } .ec s { display: block; height: 100%; background: #e05555; transition: width .15s linear; }
+.ec.dead { opacity: .25; filter: grayscale(1); }
+.hud .clock.warn { color: #ffb347; } .hud .clock.sd { color: #ff5a5a; animation: sdpulse .7s ease-in-out infinite alternate; }
+@keyframes sdpulse { from { opacity: .7; } to { opacity: 1; } }
+/* deploy: enemy roster */
+.foes { margin-top: 4px; }
+.fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 5px; }
+.fo { display: flex; gap: 7px; align-items: flex-start; padding: 5px 7px; border-radius: 9px; background: linear-gradient(90deg, #2a1c20, #17151a); border: 1px solid #5a2a30; }
+.fo .por { width: 34px; height: 34px; border-radius: 8px; flex: none; }
+.fo b { display: block; font-size: 12px; } .fo span { display: block; font-size: 10.5px; line-height: 1.3; color: #d9cfc0; }
+.fo .elt { display: inline; color: var(--gold); font-size: 11px; }
+.fo.elite { border-color: #b8902c; } .fo.boss { border-color: #e05555; background: linear-gradient(90deg, #3a1418, #17151a); }
+/* map: party and next boss */
+.party { margin-top: 10px; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+.pm { display: flex; gap: 8px; align-items: center; text-align: left; padding: 6px 8px; min-height: 0; border-radius: 10px; background: linear-gradient(90deg, #1d212b, #15171d); }
+.pm .por { width: 38px; height: 38px; border-radius: 8px; flex: none; }
+.pm .pmb { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.pm .pmn { display: flex; gap: 6px; align-items: baseline; font-size: 13px; } .pm .xpbar { margin: 0; }
+.pm .pmi { display: flex; gap: 2px; min-height: 20px; align-items: center; } .pm .pmi .ico.xs { width: 20px; height: 20px; filter: none; } .pm .pmi i { font-size: 11px; }
+.nextboss { display: flex; gap: 8px; align-items: center; margin-top: 8px; padding: 6px 8px; border-radius: 10px; border: 1px solid #5a1f24; background: linear-gradient(90deg, #2a1216, #15131a); }
+.nextboss .por { width: 40px; height: 40px; border-radius: 8px; flex: none; box-shadow: 0 0 0 1px #e05555; }
+.nextboss b { color: #ffb0b0; font-size: 13px; } .nextboss .small { display: block; font-size: 11px; line-height: 1.3; margin-top: 2px; }
+/* result */
+.rewards { display: inline-flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.price.big { font-size: 20px; font-weight: 800; }
+.prize { display: inline-flex; gap: 6px; align-items: center; } .prize .ico { width: 30px; height: 30px; }
+.rheroes { display: grid; gap: 6px; margin: 10px 0; text-align: left; }
+.rh { display: flex; gap: 10px; align-items: center; padding: 7px 9px; border-radius: 11px; background: linear-gradient(90deg, #1d212b, #15171d); border: 1px solid var(--line);
+  animation: rhin .45s ease-out both; }
+.rh:nth-child(2) { animation-delay: .08s; } .rh:nth-child(3) { animation-delay: .16s; } .rh:nth-child(4) { animation-delay: .24s; }
+@keyframes rhin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.rh .por { width: 46px; height: 46px; border-radius: 10px; flex: none; }
+.rh .rhb { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.rh .rhn { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+.rh.mvp { border-color: #b8902c; box-shadow: 0 0 14px #ffcf5a22; }
+.mvpb { font-size: 10px; font-weight: 800; color: #111; background: var(--gold); padding: 1px 6px; border-radius: 6px; letter-spacing: .5px; }
+.dmgbar { position: relative; height: 16px; border-radius: 8px; background: #0b0c10; overflow: hidden; box-shadow: inset 0 0 0 1px #ffffff14; }
+.dmgbar s { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #b8502a, #ffb347); border-radius: 8px; animation: grow .8s ease-out both; transform-origin: left; }
+.dmgbar em { position: relative; font-style: normal; font-size: 11px; line-height: 16px; padding: 0 8px; font-weight: 700; text-shadow: 0 1px 2px #000; }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.rxp { display: flex; gap: 8px; align-items: center; } .rxp .xpbar { flex: 1; margin: 0; } .rxp .kw-xp { font-size: 12px; font-weight: 700; white-space: nowrap; }
+/* level up */
+.levelup .headline { margin-bottom: 4px; }
+.luhero { display: flex; gap: 12px; align-items: center; margin: 4px 0 8px; }
+.lufull { width: 104px; height: 135px; border-radius: 14px; flex: none; box-shadow: 0 0 0 1px var(--gold), 0 10px 26px #000a, 0 0 22px #ffcf5a33; }
+.luname { display: block; font-family: var(--serif); font-size: 22px; letter-spacing: 1px; }
+.lulv { display: block; color: var(--dim); margin: 2px 0 4px; } .lulv b { color: var(--gold); }
+.spec2 .opt { border-color: #6a5a2a; } .spec2 .opt:hover, .spec2 .opt:focus-visible { border-color: var(--gold); box-shadow: 0 0 14px #ffcf5a33; }
+.sp-path { margin-top: 10px; }
+.sp-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #ffffff0d; }
+.sp-row .sp-lv { width: 34px; color: var(--dim); font-weight: 700; } .sp-row i { color: var(--dim); font-size: 11px; font-style: italic; }
+.sp-n { padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); color: #cfc6b4; }
+.sp-n.on { border-color: var(--gold); color: var(--gold); background: #3a3018; }
+.sp-row.now .sp-lv { color: var(--gold); } .sp-row.now .sp-n { border-color: #b8902c; color: #fff; }
+.sp-row.later { opacity: .6; }
+body.wide .teamstrip.v2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+/* v20 fixes: the older team strip rules (5px/3px bars) must not shrink the v2 cards */
+.teamstrip.v2 .ts .tsb i { height: 13px; background: #0b0c10; border-radius: 6px; }
+.teamstrip.v2 .ts .tsb i.mp { height: 11px; } .teamstrip.v2 .ts .tsb i.dm { height: 3px; background: none; }
+.teamstrip.v2 .ts .tsb i s { position: absolute; top: 0; bottom: 0; left: 0; height: auto; }
+.teamstrip.v2 .ts .tsb i em { line-height: 13px; } .teamstrip.v2 .ts .tsb i.mp em { line-height: 11px; }
+.teamstrip.v2 .tsb b { font-size: 13px; }
+body.landscape .teamstrip.v2, body.wide .teamstrip.v2 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); justify-content: stretch; }
+.fo span { display: inline; } .fo .fw { display: block; font-size: 10.5px; line-height: 1.3; color: #d9cfc0; }
+.dmgbar em { display: block; }
+/* v20: tablets/desktops: board on the left, the deploy/battle panel in a column on the right (no scrolling past the board) */
+body.side .deploy { display: grid; grid-template-columns: auto minmax(300px, 340px); column-gap: 16px; align-items: start; justify-content: center; max-width: 1180px; }
+body.side .deploy > .boardwrap { grid-column: 1; grid-row: 1 / span 12; }
+body.side .deploy > :not(.boardwrap) { grid-column: 2; }
+body.side .deploy .bar.sticky { position: static; background: none; }
+body.side .deploy .hud, body.side .deploy .bhead, body.side .deploy .hint.tight { max-width: none; margin-left: 0; margin-right: 0; }
+body.side .deploy .fgrid { grid-template-columns: 1fr; }
+body.side .teamstrip.v2, body.landscape .teamstrip.v2 { grid-template-columns: 1fr; }
+body.side .deploy .bar { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; }
+body.side .deploy .bar button { white-space: nowrap; }

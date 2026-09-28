@@ -75,7 +75,7 @@ while (steps++ < 80) {
     if (await ev(`!!document.querySelector('form[data-form=gauntlet]')`)) { if (REMOTE) break; await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(800); continue; }
     await click('[data-act=to-duel]'); await sleep(150); continue;
   }
-  if (await ev(`!!document.querySelector('[data-act=result-ok]')`)) { if (fightsSeen === 1) { await shot('06-result'); await noVScroll('result'); } await click('[data-act=result-ok]'); await sleep(100); continue; }
+  if (await ev(`!!document.querySelector('[data-act=result-ok]')`)) { if (fightsSeen === 1) { await sleep(900); await shot('06-result'); await noVScroll('result'); } await click('[data-act=result-ok]'); await sleep(100); continue; }
   if (st.phase === 'over') break;
   if (await ev(`!!document.querySelector('[data-act=spec]')`)) { if (!sawLevel) { await shot('07-levelup'); await noVScroll('level up'); sawLevel = true; } await click('[data-act=spec]'); await sleep(80); continue; }
   if (st.phase === 'map') {
@@ -172,6 +172,11 @@ if (!REMOTE) {
   await click('[data-act=event][data-arg="0"]'); await sleep(100); await click('[data-act=leave]'); await sleep(150);
   ok(await ev(`/Next fight/.test((document.querySelector('.nextmod') || {}).textContent || '') && /legendary/.test(document.querySelector('.nextmod').textContent)`), 'the Arena challenge shows on the map as the next-fight modifier');
   await shot('09d-nextmod'); await noVScroll('map with a next-fight modifier');
+  // review #18: the level-up screen (splash, gains, the 2 choices, the whole specialization path)
+  await ev(`(() => { const r = __bal.run, h = r.heroes[0]; h.lvl = 3; h.specs = [B.HEROES[h.key].specs[0][1].id]; r.pending = [{ uid: h.uid, lvl: 3 }]; __bal.render(); })()`); await sleep(150);
+  ok(await ev(`!!document.querySelector('.lufull') && document.querySelectorAll('.sp-row').length === 4 && !!document.querySelector('.sp-row.done .sp-n.on') && document.querySelectorAll('[data-act=spec]').length === 2`), 'level up: splash, 2 choices and the 4-step specialization path (the earlier pick marked)');
+  await shot('07b-levelup'); await noVScroll('level up (forced)');
+  await click('[data-act=spec]'); await sleep(100);
   await ev(`(() => { __bal.run.phase = 'over'; __bal.run.result = 'defeat'; __bal.render(); })()`); await sleep(100);
 }
 
