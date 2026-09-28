@@ -830,5 +830,18 @@
   ];
   B.EVENT = {}; for (const e of B.EVENTS) B.EVENT[e.id] = e;
 
+  // ---------------------------------------------------------------- leagues (review #21, David)
+  // Everyone starts in Bronze. 10 league points move you up one league; Celestial has no ceiling. +1 for each gauntlet
+  // duel won, -2 when a run ends before the gauntlet (a PvE loss). You never drop a league (points stop at 0).
+  B.LEAGUES = [
+    { id: 'bronze', name: 'Bronze', color: '#b8733d', hi: '#f3bd88' },
+    { id: 'silver', name: 'Silver', color: '#8e9aab', hi: '#eef3fa' },
+    { id: 'gold', name: 'Gold', color: '#d19b22', hi: '#ffe38f' },
+    { id: 'platinum', name: 'Platinum', color: '#2fa89a', hi: '#b5f7ec' },
+    { id: 'diamond', name: 'Diamond', color: '#3f7dff', hi: '#c5dcff' },
+    { id: 'celestial', name: 'Celestial', color: '#9a4dff', hi: '#f3dcff' },
+  ];
+  B.LEAGUE_RULES = { step: 10, duelWin: 1, pveLoss: -2 };
+
   if (typeof module !== 'undefined') module.exports = B;
 })(typeof window !== 'undefined' ? window : globalThis);

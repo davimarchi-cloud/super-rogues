@@ -121,6 +121,15 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v23 (2026-09-28), lote 21 do David** (ligas): `B.LEAGUES` Bronze, Silver, Gold, Platinum, Diamond, Celestial;
+  `B.LEAGUE_RULES` {step 10, duelWin +1, pveLoss -2}. Colunas `players.league` (índice) e `players.lp` (pontos dentro
+  da liga); `leaguePoints()` no api/elo.js: 10 pontos sobem uma liga, NUNCA cai (os pontos param em 0; decisão minha,
+  o David não disse), Celestial sem teto. `fail` dá -2, cada duelo vencido no `result` dá +1; respostas trazem
+  `league`, `lp` e `lg` (a mudança). UI: selo da liga + Elo no topo (abre a aba), aba **Player** no Ladder (banners das 6
+  ligas rolando na horizontal com a sua centralizada, o caminho entre elas com a barra de progresso, regras), escudo
+  da liga no Ranking (a antiga aba Players), linha de pontos e "Promoted to X!" nos resultados e no fim do Gauntlet.
+  Quem já jogava começou no Bronze com 0 (sem histórico confiável para recalcular).
+
 - **v22 (2026-09-28), lote 20 do David** (chefes com Elo na aba de heróis, sem mexer no Elo do jogador): op `boss`
   no api/elo.js (ratings kind 'boss', K 16, contra o Elo do jogador; conta no limite de 40/h por IP); o cliente manda
   ao fim de toda luta de chefe (vitória ou derrota) e o resultado mostra "☠ Gorewarden's Elo X (±d)". A aba Heroes do

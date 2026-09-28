@@ -9,6 +9,8 @@
 //   and a defense record (def_w / def_l), and its player gains or loses Elo when it defends (K 16; not when it is your
 //   own ghost). Review #20: every BOSS has its own Elo too (ratings kind 'boss', K 16), op 'boss': it rises when the boss
 //   beats a player and falls when it loses, against that player's Elo; the player's own Elo never moves for it.
+//   Review #21: leagues (B.LEAGUES): +1 league point per duel won, -2 per run lost before the gauntlet; 10 points move
+//   the player up one league, never down; Celestial has no ceiling. Answers carry league, lp and `lg` (the change).
 //   Answers carry `peak` = the most duels any finished ghost won: the height of the gauntlet tower.
 // - After the last shop the player's team is stored as a GHOST and enters the gauntlet: round k is against the ghost of
 //   another run whose own gauntlet ended with k wins (or the closest above). Review #10: only player ghosts, no bots.
@@ -91,6 +93,13 @@ function cleanTeam(team) {
 }
 const oppView = (t, pid) => t && { teamId: t.id, name: t.name, elo: Math.round(t.elo_at), wins: t.wins, status: t.status, own: t.pid === pid, defW: t.def_w || 0, defL: t.def_l || 0, team: JSON.parse(t.team), relics: JSON.parse(t.relics) };
 const KD = 16;  // a player's Elo moves by half as much when their ghost defends
+// review #21: league points; returns what changed
+function leaguePoints(p, delta) {
+  const R = D.LEAGUE_RULES, top = D.LEAGUES.length - 1, l0 = p.league | 0, lp0 = p.lp | 0;
+  p.league = l0; p.lp = Math.max(0, lp0 + delta);
+  while (p.league < top && p.lp >= R.step) { p.lp -= R.step; p.league++; }
+  return { league: p.league, lp: p.lp, delta: p.league > l0 ? delta : p.lp - lp0, promoted: p.league > l0 };
+}
 
 // next opponent with at least `wins` wins: other players first, then your own older teams
 async function nextOpponent(st, wins, pid, teamId) { return (await st.pickOpponent(wins, pid, false)) || (await st.pickOpponent(wins, pid, true, teamId)); }
@@ -113,8 +122,8 @@ module.exports = async (req, res) => {
     const given = clean(b.name, 16).replace(/\s+/g, ' ');
     const p = await st.upsertPlayer(pid, given || null, ipHash(req), 'Player ' + pid.slice(0, 4));
     const name = p.name;
-    const save = f => st.setPlayer(pid, Object.assign({ elo: p.elo, runs: p.runs, crowns: p.crowns, best: p.best }, f));
-    const me = extra => Object.assign({ elo: Math.round(p.elo), runs: p.runs, crowns: p.crowns, best: p.best }, extra);
+    const save = f => st.setPlayer(pid, Object.assign({ elo: p.elo, runs: p.runs, crowns: p.crowns, best: p.best, league: p.league | 0, lp: p.lp | 0 }, f));
+    const me = extra => Object.assign({ elo: Math.round(p.elo), runs: p.runs, crowns: p.crowns, best: p.best, league: p.league | 0, lp: p.lp | 0 }, extra);
 
     if (b.op === 'hello') return send(res, 200, me({}));
 
@@ -129,9 +138,10 @@ module.exports = async (req, res) => {
 
     if (b.op === 'fail') {  // review #14: a loss against 1000 (it was your Elo - 200); the pieces of the lost fight lose too
       const before = p.elo; p.elo = eloAfter(p.elo, PVE, 0); p.runs++;
+      const lg = leaguePoints(p, D.LEAGUE_RULES.pveLoss);
       await save({});
       const used = cleanTeam(b.team); if (used) await rateContent(st, ipHash(req), [{ used: usedIn(used, relicList(b.relics)), score: 0 }]);
-      return send(res, 200, me({ delta: Math.round(p.elo) - Math.round(before) }));
+      return send(res, 200, me({ delta: Math.round(p.elo) - Math.round(before), lg }));
     }
 
     if (b.op === 'enter') {
@@ -178,6 +188,7 @@ module.exports = async (req, res) => {
         }
       }
       const peak = await st.maxWins(t.id);
+      const lg = win ? leaguePoints(p, D.LEAGUE_RULES.duelWin) : null;
       if (!win) {
         await st.updateTeam(t.id, { wins: t.wins, status: 'lost', opp: null });
         p.best = Math.max(p.best, t.wins); await save({});
@@ -186,9 +197,9 @@ module.exports = async (req, res) => {
       const wins = t.wins + 1;
       const next = await nextOpponent(st, wins, pid, t.id);
       p.best = Math.max(p.best, wins);
-      if (!next) { await st.updateTeam(t.id, { wins, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, wins, champion: true, over: true })); }
+      if (!next) { await st.updateTeam(t.id, { wins, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, lg, wins, champion: true, over: true })); }
       await st.updateTeam(t.id, { wins, status: 'running', opp: next.id }); await save({});
-      return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, wins, round: wins, opponent: oppView(next, pid) }));
+      return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, lg, wins, round: wins, opponent: oppView(next, pid) }));
     }
     return send(res, 400, { error: 'Unknown op' });
   } catch (e) {
@@ -199,3 +210,4 @@ module.exports = async (req, res) => {
 module.exports.eloAfter = eloAfter;
 module.exports.usedIn = usedIn;
 module.exports.cleanTeam = cleanTeam;
+module.exports.leaguePoints = leaguePoints;

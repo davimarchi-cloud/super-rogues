@@ -20,6 +20,9 @@ const SCHEMA = [
   // v18 (review #16): a ghost keeps its own Elo (elo_at moves with every duel it defends) and a defense record
   `alter table teams add column if not exists def_w int not null default 0`,
   `alter table teams add column if not exists def_l int not null default 0`,
+  // v23 (review #21): player leagues (index into B.LEAGUES) and league points inside the league
+  `alter table players add column if not exists league int not null default 0`,
+  `alter table players add column if not exists lp int not null default 0`,
   // v15 (review #14): an Elo for every hero, item and relic, apart from the players (balance data)
   `create table if not exists ratings (kind text not null, id text not null, elo real not null default 1000, games int not null default 0,
      wins int not null default 0, updated bigint, primary key (kind, id))`,
@@ -45,7 +48,7 @@ function memStore() {
     async countScores(iph, since) { return M.scores.filter(s => s.iph === iph && s.created >= since).length; },
     async topScores(n) { return M.scores.slice().sort((a, b) => b.score - a.score || a.created - b.created).slice(0, n).map(pubScore); },
     async getPlayer(pid) { const P = M.players = M.players || {}; return P[pid] ? Object.assign({}, P[pid]) : null; },
-    async upsertPlayer(pid, name, iph, fallback) { const P = M.players = M.players || {}; if (!P[pid]) P[pid] = { pid, name: name || fallback, elo: 1000, runs: 0, crowns: 0, best: 0, iph, created: Date.now() }; else if (name) P[pid].name = name; return Object.assign({}, P[pid]); },
+    async upsertPlayer(pid, name, iph, fallback) { const P = M.players = M.players || {}; if (!P[pid]) P[pid] = { pid, name: name || fallback, elo: 1000, runs: 0, crowns: 0, best: 0, league: 0, lp: 0, iph, created: Date.now() }; else if (name) P[pid].name = name; return Object.assign({}, P[pid]); },
     async setPlayer(pid, f) { Object.assign(M.players[pid], f, { updated: Date.now() }); },
     async topPlayers(n) { return Object.values(M.players || {}).sort((a, b) => b.elo - a.elo).slice(0, n).map(pubPlayer); },
     async insertTeam(t) { const T = M.teams = M.teams || []; const r = Object.assign({ id: ++M.id, wins: 0, status: 'running', opp: null, def_w: 0, def_l: 0, created: Date.now() }, t); T.push(r); return r.id; },
@@ -98,8 +101,8 @@ function pgStore() {
         : await q('insert into players (pid, name, iph, created) values ($1,$2,$3,$4) on conflict (pid) do update set pid=excluded.pid returning *', [pid, fallback, iph, Date.now()]);
       return num(r[0]);
     },
-    async setPlayer(pid, f) { await q('update players set elo=$2, runs=$3, crowns=$4, best=$5, updated=$6 where pid=$1', [pid, f.elo, f.runs, f.crowns, f.best, Date.now()]); },
-    async topPlayers(n) { return (await q('select name, elo, runs, crowns, best from players order by elo desc limit $1', [n])).map(pubPlayer); },
+    async setPlayer(pid, f) { await q('update players set elo=$2, runs=$3, crowns=$4, best=$5, updated=$6, league=$7, lp=$8 where pid=$1', [pid, f.elo, f.runs, f.crowns, f.best, Date.now(), f.league | 0, f.lp | 0]); },
+    async topPlayers(n) { return (await q('select name, elo, runs, crowns, best, league, lp from players order by elo desc limit $1', [n])).map(pubPlayer); },
     async insertTeam(t) { return Number((await q('insert into teams (pid, name, elo_at, team, relics, created) values ($1,$2,$3,$4,$5,$6) returning id', [t.pid, t.name, t.elo_at, t.team, t.relics, Date.now()]))[0].id); },
     async getTeam(id) { const r = await q('select * from teams where id=$1', [id]); return r.length ? num(r[0]) : null; },
     async updateTeam(id, f) { await q('update teams set wins=$2, status=$3, opp=$4, updated=$5 where id=$1', [id, f.wins, f.status, f.opp, Date.now()]); },
@@ -132,8 +135,8 @@ function pgStore() {
 // only public fields ever leave the server (never iph)
 function pub(s) { return { id: Number(s.id), batch: Number(s.batch || s.id), name: s.name, text: s.text, status: s.status, reply: s.reply || null, created: Number(s.created), updated: s.updated ? Number(s.updated) : null }; }
 // Neon returns bigint/real columns as strings: normalise numbers
-function num(r) { for (const k of ['id', 'elo', 'runs', 'crowns', 'best', 'elo_at', 'wins', 'opp', 'def_w', 'def_l', 'created', 'updated']) if (r[k] != null) r[k] = Number(r[k]); return r; }
-function pubPlayer(p) { return { name: p.name, elo: Math.round(Number(p.elo)), runs: Number(p.runs), crowns: Number(p.crowns), best: Number(p.best) }; }
+function num(r) { for (const k of ['id', 'elo', 'runs', 'crowns', 'best', 'elo_at', 'wins', 'opp', 'def_w', 'def_l', 'league', 'lp', 'created', 'updated']) if (r[k] != null) r[k] = Number(r[k]); return r; }
+function pubPlayer(p) { return { name: p.name, elo: Math.round(Number(p.elo)), runs: Number(p.runs), crowns: Number(p.crowns), best: Number(p.best), league: Number(p.league) || 0, lp: Number(p.lp) || 0 }; }
 function pubRating(r) { return { kind: r.kind, id: r.id, elo: Math.round(Number(r.elo)), games: Number(r.games), wins: Number(r.wins) }; }
 function pubScore(s) { return { name: s.name, score: Number(s.score), wave: Number(s.wave), heroes: String(s.heroes || '').split(',').filter(Boolean), created: Number(s.created) }; }
 

@@ -776,3 +776,33 @@ body.side .deploy .bar button { white-space: nowrap; }
 .eqhero .abline { padding: 0; line-height: 1.25; }
 .eqhero .abline { background: none; border: 0; box-shadow: none; border-radius: 0; }
 .ctbl .bossname { color: #ff9a9a; font-weight: 700; }
+
+/* =====================================================================================================
+   v23 (review #21): leagues. Header chip, Player tab (scrolling league banners + the path), result lines, promotion
+   ===================================================================================================== */
+.lgchip { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 2px 9px 2px 5px; border-radius: 999px; font-weight: 800; font-size: 13px; color: #cfe3ff; }
+.lgchip .lgem { flex: none; }
+.tabs { grid-template-columns: repeat(5, 1fr); } .tabs button { font-size: 12px; padding: 4px 1px; }
+.ptab .pme { display: flex; gap: 12px; align-items: center; margin: 4px 0 8px; }
+.ptab .pme b { display: block; font-size: 17px; } .ptab .pme span { display: block; } .ptab .pl1 { font-family: var(--serif); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; }
+.lgscroll { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 6px 2px 10px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.lgb { position: relative; flex: 0 0 132px; scroll-snap-align: center; display: grid; justify-items: center; gap: 4px; padding: 18px 8px 30px; text-align: center;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lc) 55%, #15161c), #121318); border: 1px solid color-mix(in srgb, var(--lc) 60%, #000);
+  clip-path: polygon(0 0, 100% 0, 100% 88%, 50% 100%, 0 88%); }
+.lgb .rod { position: absolute; top: 0; left: 0; right: 0; height: 8px; background: linear-gradient(90deg, #6a4a1c, #e8b84a, #6a4a1c); }
+.lgb b { font-family: var(--serif); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--lh); }
+.lgb .lgs { font-size: 11px; color: #e8e2d4; }
+.lgb .lgbar { width: 90%; height: 7px; border-radius: 4px; background: #0008; overflow: hidden; } .lgb .lgbar i { display: block; height: 100%; background: linear-gradient(90deg, var(--lc), var(--lh)); }
+.lgb .here { font-size: 10px; font-weight: 800; color: #111; background: var(--lh); padding: 1px 6px; border-radius: 6px; }
+.lgb.cur { box-shadow: 0 0 22px color-mix(in srgb, var(--lc) 55%, transparent); } .lgb.cur .lgem { filter: drop-shadow(0 0 8px var(--lh)); }
+.lgb.locked { filter: grayscale(.75) brightness(.7); } .lgb.done { opacity: .85; }
+.lgpath { display: flex; align-items: center; margin: 4px 0 8px; }
+.lgpath .pn { flex: none; display: grid; place-items: center; } .lgpath .pn:not(.done):not(.cur) { filter: grayscale(.8) brightness(.6); }
+.lgpath .pn.cur .lgem { filter: drop-shadow(0 0 6px #fff8); }
+.lgpath .pl { flex: 1; height: 4px; margin: 0 2px; border-radius: 2px; background: #2a2e3a; overflow: hidden; } .lgpath .pl i { display: block; height: 100%; background: var(--gold); }
+.lgline { display: flex; gap: 6px; align-items: center; justify-content: center; margin: 2px 0 6px; font-size: 14px; }
+.promo { display: flex; gap: 10px; align-items: center; justify-content: center; margin: 4px auto 8px; padding: 8px 14px; border-radius: 12px; width: fit-content;
+  background: linear-gradient(90deg, #1b1a24, color-mix(in srgb, var(--lc) 35%, #1b1a24), #1b1a24); border: 1px solid var(--lc); animation: promo 1s ease-out both; }
+.promo b { font-family: var(--serif); font-size: 18px; letter-spacing: 1px; }
+@keyframes promo { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .promo { animation: none; } }

@@ -21,7 +21,26 @@
     return id;
   }
   const myName = () => store.get('balance.name', '') || '';
-  const setElo = r => { if (r && r.elo != null) store.set('balance.elo', r.elo); };
+  const setElo = r => { if (r && r.elo != null) store.set('balance.elo', r.elo); if (r && r.league != null) store.set('balance.league', { league: r.league, lp: r.lp }); };
+  // review #21 (David): leagues. A shield in the league's colours; pips for Bronze..Platinum, a gem for Diamond, a star
+  // for Celestial.
+  let embN = 0;
+  function emblem(i, px) {
+    const l = B.LEAGUES[i] || B.LEAGUES[0], g = 'lg' + (++embN);
+    const mark = i >= 5 ? '<path d="M32 18 l4 9 10 1 -7.5 6.5 2.5 10 -9-5.5 -9 5.5 2.5-10 -7.5-6.5 10-1z" fill="#fff" opacity=".92"/>'
+      : i === 4 ? '<path d="M32 18 l10 11 -10 16 -10-16z" fill="#fff" opacity=".9"/><path d="M22 29h20" stroke="#3f7dff" stroke-width="1.5"/>'
+      : Array.from({ length: i + 1 }, (_, k) => { const x = 32 + (k - i / 2) * 8; return `<circle cx="${x}" cy="32" r="3.2" fill="#fff" opacity=".92"/>`; }).join('');
+    return `<svg class="lgem" width="${px}" height="${px}" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${l.hi}"/><stop offset="1" stop-color="${l.color}"/></linearGradient></defs>
+      <path d="M32 4 L56 12 V30 C56 45 45 55 32 60 C19 55 8 45 8 30 V12 Z" fill="url(#${g})" stroke="#0c0d11" stroke-width="3"/>
+      <path d="M32 11 L49 17 V30 C49 41 41 48 32 52 C23 48 15 41 15 30 V17 Z" fill="none" stroke="#ffffff66" stroke-width="2"/>${mark}</svg>`;
+  }
+  const leagueName = i => (B.LEAGUES[i] || B.LEAGUES[0]).name;
+  function leagueProgress(lg) { const top = B.LEAGUES.length - 1; return lg.league >= top ? `${lg.lp} point${lg.lp === 1 ? '' : 's'}` : `${lg.lp}/${B.LEAGUE_RULES.step}`; }
+  function leagueLine(lg) {
+    if (!lg) return '';
+    const d = lg.delta, when = lg.promoted ? `<div class="promo" style="--lc:${B.LEAGUES[lg.league].color}">${emblem(lg.league, 44)}<b>Promoted to ${leagueName(lg.league)}!</b></div>` : '';
+    return `${when}<p class="lgline">${emblem(lg.league, 20)}<span class="${d > 0 ? 'win' : d < 0 ? 'lose' : 'dim'}">${d > 0 ? '+' : ''}${d} league point${Math.abs(d) === 1 ? '' : 's'}</span><span class="dim">· ${leagueName(lg.league)} ${leagueProgress(lg)}</span></p>`;
+  }
 
   const MOB_ABIL = {
     smash: 'Smash: a heavy blow that stuns its target.', mend: 'Mend: heals the weakest ally.', explode: 'Explodes when next to an enemy.',
@@ -148,7 +167,8 @@
     const stepN = Math.max(0, run.step);
     const elo = store.get('balance.elo', null), g = run.g;
     const prog = g ? (g.round != null ? 'Gauntlet · floor ' + (g.round + 1) : 'Gauntlet') : 'Day ' + (stepN + 1) + '/' + CFG.seq.length;
-    h.innerHTML = `${elo != null ? `<span class="elo" title="Your Elo rating">⚜ ${elo}</span>` : ''}
+    const lgs = store.get('balance.league', null);
+    h.innerHTML = `${elo != null ? `<button class="lgchip" data-act="player-tab" title="${lgs ? leagueName(lgs.league) + ' league · ' : ''}Elo ${elo}" aria-label="Your league and Elo">${emblem(lgs ? lgs.league : 0, 18)}<span>${elo}</span></button>` : ''}
       <span class="gold" title="Gold">${run.gold}</span><span class="prog">${prog}</span>
       <span class="grow"></span>${battle ? '' : '<button data-act="team">Team</button>'}<button data-act="suggest" class="sugg">💡</button><button data-act="menu">☰</button>`;
   }
@@ -377,7 +397,7 @@
       : r.win ? `<span class="rewards"><span class="price big">+${r.gold}</span>${r.prize ? `<span class="prize">${ico('item', r.prize, 30)}<b style="color:${TIER_COLOR[ITEM[r.prize].tier]}">${esc(ITEM[r.prize].name)}</b></span>` : ''}</span>` : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
     const bl = r.boss ? `<p class="small dim ghostline">☠ ${esc(r.boss.name)}'s Elo: <b>${r.boss.elo}</b> (${r.boss.delta >= 0 ? '+' : ''}${r.boss.delta})</p>` : '';
     const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${esc(r.ghost.name)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})${r.ghost.ownerDelta != null ? ` · its player ${r.ghost.ownerDelta >= 0 ? '+' : ''}${r.ghost.ownerDelta}` : ''}</p>` : '';
-    return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${gh}${bl}${table}
+    return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${leagueLine(r.lg)}${gh}${bl}${table}
       <div class="bar"><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
   }
 
@@ -484,10 +504,11 @@
         <div class="score">${g.wins}</div><p>duel${g.wins === 1 ? '' : 's'} won</p>
         <p class="elo-line">Elo ${g.eloStart} → <b>${g.elo}</b> <span class="${d >= 0 ? 'win' : 'lose'}">(${d >= 0 ? '+' : ''}${d})</span></p>
         ${g.status === 'champion' ? '<p class="small">No one had ever gone this far. Your team now guards the top of the ladder.</p>' : ''}
+        ${g.lgNow ? leagueLine(Object.assign({}, g.lgNow, { delta: g.lgGain, promoted: g.lgPromoted })) : ''}
         ${g.history.length ? towerHTML(g) : ''}`;
     } else {
       body = `<h2 class="sc">Your run has ended</h2><p>You fell at fight ${run.fightNo}. Won ${run.won} fight${run.won === 1 ? '' : 's'}.</p>
-        ${run.eloEnd != null ? `<p class="elo-line">Elo <b>${run.eloEnd}</b> <span class="lose">(${run.eloDelta})</span></p>` : ''}`;
+        ${run.eloEnd != null ? `<p class="elo-line">Elo <b>${run.eloEnd}</b> <span class="lose">(${run.eloDelta})</span></p>` : ''}${leagueLine(run.lgEnd)}`;
     }
     return `<section class="title">${body}
       <div class="stack"><button class="primary big" data-act="new-run">New run</button><button data-act="scores">🏆 Ladder</button></div>
@@ -595,7 +616,7 @@
       const win = W.winner === 0;
       ui.result = { gauntlet: true, win, dmg, xp: run.heroes.map(h => ({ uid: h.uid, name: HEROES[h.key].name, gained: 0, from: h.lvl, to: h.lvl })), opp: run.g.opp, pending: true };
       screen = 'result'; save(); render();
-      try { const r = await Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win, team: Run.teamSnapshot(run), relics: run.relics }); setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, ghost: r.ghost, pending: false }); ui.climb = win; }
+      try { const r = await Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win, team: Run.teamSnapshot(run), relics: run.relics }); setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, ghost: r.ghost, lg: r.lg, pending: false }); ui.climb = win; }
       catch (e) { Object.assign(ui.result, { pending: false, error: e.message }); }
       save(); render(); return;
     }
@@ -608,7 +629,7 @@
     save(); render(); window.scrollTo(0, 0);
     if (run.phase === 'over') {  // review #3: a lost fight ends the run = Elo loss (review #14: against 1000; the fight's pieces lose too)
       ui.result.pending = true; render();
-      try { const r = await Net.post('elo', Object.assign({ op: 'fail', pid: pid(), name: myName() }, run.lastFight)); setElo(r); run.eloEnd = r.elo; run.eloDelta = r.delta; Object.assign(ui.result, { delta: r.delta, elo: r.elo }); }
+      try { const r = await Net.post('elo', Object.assign({ op: 'fail', pid: pid(), name: myName() }, run.lastFight)); setElo(r); run.eloEnd = r.elo; run.eloDelta = r.delta; run.lgEnd = r.lg || null; Object.assign(ui.result, { delta: r.delta, elo: r.elo, lg: r.lg }); }
       catch (e) { ui.result.error = e.message; }
       ui.result.pending = false; save(); render();
     }
@@ -749,7 +770,22 @@
     btn.disabled = false;
   }
   // review #14 (David): a tab per kind of content with its own Elo, to balance heroes, items and relics
-  const LADDER_TABS = [['players', 'Players'], ['hero', 'Heroes'], ['item', 'Items'], ['relic', 'Relics']];
+  const LADDER_TABS = [['player', 'Player'], ['players', 'Ranking'], ['hero', 'Heroes'], ['item', 'Items'], ['relic', 'Relics']];
+  // review #21 (David: "a player tab with scrolling banners for the leagues and the path between tiers")
+  function playerTabHTML(me) {
+    const L = B.LEAGUES, R = B.LEAGUE_RULES, cur = me.league | 0, top = L.length - 1, lp = me.lp | 0;
+    const banners = L.map((l, i) => {
+      const st = i < cur ? 'Reached ✓' : i === cur ? (i === top ? `${lp} points · no ceiling` : `${lp} / ${R.step} points`) : i === top ? `${R.step} points in ${L[i - 1].name} · no ceiling` : `${R.step} points in ${L[i - 1].name}`;
+      return `<div class="lgb ${i < cur ? 'done' : i === cur ? 'cur' : 'locked'}" style="--lc:${l.color};--lh:${l.hi}"><span class="rod"></span>${emblem(i, 70)}<b>${l.name}</b><span class="lgs">${st}</span>
+        ${i === cur && i < top ? `<span class="lgbar"><i style="width:${100 * lp / R.step}%"></i></span>` : i === cur ? '<span class="here">You are here</span>' : ''}</div>`;
+    }).join('');
+    const path = L.map((l, i) => `<span class="pn ${i < cur ? 'done' : i === cur ? 'cur' : ''}" title="${l.name}">${emblem(i, i === cur ? 30 : 22)}</span>${i < top ? `<span class="pl"><i style="width:${i < cur ? 100 : i === cur ? Math.round(100 * lp / R.step) : 0}%"></i></span>` : ''}`).join('');
+    return `<div class="ptab"><div class="pme">${emblem(cur, 52)}<div><b>${esc(myName() || 'You')}</b><span class="pl1" style="color:${L[cur].hi}">${L[cur].name} league</span>
+        <span class="small">${cur >= top ? `${lp} points in Celestial` : `${lp}/${R.step} points to ${L[cur + 1].name}`}</span><span class="dim small">Elo ${me.elo} · ${me.runs} runs · best ${me.best} · 👑 ${me.crowns}</span></div></div>
+      <div class="lgscroll" id="lgscroll">${banners}</div>
+      <div class="lgpath">${path}</div>
+      <p class="small dim">+${R.duelWin} league point for each Gauntlet duel you win, ${R.pveLoss} when a run ends before the Gauntlet (a PvE loss). ${R.step} points move you up one league and you never drop a league. Celestial has no ceiling.</p></div>`;
+  }
   function contentTable(kind, ratings) {
     // review #20: the bosses sit in the heroes tab with their own Elo
     const by = {}; for (const r of ratings) if (r.kind === kind || (kind === 'hero' && r.kind === 'boss')) by[r.id] = r;
@@ -771,13 +807,22 @@
       <div class="tabs">${LADDER_TABS.map(([k, n]) => `<button data-act="ladder-tab" data-arg="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('')}</div>`;
     openModal(head + '<p class="dim">Loading…</p>');
     try {
+      if (tab === 'player') {
+        const me = await Net.post('elo', { op: 'hello', pid: pid() }); setElo(me);
+        if (ui.modal && ui.ladderTab === tab) {
+          openModal(head + playerTabHTML(me)); header();
+          const sc = $('#lgscroll'), c = sc && sc.querySelector('.lgb.cur');
+          if (c) sc.scrollLeft = c.offsetLeft - (sc.clientWidth - c.clientWidth) / 2;
+        }
+        return;
+      }
       if (tab !== 'players') {
         const e = await Net.get('elo?ratings=1');
         if (ui.modal && ui.ladderTab === tab) openModal(head + contentTable(tab, e.ratings || []));
         return;
       }
       const e = await Net.get('elo');
-      const eRows = e.top.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td><b>${p.elo}</b></td><td>${p.best}</td><td>${p.crowns ? '👑' + p.crowns : ''}</td></tr>`).join('');
+      const eRows = e.top.map((p, i) => `<tr><td>${i + 1}</td><td class="who">${emblem(p.league || 0, 20)}<span>${esc(p.name)}</span></td><td><b>${p.elo}</b></td><td>${p.best}</td><td>${p.crowns ? '👑' + p.crowns : ''}</td></tr>`).join('');
       if (ui.modal && ui.ladderTab === tab) openModal(head + `<p class="dim small">Rated by gauntlet duels against player ghosts. A run that dies before the Gauntlet is a loss against a 1000 rated opponent, reaching it is a win against one. Best = most duels won in one run.</p>
         ${eRows ? `<table class="tbl"><tr><th>#</th><th>Name</th><th>Elo</th><th>Best</th><th></th></tr>${eRows}</table>` : '<p class="dim">No rated players yet.</p>'}`);
     } catch (err) { if (ui.modal && ui.ladderTab === tab) openModal(head + `<p class="err">${esc(err.message)}</p>`); }
@@ -906,6 +951,7 @@
     'send-review': (a, el) => sendReview(el),
     'sug-refresh': () => loadQueue(),
     scores: () => openScores(),
+    'player-tab': () => openScores('player'),
     'relic-info': id => { const r = RELIC[id]; if (r) toast(r.name + ': ' + r.desc); },
     'ladder-tab': k => openScores(k),
   };

@@ -237,6 +237,11 @@ if (!REMOTE) {
   await tab('item', await ev('B.ITEMS.length'), x => /no combat effect/.test(x) && /not played yet/.test(x), 'Items tab: every item (no-combat items marked)');
   await tab('relic', await ev('B.RELICS.length'), x => /no combat effect/.test(x), 'Relics tab: every relic');
   await shot('21-ladder-relics');
+  // review #21: the Player tab: league banners you can scroll, the path between the leagues
+  await click('[data-act=ladder-tab][data-arg=player]');
+  for (let i = 0; i < 30 && !(await ev(`!!document.querySelector('#lgscroll')`)); i++) await sleep(100);
+  ok(await ev(`document.querySelectorAll('.lgb').length === 6 && document.querySelectorAll('.lgb.cur').length === 1 && document.querySelectorAll('.lgpath .pn').length === 6 && /Bronze|Silver/.test(document.querySelector('.pme').textContent) && document.querySelector('#lgscroll').scrollWidth > document.querySelector('#lgscroll').clientWidth`), 'Player tab: 6 league banners in a scrolling row, your league marked, the path between tiers');
+  await shot('22-player-tab'); await noHScroll('player tab');
   await click('[data-act=ladder-tab][data-arg=players]'); await sleep(400);
   ok(await ev(`/TestBot/.test(document.querySelector('#modal').textContent)`), 'back to the Players tab');
   await click('[data-act=close]');
