@@ -806,3 +806,18 @@ body.side .deploy .bar button { white-space: nowrap; }
 .promo b { font-family: var(--serif); font-size: 18px; letter-spacing: 1px; }
 @keyframes promo { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .promo { animation: none; } }
+
+/* v24 (review #22): the start screen picks 1 hero and 1 relic */
+.srelics { display: grid; gap: 6px; margin: 4px 0 8px; }
+.srelic { position: relative; display: flex; gap: 8px; align-items: center; text-align: left; padding: 6px 10px; min-height: 0; }
+.srelic .ico { width: 34px; height: 34px; flex: none; }
+.srelic span { display: grid; gap: 1px; min-width: 0; } .srelic b { font-size: 13px; } .srelic small { font-size: 11.5px; line-height: 1.3; color: #d9cfc0; }
+.srelic.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 12px #ffcf5a33; background: #3a3320; }
+.srelic .chk { position: absolute; right: 8px; top: 6px; color: var(--gold); font-weight: 800; }
+.start h3.center { text-align: center; margin: 8px 0 4px; }
+
+/* v24: compact relic row on the start screen (the description shows in the detail card) */
+.srelics { grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0; }
+.srelic { flex-direction: column; justify-content: center; text-align: center; gap: 3px; padding: 6px 4px; }
+.srelic b { font-size: 11.5px; line-height: 1.2; } .srelic .ico { width: 30px; height: 30px; }
+.srelic.focus:not(.on) { border-color: #8a7a4a; }

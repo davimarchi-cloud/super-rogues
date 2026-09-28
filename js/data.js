@@ -10,11 +10,15 @@
     gold: { easy: 6, medium: 9, hard: 13, boss: 16 },
     xpLevels: [0, 0, 30, 85, 180, 330], // cumulative XP to reach level N (index = level); 1 XP per second alive
     maxLevel: 5, baseSlots: 1,          // item slots: 1 at Lv1-2, +1 at Lv3, Lv4, Lv5
-    fightScale: [1, 0.9, 1.1, 1.3, 1.5, 1.75, 2], // by fight number (1..6)
+    // by fight number (1..8). Review #22: 8 fights, bosses at 4 and 8 keep the strength they had at 3 and 6 (1.3, 2)
+    fightScale: [1, 0.9, 1.0, 1.15, 1.5, 1.6, 1.8, 2.0, 2.3],
+    firstFight: 0.5,  // review #22: the first fight is fought by a single hero: half the usual enemy budget
     suddenDeath: 45, fightCap: 150,     // seconds
     // node sequence: F = fight (2 of easy/medium/hard), X = shop or event (2 options), B = boss (no option),
     // S = final shop choice (2 shops), G = the PvP gauntlet against player ghosts (review #9 removed the Onslaught)
-    seq: ['F', 'X', 'F', 'X', 'B', 'X', 'F', 'X', 'F', 'X', 'B', 'S', 'G'],
+    // Review #22 (David): the run starts with 1 hero and 1 relic, and each boss gets 1 more fight and 1 more shop/event
+    seq: ['F', 'X', 'F', 'X', 'F', 'X', 'B', 'X', 'F', 'X', 'F', 'X', 'F', 'X', 'B', 'S', 'G'],
+    startHeroes: 1, startOffer: 3,
   };
 
   // ---------------------------------------------------------------- heroes
@@ -751,8 +755,8 @@
   B.POOLS = {
     1: ['grunt', 'wolf', 'archer', 'grunt'],
     2: ['grunt', 'wolf', 'archer', 'brute', 'spitter', 'skulker'],
-    4: ['grunt', 'archer', 'brute', 'skulker', 'shaman', 'bomber', 'hexer', 'spitter', 'shieldbearer'],
-    5: ['archer', 'brute', 'skulker', 'shaman', 'bomber', 'hexer', 'golem', 'summoner', 'shieldbearer', 'knight'],
+    5: ['grunt', 'archer', 'brute', 'skulker', 'shaman', 'bomber', 'hexer', 'spitter', 'shieldbearer'],
+    6: ['archer', 'brute', 'skulker', 'shaman', 'bomber', 'hexer', 'golem', 'summoner', 'shieldbearer', 'knight'],
   };
   B.DIFF = {
     easy: { name: 'Easy', budget: 3.2, elites: 0 },

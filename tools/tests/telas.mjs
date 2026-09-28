@@ -53,14 +53,16 @@ const noVScroll = async where => { const r = await ev(`(() => { const m = docume
 ok(await ev(`!!document.querySelector('.title h1') && document.title === 'Balance'`), 'title screen renders');
 await shot('01-title'); await noHScroll('title'); await noVScroll('title');
 
-// new run, pick 2 heroes
+// new run, pick 1 hero and 1 relic (review #22)
 await click('[data-act=new-run]'); await sleep(200);
 const picks = await ev(`[...document.querySelectorAll('[data-act=start-pick]')].length`);
 ok(picks === 3, 'start offers 3 heroes side by side');
 const fmtOut = await ev(`__bal.fmt('<b>x</b> deals 20% magic damage and stuns for 1.5s')`);
 ok(/&lt;b&gt;/.test(fmtOut) && /class="num">20%/.test(fmtOut) && /kw-ap/.test(fmtOut) && /kw-cc/.test(fmtOut) && /class="dur">1.5s/.test(fmtOut), 'review #10: descriptions colour terms, bold numbers, italic durations, and stay escaped');
 ok(await ev(`document.querySelectorAll('.detail .stat').length >= 6`), 'stat chips on the hero detail');
-await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`);
+await click('[data-act=start-pick]');
+ok(await ev(`document.querySelectorAll('[data-act=start-relic]').length === 3 && document.querySelector('[data-act=start-go]').disabled`), 'review #22: 3 relics offered; you need a hero AND a relic to begin');
+await click('[data-act=start-relic]');
 await shot('02-start'); await noHScroll('start'); await noVScroll('start');
 ok(await click('[data-act=start-go]'), 'start run');
 await sleep(200);
@@ -106,6 +108,7 @@ while (steps++ < 80) {
   }
   if (st.phase === 'event') {
     if (!sawEvent) { await shot('09-event'); await noVScroll('event'); sawEvent = true; }
+    if (await ev(`!!(__bal.run.cur && __bal.run.cur.done)`)) { await click('[data-act=leave]'); await sleep(80); continue; }  // back from a level-up the event gave
     ok(await ev(`document.querySelectorAll('[data-act=event]').length === 3`), 'review #17: the event offers 3 choices');
     await click('[data-act=event]:not([disabled])'); await sleep(80);
     if (await ev(`!!document.querySelector('[data-act=event-target]')`)) {  // a targeted choice: pick the hero / item / type
@@ -162,7 +165,7 @@ ok(await ev(`Object.keys(B.HEROES).every(k => { const d = B.Run.heroDef({ relics
 // and a next-fight modifier shown on the map
 if (!REMOTE) {
   await click('[data-act=new-run]'); await sleep(150);
-  await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`); await click('[data-act=start-go]'); await sleep(150);
+  await click('[data-act=start-pick]'); await click('[data-act=start-relic]'); await click('[data-act=start-go]'); await sleep(150);
   await ev(`(() => { const r = __bal.run; r.gold = 30; r.bag.push('cap', 'bloodthirster'); r.phase = 'map'; r.opts = [{ type: 'event', id: 'smith' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(150);
   ok(await ev(`document.querySelectorAll('[data-act=event]').length === 3 && !document.querySelector('[data-act=event][data-arg="2"]').disabled && !!document.querySelector('[data-act=event][data-arg="2"] .price')`), 'event: 3 choices, the priced one is available');
   await shot('09-event'); await noHScroll('event'); await noVScroll('event');
@@ -191,10 +194,10 @@ if (!REMOTE) {
 if (!REMOTE) {
   await ev(`fetch('/api/elo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'enter', pid: 'b'.repeat(32), name: 'Rival', team: [{ key: 'bastion', lvl: 3, specs: [], items: ['warmog', 'longsword'], bonus: {}, pos: { c: 3, r: 4 } }], relics: ['feather'] }) })`);
   await click('[data-act=new-run]'); await sleep(150);
-  await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`); await click('[data-act=start-go]'); await sleep(150);
-  await ev(`(() => { const r = __bal.run; B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k)));
+  await click('[data-act=start-pick]'); await click('[data-act=start-relic]'); await click('[data-act=start-go]'); await sleep(150);
+  await ev(`(() => { const r = __bal.run; while (r.heroes.length < 3) B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k)));
     r.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[0].id); h.items = ['bloodthirster', 'warmog', 'deathcap', 'guardian']; }); r.heroes[0].items = ['obs_blade', 'obs_plate', 'obs_helm', 'mountainheart']; r.bag.push('worldsplitter', 'aegis', 'storm_boots');
-    r.relics.push('drum'); r.step = B.CFG.seq.length - 2; r.fightNo = 6; B.Run.advance(r); __bal.render(); })()`);
+    r.relics.push('drum'); r.step = B.Run.seqOf(r).length - 2; r.fightNo = 8; B.Run.advance(r); __bal.render(); })()`);
   ok(await ev(`__bal.run.phase === 'gauntlet' && !!document.querySelector('form[data-form=gauntlet]') && !document.querySelector('form[data-form=score]') && !/Onslaught/.test(document.body.textContent)`), 'after the last shop comes the Gauntlet (no Onslaught)');
   await shot('16-gauntlet-intro');
   // itemization v16: the team sheet with 3 heroes at Lv 5, a full set and items in the bag still fits the phone

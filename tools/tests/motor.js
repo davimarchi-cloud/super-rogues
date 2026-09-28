@@ -81,7 +81,7 @@ for (const r of RELICS) {
   ok(make() === make(), 'same seed, same fight');
 }
 
-// run structure: 2 options per step, bosses at fights 3 and 6 with a single option, final shop, then the gauntlet
+// run structure (review #22): 2 options per step, bosses at fights 4 and 8 with a single option, final shop, then the gauntlet
 {
   const run = Run.newRun(5); Run.pickStart(run, run.startOffer.slice(0, 2));
   const seen = [];
@@ -93,8 +93,21 @@ for (const r of RELICS) {
     else if (run.phase === 'shop' || run.phase === 'event') Run.leave(run);
     while (run.pending.length) Run.chooseSpec(run, 0);
   }
-  ok(seen.join(' ') === 'F2 X2 F2 X2 B1 X2 F2 X2 F2 X2 B1 S2 G0' && run.phase === 'gauntlet', 'node sequence ' + seen.join(' '));
-  ok(run.fightNo === 6, 'six fights before the gauntlet');
+  ok(seen.join(' ') === 'F2 X2 F2 X2 F2 X2 B1 X2 F2 X2 F2 X2 F2 X2 B1 S2 G0' && run.phase === 'gauntlet', 'node sequence ' + seen.join(' '));
+  ok(run.fightNo === 8, 'eight fights before the gauntlet');
+}
+// review #22: 1 hero and 1 relic at the start, the hero shop is offered while you have a single hero, old runs keep 13 steps
+{
+  const run = Run.newRun(77);
+  ok(run.startOffer.length === 3 && run.relicOffer.length === 3 && run.relicOffer.every(id => B.RELIC[id]), '3 heroes and 3 relics offered');
+  Run.pickStart(run, [run.startOffer[1]], run.relicOffer[2]);
+  ok(run.heroes.length === 1 && run.heroes[0].key === run.startOffer[1] && run.relics.includes(run.relicOffer[2]), 'the run starts with the chosen hero and relic');
+  Run.choose(run, 0); const W = Run.fightWorld(run); W.over = true; W.winner = 0; Run.finishFight(run, W); while (run.pending.length) Run.chooseSpec(run, 0);
+  ok(run.opts.some(o => o.kind === 'heroShop'), 'with a single hero, the first shop/event step offers the Hero Shop');
+  const b1 = Run.makeFight(run, 'boss', 4, 1), b2 = Run.makeFight(run, 'boss', 8, 2);
+  ok(b1.enemies.some(e => e.key === 'gorewarden') && b2.enemies.some(e => e.key === 'hollowking') && b1.scale === CFG.fightScale[4] && b2.scale === CFG.fightScale[8] && b2.scale > b1.scale, `bosses at fights 4 and 8 (scale ${b1.scale} and ${b2.scale})`);
+  const old = Run.migrate({ v: 4, step: 4, heroes: [], bag: [], relics: [], fightNo: 2 });
+  ok(old.v === 5 && old.seq.length === 13 && old.seq[4] === 'B' && old.fightScale[3] === 1.3, 'a run saved before this change keeps its 13 steps and scale');
 }
 
 // review #9: the Onslaught is gone
@@ -148,7 +161,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(k.range === B.HEROES.kestrel.range + 1 && k.m.multishot === 0.5, 'Ranger set reaches the fight: +1 range and multishot');
   const old = { v: 3, heroes: [{ uid: 1, items: ['longsword', 'bloodthirster', 'chainmail'] }], bag: [], relics: [] };
   const mig = Run.migrate(old);
-  ok(mig.v === 4 && mig.heroes[0].items.join() === 'longsword,chainmail' && mig.bag.join() === 'bloodthirster', 'old saves: a second item of a type goes back to the bag');
+  ok(mig.v >= 4 && mig.heroes[0].items.join() === 'longsword,chainmail' && mig.bag.join() === 'bloodthirster', 'old saves: a second item of a type goes back to the bag');
   let late = 0, early = 0;
   for (let s = 0; s < 60; s++) {
     const r = Run.newRun(s); Run.pickStart(r, ['brakk', 'morrow']);

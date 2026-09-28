@@ -7,7 +7,7 @@ let eventsSeen = 0;
 const { Run, Sim, HEROES, ITEM } = B;
 
 const casts = {}; for (const k in Sim.abilities) { const f = Sim.abilities[k]; Sim.abilities[k] = (W, u, x) => { const r = f(W, u, x); if (r) casts[k] = (casts[k] || 0) + 1; return r; }; }
-const stats = { fights: {}, boss: { 3: [0, 0], 6: [0, 0] }, scores: [], waves: [], lv: [0, 0, 0, 0, 0, 0], reached: 0, nan: 0, fightSecs: [] };
+const stats = { fights: {}, boss: { 4: [0, 0], 8: [0, 0] }, scores: [], waves: [], lv: [0, 0, 0, 0, 0, 0], reached: 0, nan: 0, fightSecs: [] };
 const rank = id => B.RARITIES.findIndex(r => r.id === ITEM[id].tier);
 
 // best rarity first, one item per type (itemization v16): an item whose type the hero already wears waits for the next hero
@@ -24,7 +24,7 @@ function playFight(run, W) {
 }
 for (let n = 0; n < RUNS; n++) {
   const run = Run.newRun(SEED0 * 1000 + n);
-  Run.pickStart(run, run.startOffer.slice(0, 2));
+  Run.pickStart(run, run.startOffer.slice(0, 1), run.relicOffer[0]);  // review #22: 1 hero and 1 relic
   let guard = 0;
   while (run.phase !== 'over' && run.phase !== 'gauntlet' && guard++ < 200) {
     while (run.pending.length) Run.chooseSpec(run, Run.rnd(run) < 0.5 ? 0 : 1);
@@ -73,7 +73,7 @@ for (let n = 0; n < RUNS; n++) {
 const pct = (a) => a[1] ? Math.round(100 * a[0] / a[1]) + '% (' + a[0] + '/' + a[1] + ')' : '-';
 console.log('runs', RUNS, 'team', TEAM);
 console.log('fights:', Object.keys(stats.fights).sort().map(k => k + ' ' + pct(stats.fights[k])).join(' | '));
-console.log('boss 3:', pct(stats.boss[3]), ' boss 6:', pct(stats.boss[6]));
+console.log('boss 1 (fight 4):', pct(stats.boss[4]), ' boss 2 (fight 8):', pct(stats.boss[8]));
 const avg = a => a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1) : '-';
 console.log('reached the gauntlet:', stats.reached, 'of', RUNS, EVENTS ? '(events visited: ' + eventsSeen + ')' : '');
 console.log('fight length avg (s):', avg(stats.fightSecs), ' max', Math.max(...stats.fightSecs).toFixed(0));

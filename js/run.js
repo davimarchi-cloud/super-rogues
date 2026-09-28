@@ -18,7 +18,7 @@
     if (!run) return run;
     if (run.v === 2) {
       run.v = 3; run.relics = (run.relics || []).filter(id => B.RELIC[id]);
-      if (run.phase !== 'over' && (C.seq[run.step] === 'G' || (run.cur && run.cur.type === 'onslaught') || (run.opts || []).some(o => o.type === 'onslaught'))) { run.phase = 'gauntlet'; run.g = run.g || { status: 'intro', history: [] }; run.cur = null; run.opts = []; }
+      if (run.phase !== 'over' && (['F', 'X', 'F', 'X', 'B', 'X', 'F', 'X', 'F', 'X', 'B', 'S', 'G'][run.step] === 'G' || (run.cur && run.cur.type === 'onslaught') || (run.opts || []).some(o => o.type === 'onslaught'))) { run.phase = 'gauntlet'; run.g = run.g || { status: 'intro', history: [] }; run.cur = null; run.opts = []; }
     }
     // v4 (itemization v16): one item per type on each hero; a second item of a type goes back to the bag
     if (run.v === 3) {
@@ -30,20 +30,26 @@
         h.items = keep;
       }
     }
-    return run.v === 4 ? run : null;
+    // v5 (review #22): the sequence and the fight scale live in the run; runs started before keep the old 13 steps
+    if (run.v === 4) { run.v = 5; run.seq = ['F', 'X', 'F', 'X', 'B', 'X', 'F', 'X', 'F', 'X', 'B', 'S', 'G']; run.fightScale = [1, 0.9, 1.1, 1.3, 1.5, 1.75, 2]; }
+    return run.v === 5 ? run : null;
   }
+  const seqOf = run => run.seq || C.seq;
   function newRun(seed) {
-    const run = { v: 4, seed: seed >>> 0, rs: seed | 0, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
-      step: -1, fightNo: 0, phase: 'start', opts: [], cur: null, pending: [], curse: 0, log: [], won: 0, lost: 0, score: 0, startOffer: [] };
-    run.startOffer = pickN(run, Object.keys(B.HEROES), 3);
+    const run = { v: 5, seed: seed >>> 0, rs: seed | 0, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
+      step: -1, fightNo: 0, phase: 'start', opts: [], cur: null, pending: [], curse: 0, log: [], won: 0, lost: 0, score: 0, startOffer: [],
+      seq: C.seq.slice(), fightScale: C.fightScale.slice() };
+    run.startOffer = pickN(run, Object.keys(B.HEROES), C.startOffer);
+    run.relicOffer = pickN(run, B.RELICS.map(r => r.id), C.startOffer);  // review #22: the run also starts with a relic
     return run;
   }
   function addHero(run, key) {
     const h = { uid: ++run.nuid, key, lvl: 1, xp: 0, specs: [], items: [], bonus: {}, pos: null };
     run.heroes.push(h); autoPlace(run, h); return h;
   }
-  function pickStart(run, keys) {
-    for (const k of keys.slice(0, 2)) addHero(run, k);
+  function pickStart(run, keys, relic) {
+    for (const k of keys.slice(0, C.maxTeam)) addHero(run, k);
+    if (relic && B.RELIC[relic]) gainRelic(run, relic);
     run.phase = 'map'; advance(run);
   }
   const teamMax = run => C.maxTeam + (run.relics.includes('crest') ? 1 : 0);
@@ -132,18 +138,18 @@
 
   // ------------------------------------------------------------------ fights
   function poolFor(n) { let k = 1; for (const x of Object.keys(B.POOLS).map(Number)) if (x <= n) k = x; return B.POOLS[k]; }
-  function makeFight(run, diff, fightNo) {
-    const scale = C.fightScale[fightNo];
+  function makeFight(run, diff, fightNo, nth) {
+    const fs = run.fightScale || C.fightScale, scale = fs[Math.min(fightNo, fs.length - 1)];
     const enemies = [];
     if (diff === 'boss') {
-      const boss = fightNo <= 3 ? B.BOSSES.gorewarden : B.BOSSES.hollowking;
+      const boss = (nth || (fightNo <= 4 ? 1 : 2)) === 1 ? B.BOSSES.gorewarden : B.BOSSES.hollowking;
       enemies.push({ key: boss.key, c: 3 + Math.floor(rnd(run) * 2), r: 1 });
       boss.escort.forEach(k => enemies.push({ key: k }));
     } else {
       const d = B.DIFF[diff], pool = poolFor(fightNo);
-      let budget = d.budget * (1 + 0.12 * (fightNo - 1));
+      let budget = d.budget * (1 + 0.12 * (fightNo - 1)) * (fightNo === 1 ? C.firstFight || 1 : 1);
       while (budget > 0.4 && enemies.length < 12) { const k = pick(run, pool); enemies.push({ key: k }); budget -= B.MOBS[k].cost; }
-      const nElite = d.elites + (fightNo >= 4 && diff !== 'easy' ? 1 : 0);
+      const nElite = d.elites + (fightNo > bossFight(run, 1) && diff !== 'easy' ? 1 : 0);
       for (const e of pickN(run, enemies, nElite)) e.elite = pick(run, B.ELITES).id;
     }
     // formation: melee in front (rows 2-3), ranged behind (rows 0-1)
@@ -252,18 +258,21 @@
   }
 
   // ------------------------------------------------------------------ map
+  // the fight number of the n-th boss in this run's sequence
+  function bossFight(run, n) { let f = 0, b = 0; for (const t of seqOf(run)) { if (t === 'F' || t === 'B') f++; if (t === 'B' && ++b === n) return f; } return f; }
   function advance(run) {
     run.step++;
-    const t = C.seq[run.step];
+    const t = seqOf(run)[run.step];
     run.phase = 'map'; run.opts = [];
     if (t === 'F' || t === 'B') {
       const n = run.fightNo + 1;
-      if (t === 'B') run.opts = [makeFight(run, 'boss', n)];
+      if (t === 'B') run.opts = [makeFight(run, 'boss', n, seqOf(run).slice(0, run.step + 1).filter(x => x === 'B').length)];
       else run.opts = pickN(run, ['easy', 'medium', 'hard'], 2).sort((a, b) => ['easy', 'medium', 'hard'].indexOf(a) - ['easy', 'medium', 'hard'].indexOf(b)).map(d => makeFight(run, d, n));
     } else if (t === 'X') {
       const w = { heroShop: 0.25, itemShop: 0.3, relicShop: 0.2, event: 0.25 };
       if (run.heroes.length >= teamMax(run)) delete w.heroShop;
-      const a = wpick(run, w); delete w[a]; const b = wpick(run, w);
+      // review #22: with a single hero the hero shop is always one of the two options
+      const a = run.heroes.length === 1 && w.heroShop ? 'heroShop' : wpick(run, w); delete w[a]; const b = wpick(run, w);
       run.opts = [a, b].map(k => k === 'event' ? { type: 'event', id: pick(run, B.EVENTS).id } : { type: 'shop', kind: k });
     } else if (t === 'S') {
       run.opts = pickN(run, ['heroShop', 'itemShop', 'relicShop'].filter(k => k !== 'heroShop' || run.heroes.length < teamMax(run)), 2).map(k => ({ type: 'shop', kind: k, final: true }));
@@ -293,7 +302,7 @@
   function tierWeights(run) {
     const n = run.fightNo;
     return n <= 1 ? { common: 0.55, uncommon: 0.3, rare: 0.13, epic: 0.02 }
-      : n <= 3 ? { common: 0.25, uncommon: 0.27, rare: 0.28, epic: 0.1, set: 0.07, legendary: 0.03 }
+      : n <= bossFight(run, 1) ? { common: 0.25, uncommon: 0.27, rare: 0.28, epic: 0.1, set: 0.07, legendary: 0.03 }
       : { common: 0.1, uncommon: 0.17, rare: 0.3, epic: 0.18, set: 0.12, legendary: 0.09, mythic: 0.04 };
   }
   function randomItem(run, tier) { const t = tier || wpick(run, tierWeights(run)); return pick(run, B.ITEMS.filter(i => i.tier === t)).id; }
@@ -348,7 +357,7 @@
     if (id === 'mercs') { const have = new Set(run.heroes.map(h => h.key)); o.heroes = pickN(run, Object.keys(B.HEROES).filter(k => !have.has(k)), 2); }
     if (id === 'armory') {
       o.items = pickN(run, B.TYPES.map(t => t.id), 3).map(t => {
-        const tier = wpick(run, run.fightNo >= 4 ? { rare: 0.4, epic: 0.35, set: 0.25 } : { uncommon: 0.3, rare: 0.45, epic: 0.15, set: 0.1 });
+        const tier = wpick(run, run.fightNo > bossFight(run, 1) ? { rare: 0.4, epic: 0.35, set: 0.25 } : { uncommon: 0.3, rare: 0.45, epic: 0.15, set: 0.1 });
         const pool = B.ITEMS.filter(i => i.type === t && i.tier === tier);
         return pick(run, pool.length ? pool : B.ITEMS.filter(i => i.type === t && i.tier === 'rare')).id;
       });
@@ -465,7 +474,7 @@
 
   B.Run = { newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
     finishFight, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
-    eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate, canEquip, setCounts, setBonuses,
+    eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate, canEquip, setCounts, setBonuses, seqOf, bossFight,
     eventChoices, eventTargets, canChoose, itemRefs, upgradedOf };
   if (typeof module !== 'undefined') module.exports = B.Run;
 })(typeof window !== 'undefined' ? window : globalThis);

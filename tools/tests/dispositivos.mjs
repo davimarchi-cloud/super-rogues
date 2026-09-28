@@ -43,7 +43,7 @@ for (const d of DEVICES) {
   await ev(`localStorage.clear()`); await send('Page.reload'); await sleep(900);
   await noHScroll(d.name + ' title');
   await ev(`document.querySelector('[data-act=new-run]').click()`); await sleep(200);
-  await ev(`document.querySelectorAll('[data-act=start-pick]')[0].click(); document.querySelectorAll('[data-act=start-pick]')[1].click(); document.querySelector('[data-act=start-go]').click()`); await sleep(300);
+  await ev(`document.querySelectorAll('[data-act=start-pick]')[0].click(); document.querySelectorAll('[data-act=start-relic]')[0].click(); document.querySelector('[data-act=start-go]').click()`); await sleep(300);
   await noHScroll(d.name + ' map'); await shot('dev-' + d.name + '-map');
   await ev(`document.querySelector('[data-act=choose]').click()`); await sleep(400);
   await noHScroll(d.name + ' deploy');

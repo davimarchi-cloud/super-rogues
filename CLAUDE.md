@@ -121,6 +121,16 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v24 (2026-09-28), lote 22 do David** (começa com 1 herói e 1 relíquia; +1 luta e +1 loja/evento antes de cada
+  chefe): `CFG.seq` com 17 passos (F X F X F X B X F X F X F X B S G), chefes nas lutas 4 e 8. A run guarda `seq` e
+  `fightScale` (save v5; runs antigas continuam com os 13 passos). Início: 3 heróis e 3 relíquias oferecidos, escolhe 1
+  de cada (`pickStart(run, [key], relic)`); com 1 herói só, a Hero Shop é sempre uma das opções da loja/evento.
+  Balanceamento (bot 300 runs): 1ª luta com metade do orçamento de inimigos (`CFG.firstFight` 0.5; sozinho ele caía em
+  30-70%), `fightScale` [1, .9, 1, 1.15, 1.5, 1.6, 1.8, 2, 2.3]: 1º chefe 24% (igual a antes), 2º 41%, Gauntlet 8% das
+  runs (era ~4%: um pouco mais generoso, como compensação). Matriz: Lv2 + 1 relíquia no chefe 1 (48-51%), Lv3 + 2
+  relíquias no chefe 2 (36-38%). Os testes de Chrome usam esperas fixas: se falharem em cascata logo depois da matriz,
+  rode de novo antes de mexer em código.
+
 - **v23 (2026-09-28), lote 21 do David** (ligas): `B.LEAGUES` Bronze, Silver, Gold, Platinum, Diamond, Celestial;
   `B.LEAGUE_RULES` {step 10, duelWin +1, pveLoss -2}. Colunas `players.league` (índice) e `players.lp` (pontos dentro
   da liga); `leaguePoints()` no api/elo.js: 10 pontos sobem uma liga, NUNCA cai (os pontos param em 0; decisão minha,

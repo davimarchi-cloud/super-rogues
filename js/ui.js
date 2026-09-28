@@ -166,7 +166,7 @@
     }
     const stepN = Math.max(0, run.step);
     const elo = store.get('balance.elo', null), g = run.g;
-    const prog = g ? (g.round != null ? 'Gauntlet · floor ' + (g.round + 1) : 'Gauntlet') : 'Day ' + (stepN + 1) + '/' + CFG.seq.length;
+    const prog = g ? (g.round != null ? 'Gauntlet · floor ' + (g.round + 1) : 'Gauntlet') : 'Day ' + (stepN + 1) + '/' + Run.seqOf(run).length;
     const lgs = store.get('balance.league', null);
     h.innerHTML = `${elo != null ? `<button class="lgchip" data-act="player-tab" title="${lgs ? leagueName(lgs.league) + ' league · ' : ''}Elo ${elo}" aria-label="Your league and Elo">${emblem(lgs ? lgs.league : 0, 18)}<span>${elo}</span></button>` : ''}
       <span class="gold" title="Gold">${run.gold}</span><span class="prog">${prog}</span>
@@ -216,20 +216,26 @@
       ${chips({ hp: h.hp, atk: h.atk, armor: h.armor, mr: h.mr, as: h.as, range: h.range })}
       <div class="abil"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div>${scaleTag(key)}${extra}</div>`;
   }
+  // review #22 (David): the run starts with 1 hero and 1 relic: pick one of each (3 offered)
   function startHTML() {
-    const f = run.startOffer.includes(ui.focus) ? ui.focus : run.startOffer[0], h = HEROES[f], n = ui.startPick.length;
-    return `<section class="start"><h2 class="sc">Choose your champions</h2><p class="hint center">Pick 2. Tap a banner to read it.</p>
+    const f = run.startOffer.includes(ui.focus) ? ui.focus : ui.startPick[0] || run.startOffer[0], h = HEROES[f], n = ui.startPick.length;
+    const relics = run.relicOffer || [], rsel = ui.startRelic && relics.includes(ui.startRelic) ? ui.startRelic : null, ready = n === CFG.startHeroes && (!relics.length || rsel);
+    const relicRow = relics.length ? `<div class="srelics">${relics.map(id => `<button class="srelic ${rsel === id ? 'on' : ''} ${ui.focusRelic === id ? 'focus' : ''}" data-act="start-relic" data-arg="${id}">${ico('relic', id, 30)}<b class="relic">${esc(RELIC[id].name)}</b>${rsel === id ? '<span class="chk">✓</span>' : ''}</button>`).join('')}</div>` : '';
+    const fr = ui.focusRelic && relics.includes(ui.focusRelic) ? RELIC[ui.focusRelic] : null;
+    return `<section class="start"><h2 class="sc">Choose your champion</h2><p class="hint center">Pick 1 hero and 1 relic (tap to read). More heroes join in the Hero Shop.</p>
       <div class="hbanners">${run.startOffer.map(k => { const d = HEROES[k], on = ui.startPick.includes(k);
         return `<button class="hbanner ${on ? 'on' : ''} ${k === f ? 'focus' : ''}" data-act="start-pick" data-arg="${k}" style="--cloth:${d.color}">
           <span class="rod"></span><img src="${por(k, 120, true)}" alt=""><b>${esc(d.name)}</b><i>${d.role}</i>${on ? '<span class="chk">✓</span>' : ''}</button>`; }).join('')}</div>
-      <div class="card detail"><div class="hrow">${img(f, 48)}<b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
+      ${relicRow}
+      ${fr ? `<div class="card detail"><div class="hrow">${ico('relic', fr.id, 44)}<b class="relic">${esc(fr.name)}</b><span class="role">relic</span></div><div class="abil">${fmt(fr.desc)}</div></div>`
+        : `<div class="card detail"><div class="hrow">${img(f, 48)}<b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
         ${chips({ hp: h.hp, atk: h.atk, armor: h.armor, mr: h.mr, as: h.as, range: h.range, crit: h.crit ? pct(h.crit) : 0, dodge: h.dodge ? pct(h.dodge) : 0 })}
-        <div class="abil"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div>${scaleTag(f)}</div>
-      <div class="bar"><button class="primary big" data-act="start-go" ${n === 2 ? '' : 'disabled'}>Begin the journey (${n}/2)</button></div></section>`;
+        <div class="abil"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div>${scaleTag(f)}</div>`}
+      <div class="bar"><button class="primary big" data-act="start-go" ${ready ? '' : 'disabled'}>${ready ? 'Begin the journey' : !n ? 'Pick a hero' : 'Pick a relic'}</button></div></section>`;
   }
 
   function trackHTML() {
-    return `<div class="track">${CFG.seq.map((t, i) => `<span class="node ${i < run.step ? 'done' : i === run.step ? 'cur' : ''} ${t === 'B' ? 'boss' : ''}" title="${t}">${NODE_ICON[t]}</span>`).join('')}</div>`;
+    return `<div class="track">${Run.seqOf(run).map((t, i) => `<span class="node ${i < run.step ? 'done' : i === run.step ? 'cur' : ''} ${t === 'B' ? 'boss' : ''}" title="${t}">${NODE_ICON[t]}</span>`).join('')}</div>`;
   }
   function enemyList(f) {
     const cnt = {};
@@ -263,7 +269,7 @@
     return out.join(', ');
   }
   function mapHTML() {
-    const t = CFG.seq[run.step];
+    const t = Run.seqOf(run)[run.step];
     const title = t === 'B' ? 'A boss blocks the way' : t === 'S' ? 'One last shop' : 'Choose your path';
     return `<section>${trackHTML()}<h2 class="sc">Day ${run.step + 1} · ${title}</h2>${run.nextMod ? `<p class="nextmod">⚑ Next fight: ${fmt(modText(run.nextMod))}</p>` : ''}<div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
       ${partyHTML()}</section>`;
@@ -277,8 +283,9 @@
         <span class="pmi">${h.items.map(id => `<img class="ico xs" src="${B.Icons.item(id, 20)}" alt="">`).join('') || '<i class="dim">no items</i>'}</span></span></button>`;
     }).join('');
     let boss = '';
-    for (let k = Math.max(0, run.step); k < CFG.seq.length; k++) if (CFG.seq[k] === 'B') {
-      const nth = CFG.seq.slice(0, k + 1).filter(x => x === 'B').length, b = nth === 1 ? B.BOSSES.gorewarden : B.BOSSES.hollowking, d = k - run.step;
+    const seq = Run.seqOf(run);
+    for (let k = Math.max(0, run.step); k < seq.length; k++) if (seq[k] === 'B') {
+      const nth = seq.slice(0, k + 1).filter(x => x === 'B').length, b = nth === 1 ? B.BOSSES.gorewarden : B.BOSSES.hollowking, d = k - run.step;
       boss = `<div class="nextboss">${img(b.key, 40, 'por')}<div><b>☠ ${esc(b.name)}</b> <span class="dim">${d <= 0 ? 'today' : 'in ' + d + ' day' + (d > 1 ? 's' : '')}</span><span class="small">${fmt(b.desc)}</span></div></div>`;
       break;
     }
@@ -829,8 +836,8 @@
   }
   const HOWTO = `<div class="shead"><b>How to play</b><button data-act="close">✕</button></div>
     <ol class="small howto">
-      <li>Pick 2 starting heroes. Each has a unique ability that fires when its blue mana bar is full.</li>
-      <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 3 and 6 are bosses.</li>
+      <li>Start with 1 hero and 1 relic (3 of each offered). Each hero has a unique ability that fires when its blue mana bar is full. Recruit up to 3 heroes in the Hero Shop.</li>
+      <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 4 and 8 are bosses.</li>
       <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
       <li>How abilities scale: <span class="kw-atk">physical</span> abilities deal a % of <b>attack</b>; <span class="kw-ap">magic</span> abilities deal a % of attack multiplied by <b>ability power</b> (100 AP = ×1, 150 AP = ×1.5), and so do burns and heals; shields are a % of <b>max HP</b>. Tap a hero (in battle or in Team) to see its numbers.</li>
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
@@ -915,12 +922,13 @@
 
   // ------------------------------------------------------------------ actions
   const ACT = {
-    'new-run': () => { run = Run.newRun((Math.random() * 2 ** 31) | 0); ui.startPick = []; screen = 'run'; save(); render(); },
+    'new-run': () => { run = Run.newRun((Math.random() * 2 ** 31) | 0); ui.startPick = []; ui.startRelic = null; ui.focusRelic = null; screen = 'run'; save(); render(); },
     'continue-run': () => { screen = 'run'; render(); },
     menu: () => { if (battle) return; screen = 'title'; closeModal(); render(); },
     howto: () => openModal(HOWTO),
-    'start-pick': k => { const i = ui.startPick.indexOf(k); ui.focus = k; if (i >= 0) ui.startPick.splice(i, 1); else if (ui.startPick.length < 2) ui.startPick.push(k); render(); },
-    'start-go': () => { if (ui.startPick.length !== 2) return; Run.pickStart(run, ui.startPick); save(); render(); },
+    'start-pick': k => { ui.focus = k; ui.focusRelic = null; ui.startPick = ui.startPick[0] === k ? [] : [k]; render(); },
+    'start-relic': id => { ui.focusRelic = id; ui.startRelic = ui.startRelic === id ? null : id; render(); },
+    'start-go': () => { if (ui.startPick.length !== CFG.startHeroes || ((run.relicOffer || []).length && !ui.startRelic)) return; Run.pickStart(run, ui.startPick, ui.startRelic); ui.startRelic = null; save(); render(); },
     choose: i => { Run.choose(run, +i); ui.info = null; save(); render(); window.scrollTo(0, 0); },
     spec: i => { Run.chooseSpec(run, +i); save(); render(); },
     fight: () => startBattle(),
