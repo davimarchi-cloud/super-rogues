@@ -4,8 +4,8 @@
 //   node tools/sugestoes.js lendo 3 4          mark as "doing" (players see "in progress")
 //   node tools/sugestoes.js feito 3 "reply"    mark done with a public reply (also stamps lastRun)
 //   node tools/sugestoes.js recusa 4 "reason"  decline with a public reason
-//   node tools/sugestoes.js status             review window + watcher heartbeat
-//   node tools/sugestoes.js janela 60 1        set the review window (minutes, every N min) without the UI
+//   node tools/sugestoes.js status             watcher heartbeat, pause flag, last delivery
+//   node tools/sugestoes.js pausa | retoma     stop / resume waking Claude for new batches
 const { q, SCHEMA } = require('./_env');
 const [cmd, ...args] = process.argv.slice(2);
 const fmt = ms => new Date(Number(ms)).toLocaleString('pt-BR');
@@ -27,12 +27,10 @@ const fmt = ms => new Date(Number(ms)).toLocaleString('pt-BR');
     console.log(`#${id} -> ${cmd === 'feito' ? 'done' : 'declined'}`);
   } else if (cmd === 'status') {
     const kv = Object.fromEntries((await q('select k, v from kv')).map(r => [r.k, r.v]));
-    const c = kv.review ? JSON.parse(kv.review) : { until: 0, every: 5 };
-    console.log(c.until > Date.now() ? `Janela ATIVA até ${fmt(c.until)}, de ${c.every} em ${c.every} min` : 'Janela desligada');
+    console.log(kv.paused === '1' ? 'Revisão PAUSADA' : 'Revisão ligada (acorda a cada envio)');
     console.log('Vigia visto:', kv.seen ? fmt(kv.seen) : 'nunca', ' · Última entrega:', kv.lastRun ? fmt(kv.lastRun) : 'nunca');
-  } else if (cmd === 'janela') {
-    const min = +args[0] || 0, every = Math.max(1, +args[1] || 5);
-    await q("insert into kv (k, v) values ('review',$1) on conflict (k) do update set v=excluded.v", [JSON.stringify({ until: min ? Date.now() + min * 60e3 : 0, every, setAt: Date.now() })]);
-    console.log(min ? `Janela de ${min} min, checando de ${every} em ${every} min` : 'Janela desligada');
+  } else if (cmd === 'pausa' || cmd === 'retoma') {
+    await q("insert into kv (k, v) values ('paused',$1) on conflict (k) do update set v=excluded.v", [cmd === 'pausa' ? '1' : '0']);
+    console.log(cmd === 'pausa' ? 'Revisão pausada' : 'Revisão ligada');
   } else { console.log('comando desconhecido'); process.exit(1); }
 })().catch(e => { console.error(e.message); process.exit(1); });

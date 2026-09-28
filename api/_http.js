@@ -25,12 +25,7 @@ function ipHash(req) {
   const ip = String(req.headers['x-real-ip'] || String(req.headers['x-forwarded-for'] || '').split(',')[0] || (req.socket && req.socket.remoteAddress) || '?').trim();
   return sha((process.env.ADMIN_KEY || 'dev') + '|' + ip).slice(0, 24);
 }
-function adminOk(key) {
-  const k = process.env.ADMIN_KEY;
-  if (!k || typeof key !== 'string' || !key) return false;
-  return crypto.timingSafeEqual(Buffer.from(sha(k), 'hex'), Buffer.from(sha(key), 'hex'));
-}
 // strip control characters (keep newlines and tabs), trim, cap length
 function clean(s, max) { return String(s == null ? '' : s).replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '').trim().slice(0, max); }
 
-module.exports = { send, body, sameOrigin, ipHash, adminOk, clean };
+module.exports = { send, body, sameOrigin, ipHash, clean };

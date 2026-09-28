@@ -118,3 +118,13 @@ main section { padding: 4px 14px; }
 
 #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(80px); background: #000d; border: 1px solid var(--line); padding: 10px 16px; border-radius: 999px; transition: transform .25s; z-index: 30; max-width: 90vw; font-size: 14px; }
 #toast.on { transform: translateX(-50%) translateY(0); }
+.drafts { margin: 6px 0 10px; padding-left: 22px; display: grid; gap: 6px; }
+.drafts li { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 6px 6px 10px; }
+.drafts li { display: list-item; }
+.drafts li span { white-space: pre-wrap; word-break: break-word; font-size: 14px; }
+.drafts li .chip { float: right; min-height: 28px; padding: 2px 9px; margin-left: 8px; }
+.batch { border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; margin: 10px 0; background: #161a23; }
+.batch > .row { flex-wrap: wrap; }
+.batch .sug { margin: 6px 0 0; }
+.st.doing { background: #4a3f1f; color: var(--gold); } .st.new { background: var(--panel2); } .st.done { background: #1f4a2c; color: var(--green); }
+.batch .st, .sug .st { margin-left: auto; font-size: 12px; padding: 1px 8px; border-radius: 999px; }

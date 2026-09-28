@@ -65,7 +65,7 @@
         <button data-act="howto">How to play</button>
         <button data-act="scores">🏆 Leaderboard</button>
       </div>
-      <div class="live"><b>This game is built live from your ideas.</b><br>Suggest a change, a new hero, a rebalance or a whole restructure. Claude reads the queue and ships it.
+      <div class="live"><b>This game is built live from your ideas.</b><br>Write down your changes (a new hero, a rebalance, a whole restructure), press Send for review, and Claude reviews them and ships what fits.
         <button class="primary" data-act="suggest">💡 Suggest a change</button></div>
     </section>`;
   }
@@ -259,7 +259,7 @@
 
   // ------------------------------------------------------------------ modals
   function openModal(html) { const m = $('#modal'); m.innerHTML = `<div class="sheet">${html}</div>`; m.hidden = false; ui.modal = true; }
-  function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.modal = null; }
+  function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.modal = null; clearInterval(ui.sugTimer); }
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2200); }
 
   function teamHTML() {
@@ -292,41 +292,80 @@
       <h3>Relics</h3>${run.relics.length ? run.relics.map(id => `<div class="small">◆ <b>${esc(RELIC[id].name)}</b>: ${esc(RELIC[id].desc)}</div>`).join('') : '<p class="dim small">None yet.</p>'}`;
   }
 
-  function fmtTime(ms) { const d = new Date(ms); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
   function ago(ms, now) { const s = Math.max(0, Math.round((now - ms) / 1000)); return s < 60 ? s + 's ago' : s < 3600 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago'; }
-  function reviewText(r) {
+  // Suggestions: the player writes changes into a local list (up to 10), then presses "Send for review".
+  // That sends the whole list as one batch and wakes Claude (tools/vigia.js) right away.
+  const MAX_DRAFTS = 10;
+  const drafts = () => store.get('balance.drafts', []);
+  function statusHTML(r, list) {
     if (!r) return '';
-    const on = r.until > r.now, online = r.seen && r.now - r.seen < 6 * 60e3;
-    return `<div class="review ${on && online ? 'on' : ''}">${on ? `🟢 Auto-review is <b>ON</b>: Claude checks the queue every <b>${r.every} min</b> until ${fmtTime(r.until)}.` : '⚪ Auto-review is <b>off</b> right now. Suggestions wait in the queue for the next review window.'}
-      <span class="dim">${online ? ' Reviewer online (checked ' + ago(r.seen, r.now) + ').' : ' Reviewer offline.'}${r.lastRun ? ' Last update shipped ' + ago(r.lastRun, r.now) + '.' : ''}</span></div>`;
+    const working = (list || []).some(s => s.status === 'doing');
+    const online = working || (r.seen && r.now - r.seen < 3 * 60e3);
+    const main = r.paused ? '⏸ Reviews are paused by the owner. Your list waits in the queue.'
+      : working ? '🛠 Claude is reviewing a list right now. Yours goes next.'
+      : online ? '🟢 Reviewer online. Claude starts as soon as you press <b>Send for review</b>.'
+      : '⚪ Reviewer offline right now. Your list waits in the queue and is reviewed when it is back.';
+    return `<div class="review ${online && !r.paused ? 'on' : ''}">${main}${r.lastRun ? ` <span class="dim">Last update shipped ${ago(r.lastRun, r.now)}.</span>` : ''}</div>`;
   }
   const STATUS = { new: 'queued', doing: 'in progress', done: 'done ✓', declined: 'declined' };
-  function suggestHTML(data, err) {
-    const key = store.get('balance.ownerKey', '');
-    const list = data ? data.list.map(s => `<div class="sug ${s.status}"><div class="row"><b>#${s.id}</b> <span class="dim">${esc(s.name || 'anonymous')} · ${new Date(s.created).toLocaleDateString()}</span><span class="st">${STATUS[s.status] || esc(s.status)}</span></div>
-      <div class="txt">${esc(s.text)}</div>${s.reply ? `<div class="reply">🤖 ${esc(s.reply)}</div>` : ''}</div>`).join('') : '';
-    return `<div class="shead"><b>💡 Suggest a change</b><button data-act="close">✕</button></div>
-      ${data ? reviewText(data.review) : ''}${err ? `<p class="err">${esc(err)}</p>` : ''}
-      <form data-form="suggest" class="stack">
-        <textarea name="text" maxlength="1500" rows="4" required placeholder="A bug, a rebalance, a new hero, item or relic, a UI change, a full restructure... Be specific. Any language is fine."></textarea>
-        <div class="row"><input name="name" maxlength="24" placeholder="Your name (optional)" value="${esc(store.get('balance.name', ''))}"><button class="primary">Send</button></div>
-      </form>
-      <p class="dim small">Suggestions are public. Claude reads them in review windows, implements what fits the game and replies here. It will decline anything harmful or unrelated to the game.</p>
-      <h3>Queue</h3>${list || '<p class="dim small">Nothing yet. Be the first!</p>'}
-      <details class="owner"><summary>Owner controls</summary>
-        <form data-form="review" class="stack">
-          <label class="small">Review for the next
-            <select name="minutes">${[[0, 'off'], [15, '15 min'], [30, '30 min'], [60, '1 hour'], [120, '2 hours'], [240, '4 hours'], [480, '8 hours'], [1440, '24 hours'], [4320, '3 days'], [10080, '7 days']].map(([v, t]) => `<option value="${v}" ${v === 60 ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-          <label class="small">checking every
-            <select name="every">${[1, 2, 5, 10, 15, 30, 60].map(v => `<option value="${v}" ${v === 1 ? 'selected' : ''}>${v} min</option>`).join('')}</select></label>
-          <input name="key" type="password" placeholder="Owner key" value="${esc(key)}" autocomplete="off">
-          <button class="primary">Save review window</button>
-        </form></details>`;
+  function queueHTML(list) {
+    if (!list.length) return '<p class="dim small">Nothing yet. Be the first!</p>';
+    const groups = [], by = {};
+    for (const s of list) { if (!by[s.batch]) { by[s.batch] = []; groups.push(s.batch); } by[s.batch].push(s); }
+    return groups.map(b => {
+      const items = by[b].sort((x, y) => x.id - y.id), f = items[0];
+      const st = items.some(x => x.status === 'doing') ? 'doing' : items.some(x => x.status === 'new') ? 'new' : 'done';
+      return `<div class="batch"><div class="row"><b>Review #${b}</b><span class="dim small">${esc(f.name || 'anonymous')} · ${new Date(f.created).toLocaleDateString()} · ${items.length} change${items.length > 1 ? 's' : ''}</span><span class="st ${st}">${STATUS[st]}</span></div>
+        ${items.map(s => `<div class="sug ${s.status}"><div class="row"><span class="dim small">#${s.id}</span><span class="st">${STATUS[s.status] || esc(s.status)}</span></div><div class="txt">${esc(s.text)}</div>${s.reply ? `<div class="reply">🤖 ${esc(s.reply)}</div>` : ''}</div>`).join('')}</div>`;
+    }).join('');
   }
-  async function openSuggest(err) {
-    openModal(suggestHTML(null, err) + '<p class="dim">Loading…</p>');
-    try { const d = await Net.get('suggest'); if (ui.modal) openModal(suggestHTML(d, err)); }
-    catch (e) { if (ui.modal) openModal(suggestHTML(null, e.message)); }
+  function draftsHTML() {
+    const d = drafts();
+    return d.length ? `<ol class="drafts">${d.map((t, i) => `<li><span>${esc(t)}</span><button class="chip" data-act="draft-del" data-arg="${i}" aria-label="Remove">✕</button></li>`).join('')}</ol>`
+      : '<p class="dim small">Your list is empty.</p>';
+  }
+  function renderDrafts() {
+    const el = $('#drafts'); if (el) el.innerHTML = draftsHTML();
+    const n = drafts().length, btn = $('[data-act=send-review]');
+    if (btn) btn.textContent = n ? `Send ${n} change${n > 1 ? 's' : ''} for review` : 'Send for review';
+    const add = $('form[data-form=draft] button'); if (add) add.disabled = n >= MAX_DRAFTS;
+  }
+  function suggestShell() {
+    return `<div class="shead"><b>💡 Suggest changes</b><button data-act="close">✕</button></div>
+      <div id="sugStatus"></div>
+      <p class="small">Write each change and tap <b>Add</b>. Got 5 ideas? Add all 5, then tap <b>Send for review</b>: Claude reviews the whole list right away and ships what fits.</p>
+      <form data-form="draft" class="stack">
+        <textarea name="text" maxlength="1500" rows="3" placeholder="A bug, a rebalance, a new hero, item or relic, a UI change, a full restructure... One change per note. Any language is fine."></textarea>
+        <button>+ Add to my list</button>
+      </form>
+      <h3>My list</h3><div id="drafts">${draftsHTML()}</div>
+      <div class="row"><input id="sugName" maxlength="24" placeholder="Your name (optional)" value="${esc(store.get('balance.name', ''))}"><button class="primary" data-act="send-review">Send for review</button></div>
+      <p class="dim small">Everything sent is public. Claude implements what fits the game, replies to each change, and declines anything harmful or unrelated to the game.</p>
+      <div class="row"><h3>Queue</h3><span class="grow"></span><button class="chip" data-act="sug-refresh">↻ Refresh</button></div><div id="sugQueue"><p class="dim">Loading…</p></div>`;
+  }
+  async function loadQueue() {
+    try {
+      const d = await Net.get('suggest');
+      if (ui.modal !== 'suggest') return;
+      $('#sugStatus').innerHTML = statusHTML(d.review, d.list); $('#sugQueue').innerHTML = queueHTML(d.list);
+    } catch (e) { const q = $('#sugQueue'); if (q && ui.modal === 'suggest') q.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+  }
+  function openSuggest() {
+    openModal(suggestShell()); ui.modal = 'suggest'; renderDrafts(); loadQueue();
+    clearInterval(ui.sugTimer); ui.sugTimer = setInterval(() => { if (ui.modal === 'suggest') loadQueue(); else clearInterval(ui.sugTimer); }, 20000);
+  }
+  async function sendReview(btn) {
+    const ta = $('form[data-form=draft] textarea'), extra = ta ? ta.value.trim() : '';
+    const items = drafts().concat(extra ? [extra] : []).slice(0, MAX_DRAFTS);
+    if (!items.length) { toast('Add at least one change first'); return; }
+    const name = (($('#sugName') || {}).value || '').trim(); store.set('balance.name', name);
+    btn.disabled = true;
+    try {
+      const r = await Net.post('suggest', { items, name });
+      store.set('balance.drafts', []); if (ta) ta.value = '';
+      renderDrafts(); toast(`Sent! Review #${r.batch} (${items.length} change${items.length > 1 ? 's' : ''}) is in the queue.`); loadQueue();
+    } catch (e) { toast(e.message); }
+    btn.disabled = false;
   }
   async function openScores() {
     openModal('<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="dim">Loading…</p>');
@@ -372,6 +411,9 @@
     sell: () => { if (ui.selBag < 0) return; Run.sell(run, ui.selBag); ui.selBag = -1; save(); openModal(teamHTML()); header(); },
     close: () => { closeModal(); ui.selBag = -1; if (!battle) render(); },
     suggest: () => openSuggest(),
+    'draft-del': i => { const d = drafts(); d.splice(+i, 1); store.set('balance.drafts', d); renderDrafts(); },
+    'send-review': (a, el) => sendReview(el),
+    'sug-refresh': () => loadQueue(),
     scores: () => openScores(),
   };
   function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = run.cur && run.cur.type === 'onslaught' ? Run.onslaughtWorld(run, true) : Run.fightWorld(run, true); drawPreview(); } }
@@ -381,19 +423,16 @@
     e.preventDefault(); const f = ACT[el.dataset.act]; if (f) f(el.dataset.arg, el);
   });
   $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') ACT.close(); });
+  document.addEventListener('input', e => { if (e.target.id === 'sugName') store.set('balance.name', e.target.value.trim()); });
   document.addEventListener('submit', async e => {
     const f = e.target.closest('form[data-form]'); if (!f) return; e.preventDefault();
     const kind = f.dataset.form, btn = f.querySelector('button'); if (btn) btn.disabled = true;
     try {
-      if (kind === 'suggest') {
-        const text = f.text.value.trim(), name = f.name.value.trim();
-        if (name) store.set('balance.name', name);
-        const r = await Net.post('suggest', { text, name });
-        toast('Sent! Suggestion #' + r.id + ' is in the queue.'); await openSuggest();
-      } else if (kind === 'review') {
-        store.set('balance.ownerKey', f.key.value);
-        await Net.post('review', { key: f.key.value, minutes: +f.minutes.value, every: +f.every.value });
-        toast('Review window saved'); await openSuggest();
+      if (kind === 'draft') {
+        const t = f.text.value.trim(); if (btn) btn.disabled = false;
+        if (t.length < 5) { toast('Write at least a few words'); return; }
+        const d = drafts(); if (d.length >= MAX_DRAFTS) { toast('Up to ' + MAX_DRAFTS + ' changes per review'); return; }
+        d.push(t); store.set('balance.drafts', d); f.text.value = ''; renderDrafts(); f.text.focus();
       } else if (kind === 'score') {
         const name = f.name.value.trim(); store.set('balance.name', name);
         await Net.post('scores', { name, score: run.score, wave: run.wave, heroes: run.heroes.map(h => h.key) });

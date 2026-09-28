@@ -1,6 +1,6 @@
 // Plays a whole run in a real (headless) Chrome at phone size, clicking the real buttons.
 // Checks: no JS errors, no CSP violations, no horizontal scroll, smooth movement (fractional positions mid-move),
-// suggestion box + owner review window + leaderboard. Screenshots go to tools/tests/.saida/.
+// suggestion list + 'Send for review' button + leaderboard. Screenshots go to tools/tests/.saida/.
 // Usage: node tools/tests/telas.mjs [baseUrl]   (without baseUrl it starts tools/dev-server.js)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -134,18 +134,27 @@ if (fin.result === 'onslaught' && !REMOTE) {
   await click('[data-act=close]');
 }
 
-// suggestion box
-if (REMOTE) { await click('[data-act=suggest]'); await sleep(1500); ok(await ev(`!!document.querySelector('.review') && !!document.querySelector('form[data-form=suggest]')`), 'live suggestion box loads with review status'); await shot('12-suggest-live'); await click('[data-act=close]'); }
-else {
-await click('[data-act=suggest]'); await sleep(500);
-await ev(`(() => { const f = document.querySelector('form[data-form=suggest]'); f.text.value = 'Please add a hero that <b>reflects</b> spells'; f.name.value = 'Tester'; f.querySelector('button').click(); })()`);
-await sleep(700);
-ok(await ev(`document.querySelector('#modal').textContent.includes('reflects') && !document.querySelector('#modal b.injected') && document.querySelector('#modal .sug .txt').innerHTML.includes('&lt;b&gt;')`), 'suggestion posted and shown escaped');
-await ev(`(() => { document.querySelector('details.owner').open = true; const f = document.querySelector('form[data-form=review]'); f.key.value = 'dev-key'; f.minutes.value = '60'; f.every.value = '1'; f.querySelector('button').click(); })()`);
-await sleep(700);
-ok(await ev(`document.querySelector('.review').textContent.includes('ON') && document.querySelector('.review').textContent.includes('every 1 min')`), 'owner turns on review: 1 h, every 1 min');
-await shot('12-suggest'); await noHScroll('suggest sheet');
-await click('[data-act=close]');
+// suggestion box: write several changes into the list, then ONE button sends them all for review
+if (REMOTE) {
+  await click('[data-act=suggest]'); await sleep(1800);
+  ok(await ev(`!!document.querySelector('#sugStatus .review') && !!document.querySelector('form[data-form=draft]') && !!document.querySelector('[data-act=send-review]')`), 'live suggestion box loads with reviewer status');
+  await shot('12-suggest-live'); await click('[data-act=close]');
+} else {
+  await click('[data-act=suggest]'); await sleep(600);
+  const addNote = t => ev(`(() => { const f = document.querySelector('form[data-form=draft]'); f.text.value = ${JSON.stringify(t)}; f.querySelector('button').click(); })()`);
+  await addNote('Please add a hero that <b>reflects</b> spells'); await addNote('Make the Onslaught waves bigger'); await addNote('Pyra burn lasts 1s longer');
+  await sleep(150);
+  ok(await ev(`document.querySelectorAll('#drafts li').length === 3 && document.querySelector('[data-act=send-review]').textContent.includes('Send 3 changes')`), 'three notes wait in the list before sending');
+  await ev(`document.querySelectorAll('[data-act=draft-del]')[2].click()`);
+  ok(await ev(`document.querySelectorAll('#drafts li').length === 2`), 'a note can be removed from the list');
+  ok(await ev(`(async () => { const r = await fetch('/api/suggest').then(r => r.json()); return r.list.length === 0; })()`), 'nothing is sent until the button is pressed');
+  await ev(`document.querySelector('#sugName').value = 'Tester'`);
+  await shot('12-suggest-list'); await noHScroll('suggest sheet');
+  await click('[data-act=send-review]'); await sleep(900);
+  ok(await ev(`(() => { const b = document.querySelector('#sugQueue .batch'); return !!b && b.querySelectorAll('.sug').length === 2 && b.textContent.includes('Tester') && b.innerHTML.includes('&lt;b&gt;reflects'); })()`), 'the 2 changes arrive as one review, text escaped');
+  ok(await ev(`document.querySelectorAll('#drafts li').length === 0`), 'list is cleared after sending');
+  await shot('13-suggest-sent');
+  await click('[data-act=close]');
 }
 
 ok(errors.length === 0, 'no JS errors / CSP violations' + (errors.length ? ': ' + errors.slice(0, 5).join(' || ') : ''));
