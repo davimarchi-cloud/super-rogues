@@ -1,0 +1,12 @@
+{
+  "name": "balance",
+  "private": true,
+  "description": "Balance: roguelike hex auto-battler, built live from player suggestions. Static game + api/ on Vercel with Neon Postgres.",
+  "scripts": {
+    "dev": "node tools/dev-server.js",
+    "test": "node tools/tests/run-all.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0"
+  }
+}

@@ -1,0 +1,413 @@
+// UI: DOM screens + battle loop. No inline handlers (CSP): every button has data-act, handled by one listener.
+(function () {
+  const { Run, Sim, Render, Net, HEROES, ITEM, RELIC, EVENT, CFG } = B;
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (_) {} },
+  };
+  const SAVE = 'balance.run.v1';
+  let run = store.get(SAVE, null);
+  let screen = 'title';
+  let battle = null, view = null, preview = null;
+  const ui = { startPick: [], selBag: -1, selUid: 0, info: null, result: null, speed: store.get('balance.speed', 1), drag: null, modal: null };
+  const save = () => { if (run) store.set(SAVE, run); };
+
+  const MOB_ABIL = {
+    smash: 'Smash: a heavy blow that stuns its target.', mend: 'Mend: heals the weakest ally.', explode: 'Explodes when next to an enemy.',
+    wall: 'Shield Wall: shields nearby allies.', curse: 'Curse: damages, silences and slows.', slam: 'Slam: stuns everything adjacent.',
+    imps: 'Summons two imps.', cleave: 'Cleave: hits and stuns everything adjacent.', nova: 'Void Nova: stuns everything within 2 hexes.',
+  };
+  const TIER_COLOR = { common: '#b8c0cc', rare: '#5fa8ff', epic: '#c77dff' };
+  const NODE_ICON = { F: '⚔', X: '?', B: '☠', S: '🛒', O: '∞' };
+  const SHOP_NAME = { heroShop: 'Hero Shop', itemShop: 'Item Shop', relicShop: 'Relic Shop' };
+  const SHOP_DESC = { heroShop: 'Recruit new heroes.', itemShop: 'Buy items to equip.', relicShop: 'Team-wide relics.' };
+
+  // ------------------------------------------------------------------ header
+  function header() {
+    const h = $('#top');
+    if (!run || screen === 'title') {
+      h.innerHTML = `<b class="logo">Balance</b><span class="grow"></span><button data-act="scores">🏆</button><button data-act="suggest" class="sugg">💡 Suggest</button>`;
+      return;
+    }
+    const stepN = Math.max(0, run.step);
+    h.innerHTML = `<span class="hearts">${'♥'.repeat(Math.max(0, run.hearts))}<i>${'♥'.repeat(Math.max(0, CFG.hearts - run.hearts))}</i></span>
+      <span class="gold">💰 ${run.gold}</span><span class="prog">${stepN < CFG.seq.length - 1 ? 'Stage ' + (stepN + 1) + '/' + CFG.seq.length : 'Onslaught'}</span>
+      <span class="grow"></span>${battle ? '' : '<button data-act="team">Team</button>'}<button data-act="suggest" class="sugg">💡</button><button data-act="menu">☰</button>`;
+  }
+
+  // ------------------------------------------------------------------ screens
+  function render() {
+    header();
+    const m = $('#screen');
+    if (screen === 'title' || !run) { m.innerHTML = titleHTML(); return; }
+    if (screen === 'battle') { m.innerHTML = battleHTML(); mountBoard(); return; }
+    if (screen === 'result') { m.innerHTML = resultHTML(); return; }
+    if (run.phase === 'over') { m.innerHTML = overHTML(); return; }
+    if (run.pending.length && run.phase !== 'deploy') { m.innerHTML = levelHTML(); return; }
+    if (run.phase === 'start') m.innerHTML = startHTML();
+    else if (run.phase === 'map') m.innerHTML = mapHTML();
+    else if (run.phase === 'deploy') { m.innerHTML = deployHTML(); mountBoard(); }
+    else if (run.phase === 'shop') m.innerHTML = shopHTML();
+    else if (run.phase === 'event') m.innerHTML = eventHTML();
+  }
+
+  function titleHTML() {
+    const has = run && run.phase !== 'over';
+    return `<section class="title">
+      <h1>Balance</h1>
+      <p class="tag">Pick heroes. Deploy them on the hex board. Watch them fight.<br>Beat two bosses, then survive the endless Onslaught.</p>
+      <div class="stack">
+        ${has ? '<button class="primary big" data-act="continue-run">Continue run</button>' : ''}
+        <button class="${has ? '' : 'primary '}big" data-act="new-run">New run</button>
+        <button data-act="howto">How to play</button>
+        <button data-act="scores">🏆 Leaderboard</button>
+      </div>
+      <div class="live"><b>This game is built live from your ideas.</b><br>Suggest a change, a new hero, a rebalance or a whole restructure. Claude reads the queue and ships it.
+        <button class="primary" data-act="suggest">💡 Suggest a change</button></div>
+    </section>`;
+  }
+
+  function heroCard(key, extra = '') {
+    const h = HEROES[key];
+    return `<div class="hcard">
+      <div class="hrow"><span class="disc" style="background:${h.color}">${h.glyph}</span><b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
+      <div class="small">HP ${h.hp} · ATK ${h.atk} · ARM ${h.armor} · AS ${h.as} · RNG ${h.range}</div>
+      <div class="abil"><b>${esc(h.abName)}</b>: ${esc(h.abDesc)}</div>${extra}</div>`;
+  }
+  function startHTML() {
+    return `<section><h2>Choose 2 starting heroes</h2>
+      <div class="grid">${run.startOffer.map(k => `<button class="card pick ${ui.startPick.includes(k) ? 'on' : ''}" data-act="start-pick" data-arg="${k}">${heroCard(k)}</button>`).join('')}</div>
+      <div class="bar"><button class="primary big" data-act="start-go" ${ui.startPick.length === 2 ? '' : 'disabled'}>Start run (${ui.startPick.length}/2)</button></div></section>`;
+  }
+
+  function trackHTML() {
+    return `<div class="track">${CFG.seq.map((t, i) => `<span class="node ${i < run.step ? 'done' : i === run.step ? 'cur' : ''} ${t === 'B' ? 'boss' : ''}" title="${t}">${NODE_ICON[t]}</span>`).join('')}</div>`;
+  }
+  function enemyList(f) {
+    const cnt = {};
+    for (const e of f.enemies) { const k = e.key + (e.elite ? '*' : ''); cnt[k] = (cnt[k] || 0) + 1; }
+    return Object.keys(cnt).map(k => { const key = k.replace('*', ''), m = B.MOBS[key] || B.BOSSES[key]; return `<span class="en ${k.endsWith('*') ? 'elite' : ''}">${m.glyph} ${esc(m.name)}${cnt[k] > 1 ? ' ×' + cnt[k] : ''}${k.endsWith('*') ? ' ★' : ''}</span>`; }).join(' ');
+  }
+  function optHTML(o, i) {
+    if (o.type === 'fight') {
+      if (o.diff === 'boss') { const b = o.enemies.map(e => B.BOSSES[e.key]).find(Boolean); return `<button class="card opt boss" data-act="choose" data-arg="${i}"><div class="ctitle">☠ BOSS: ${esc(b.name)}</div><div class="small">${esc(b.desc)}</div><div class="ens">${enemyList(o)}</div><div class="reward">+${o.gold} gold</div></button>`; }
+      return `<button class="card opt ${o.diff}" data-act="choose" data-arg="${i}"><div class="ctitle">⚔ ${B.DIFF[o.diff].name} fight</div><div class="ens">${enemyList(o)}</div><div class="reward">+${o.gold} gold${o.enemies.some(e => e.elite) ? ' · ★ elite' : ''}</div></button>`;
+    }
+    if (o.type === 'shop') return `<button class="card opt shop" data-act="choose" data-arg="${i}"><div class="ctitle">🛒 ${SHOP_NAME[o.kind]}${o.final ? ' (last shop)' : ''}</div><div class="small">${SHOP_DESC[o.kind]}</div></button>`;
+    if (o.type === 'event') return `<button class="card opt event" data-act="choose" data-arg="${i}"><div class="ctitle">❓ Event: ${esc(EVENT[o.id].name)}</div><div class="small">${esc(EVENT[o.id].text)}</div></button>`;
+    if (o.type === 'onslaught') return `<button class="card opt boss" data-act="choose" data-arg="${i}"><div class="ctitle">∞ The Onslaught</div><div class="small">Endless waves spawn on the top row every ${CFG.waveEvery}s and keep getting stronger. 1 point per kill. Your run score is your kills.</div></button>`;
+    return '';
+  }
+  function mapHTML() {
+    const t = CFG.seq[run.step];
+    const title = t === 'B' ? 'A boss blocks the way' : t === 'S' ? 'One last shop' : t === 'O' ? 'The final stand' : 'Choose your path';
+    return `<section>${trackHTML()}<h2>${title}</h2><div class="opts">${run.opts.map(optHTML).join('')}</div>
+      <p class="hint">${run.heroes.length} hero${run.heroes.length > 1 ? 'es' : ''} · ${run.bag.length} item${run.bag.length === 1 ? '' : 's'} in bag${run.bag.length ? ' (<a href="#" data-act="team">equip them</a>)' : ''}</p></section>`;
+  }
+
+  function levelHTML() {
+    const p = run.pending[0], h = run.heroes.find(x => x.uid === p.uid), d = HEROES[h.key];
+    const pair = d.specs[p.lvl - 2];
+    return `<section><h2>Level up!</h2>
+      <div class="hrow big"><span class="disc" style="background:${d.color}">${d.glyph}</span><b>${esc(d.name)}</b> reached <b>Lv ${p.lvl}</b></div>
+      <p class="small">+15% HP and attack, +10 ability power, +4 armor and MR${p.lvl >= 3 ? ', <b>+1 item slot</b>' : ''}.</p>
+      <h3>Choose a specialization</h3>
+      <div class="opts">${pair.map((s, i) => `<button class="card opt" data-act="spec" data-arg="${i}"><div class="ctitle">${esc(s.name)}</div><div class="small">${esc(s.desc)}</div></button>`).join('')}</div></section>`;
+  }
+
+  function deployHTML() {
+    const ons = run.cur && run.cur.type === 'onslaught';
+    const f = run.cur;
+    return `<section class="deploy">
+      <div class="bhead">${ons ? '∞ The Onslaught' : f.diff === 'boss' ? '☠ Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
+      <p class="hint">Drag heroes (or tap one, then tap a hex) inside the blue rows. Tap any unit for details.${ons ? ' Waves spawn on the top row.' : ''}</p>
+      <div class="boardwrap"><canvas id="board"></canvas></div>
+      <div id="info" class="info">${infoHTML()}</div>
+      <div class="bar"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${ons ? 'Begin the Onslaught' : 'Fight!'}</button></div>
+    </section>`;
+  }
+  function battleHTML() {
+    return `<section class="deploy"><div class="bhead" id="bhud"></div>
+      <div class="boardwrap"><canvas id="board"></canvas></div>
+      <div id="info" class="info">${infoHTML()}</div>
+      <div class="bar">${[1, 2, 4].map(s => `<button class="${ui.speed === s ? 'on' : ''}" data-act="speed" data-arg="${s}">${s}x</button>`).join('')}<button data-act="skip">Skip ⏭</button></div></section>`;
+  }
+
+  function resultHTML() {
+    const r = ui.result;
+    return `<section><h2 class="${r.win ? 'win' : 'lose'}">${r.win ? 'Victory!' : 'Defeat'}</h2>
+      <p>${r.win ? '+' + r.gold + ' gold' : 'You lost a heart ♥ (+2 gold). ' + (r.timeout ? 'Time ran out.' : '')}</p>
+      <table class="tbl"><tr><th>Hero</th><th>Damage</th><th>XP</th><th>Level</th></tr>
+      ${r.xp.map(x => `<tr><td>${esc(x.name)}</td><td>${Math.round(r.dmg[x.uid] || 0)}</td><td>+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`).join('')}</table>
+      <div class="bar"><button class="primary big" data-act="result-ok">Continue</button></div></section>`;
+  }
+
+  function stockCard(s, i) {
+    const dis = s.sold || run.gold < s.price || (s.kind === 'hero' && run.heroes.length >= Run.teamMax(run));
+    let body = '';
+    if (s.kind === 'hero') body = heroCard(s.id);
+    else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div><div class="small">${esc(it.desc)}</div><div class="tier">${it.tier}</div>`; }
+    else { const r = RELIC[s.id]; body = `<div class="ctitle relic">◆ ${esc(r.name)}</div><div class="small">${esc(r.desc)}</div>`; }
+    return `<div class="card stock ${s.sold ? 'sold' : ''}">${body}<button class="${dis ? '' : 'primary'}" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''}>${s.sold ? 'Sold' : 'Buy · ' + s.price + 'g'}</button></div>`;
+  }
+  function shopHTML() {
+    const c = run.cur, rc = Run.rerollCost(run);
+    const note = c.kind === 'heroShop' ? `Team ${run.heroes.length}/${Run.teamMax(run)}` : c.kind === 'itemShop' ? `Items go to your bag. Equip them in Team.` : 'Relics affect every hero.';
+    return `<section>${trackHTML()}<h2>🛒 ${SHOP_NAME[c.kind]}</h2><p class="hint">${note}</p>
+      <div class="grid">${c.stock.map(stockCard).join('') || '<p>Nothing left to sell.</p>'}</div>
+      <div class="bar"><button data-act="reroll" ${run.gold < rc ? 'disabled' : ''}>Reroll · ${rc}g</button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
+  }
+  function eventHTML() {
+    const e = EVENT[run.cur.id];
+    const ok = ch => !(ch.req && ((ch.req.gold && run.gold < ch.req.gold) || (ch.req.hearts && run.hearts < ch.req.hearts)));
+    return `<section>${trackHTML()}<h2>❓ ${esc(e.name)}</h2><p>${esc(e.text)}</p>
+      ${run.cur.done ? `<div class="card result">${esc(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div>`
+        : `<div class="stack">${e.choices.map((ch, i) => `<button class="big" data-act="event" data-arg="${i}" ${ok(ch) ? '' : 'disabled'}>${esc(ch.label)}</button>`).join('')}</div>`}</section>`;
+  }
+  function overHTML() {
+    const ons = run.result === 'onslaught';
+    const name = store.get('balance.name', '');
+    return `<section class="title"><h2>${ons ? 'The Onslaught is over' : 'Your run has ended'}</h2>
+      ${ons ? `<div class="score">${run.score}</div><p>kills · reached wave ${run.wave}</p>
+        ${run.submitted ? '<p class="win">Score submitted!</p>' : `<form class="row" data-form="score"><input name="name" maxlength="16" placeholder="Your name" value="${esc(name)}" required><button class="primary">Submit score</button></form>`}`
+        : `<p>You fell at fight ${run.fightNo}. Won ${run.won} fight${run.won === 1 ? '' : 's'}.</p>`}
+      <div class="stack"><button class="primary big" data-act="new-run">New run</button><button data-act="scores">🏆 Leaderboard</button></div>
+      <p class="hint">Something felt off? <a href="#" data-act="suggest">Suggest a change</a>.</p></section>`;
+  }
+
+  // ------------------------------------------------------------------ unit info panel
+  function infoHTML() {
+    const W = battle ? battle.W : preview;
+    if (!W || !ui.info) return '<span class="dim">Tap a unit to see its stats.</span>';
+    const u = W.byId[ui.info]; if (!u) return '';
+    const hd = HEROES[u.key];
+    const abil = hd ? `<b>${esc(hd.abName)}</b>: ${esc(hd.abDesc)}` : u.boss ? esc(B.BOSSES[u.key].desc) : u.abil ? esc(MOB_ABIL[u.abil] || '') : u.fl.has('dive') ? 'Leaps to your back line at the start.' : u.kind === 'summon' ? 'Summoned unit.' : 'No special ability.';
+    return `<div class="hrow"><span class="disc" style="background:${u.side ? '#8c3a3a' : u.color}">${u.glyph}</span><b>${esc(u.name)}</b>${u.kind === 'hero' ? ' Lv ' + u.lvl : ''}${u.elite ? ' <span class="elite">★ elite</span>' : ''}</div>
+      <div class="small">HP ${Math.max(0, Math.round(u.hp))}/${u.maxHp} · ATK ${Math.round(Sim.atkOf(W, u))} · AP ${Math.round(u.ap)} · ARM ${Math.round(u.armor)} · MR ${Math.round(u.mr)} · AS ${Sim.asOf(W, u).toFixed(2)} · RNG ${u.range}${u.crit ? ' · CRIT ' + Math.round(u.crit * 100) + '%' : ''}${u.dodge ? ' · DODGE ' + Math.round(u.dodge * 100) + '%' : ''}</div>
+      <div class="small">${abil}</div>`;
+  }
+
+  // ------------------------------------------------------------------ board mount + input
+  function mountBoard() {
+    const cv = $('#board'); if (!cv) return;
+    const wrap = cv.parentElement;
+    view = Render.setup(cv, Math.min(wrap.clientWidth || 360, 560));
+    if (screen !== 'battle') { preview = run.cur && run.cur.type === 'onslaught' ? Run.onslaughtWorld(run, true) : Run.fightWorld(run, true); drawPreview(); }
+    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', () => { ui.drag = null; drawPreview(); });
+  }
+  function drawPreview(extra) { if (view && preview && screen !== 'battle') Render.draw(view, preview, 0, Object.assign({ deploy: true, sel: ui.selUid }, extra || {})); }
+  function evHex(e) { const r = view.canvas.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top; return { x, y, h: Render.hexAt(view, x, y) }; }
+  function unitAt(W, h) { return h && W ? W.units.find(u => !u.dead && u.c === h.c && u.r === h.r) : null; }
+  function onDown(e) {
+    const { h } = evHex(e); const W = battle ? battle.W : preview; const u = unitAt(W, h);
+    if (u) { ui.info = u.id; const el = $('#info'); if (el) el.innerHTML = infoHTML(); }
+    if (battle || !h) return;
+    if (u && u.side === 0 && u.uid) { ui.drag = { uid: u.uid, from: h, glyph: u.glyph }; view.canvas.setPointerCapture(e.pointerId); }
+  }
+  function onMove(e) { if (!ui.drag || battle) return; const { x, y, h } = evHex(e); drawPreview({ drop: h && h.r >= 4 ? h : null, dragGhost: { x, y, glyph: ui.drag.glyph } }); }
+  function onUp(e) {
+    if (battle) return;
+    const { h } = evHex(e); const d = ui.drag; ui.drag = null;
+    if (d && h && (h.c !== d.from.c || h.r !== d.from.r)) { if (h.r >= 4) { Run.setPos(run, d.uid, h.c, h.r); ui.selUid = 0; save(); } }
+    else if (d) ui.selUid = ui.selUid === d.uid ? 0 : d.uid;
+    else if (ui.selUid && h && h.r >= 4) { Run.setPos(run, ui.selUid, h.c, h.r); ui.selUid = 0; save(); }
+    preview = run.cur && run.cur.type === 'onslaught' ? Run.onslaughtWorld(run, true) : Run.fightWorld(run, true);
+    drawPreview();
+  }
+
+  // ------------------------------------------------------------------ battle
+  function startBattle() {
+    const ons = run.cur && run.cur.type === 'onslaught';
+    const W = ons ? Run.onslaughtWorld(run) : Run.fightWorld(run);
+    save();
+    battle = { W, acc: 0, last: performance.now(), endAt: 0, ons };
+    ui.info = null; screen = 'battle'; render();
+    requestAnimationFrame(loop);
+  }
+  function loop(now) {
+    const b = battle; if (!b) return;
+    const dt = Math.min(100, now - b.last); b.last = now;
+    const TICK = 1000 / Sim.TPS;
+    if (!b.W.over) { b.acc += dt * ui.speed; let n = 0; while (b.acc >= TICK && !b.W.over && n++ < 60) { Sim.step(b.W); b.acc -= TICK; } }
+    else if (!b.endAt) b.endAt = now + 1000;
+    const T = b.W.t + (b.W.over ? 0 : b.acc / TICK);
+    if (view) Render.draw(view, b.W, T, {});
+    const hud = $('#bhud');
+    if (hud) {
+      const secs = Math.floor(b.W.t / Sim.TPS);
+      hud.textContent = b.ons ? `∞ Wave ${b.W.wave} · Kills ${b.W.kills} · next wave in ${Math.max(0, Math.ceil((b.W.nextWave - b.W.t) / Sim.TPS))}s`
+        : `${run.cur.diff === 'boss' ? '☠ Boss' : '⚔ ' + B.DIFF[run.cur.diff].name} · ${secs}s${secs >= CFG.suddenDeath ? ' · SUDDEN DEATH' : ''}`;
+    }
+    if (ui.info && (b.frame = (b.frame || 0) + 1) % 10 === 0) { const el = $('#info'); if (el) el.innerHTML = infoHTML(); }
+    if (b.endAt && now >= b.endAt) { endBattle(); return; }
+    requestAnimationFrame(loop);
+  }
+  function endBattle() {
+    const b = battle; battle = null; const W = b.W;
+    if (b.ons) { Run.finishOnslaught(run, W); screen = 'run'; }
+    else {
+      const dmg = {}; for (const u of W.units) if (u.uid) dmg[u.uid] = u.dmgDone || 0;
+      for (const u of W.units) if (u.owner && W.byId[u.owner] && W.byId[u.owner].uid) dmg[W.byId[u.owner].uid] = (dmg[W.byId[u.owner].uid] || 0) + (u.dmgDone || 0);
+      ui.result = Run.finishFight(run, W); ui.result.dmg = dmg; screen = 'result';
+    }
+    save(); render(); window.scrollTo(0, 0);
+  }
+  function skipBattle() { const b = battle; if (!b) return; let n = 0; while (!b.W.over && n++ < 20 * 60 * 30) Sim.step(b.W); b.endAt = performance.now(); }
+
+  // ------------------------------------------------------------------ modals
+  function openModal(html) { const m = $('#modal'); m.innerHTML = `<div class="sheet">${html}</div>`; m.hidden = false; ui.modal = true; }
+  function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.modal = null; }
+  function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2200); }
+
+  function teamHTML() {
+    const heroes = run.heroes.map(h => {
+      const d = HEROES[h.key], def = Run.heroDef(run, h), sl = Run.slots(run, h);
+      const next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null;
+      const specs = h.specs.map(id => Run.specOf(h.key, id)).filter(Boolean);
+      const slots = [];
+      for (let i = 0; i < sl; i++) {
+        const id = h.items[i];
+        slots.push(id ? `<button class="chip" style="border-color:${TIER_COLOR[ITEM[id].tier]}" data-act="unequip" data-arg="${h.uid}:${i}" title="${esc(ITEM[id].desc)}">${esc(ITEM[id].name)} ✕</button>`
+          : `<button class="chip empty ${ui.selBag >= 0 ? 'hot' : ''}" data-act="equip" data-arg="${h.uid}">${ui.selBag >= 0 ? 'Equip here' : 'empty slot'}</button>`);
+      }
+      return `<div class="hero">
+        <div class="hrow"><span class="disc" style="background:${d.color}">${d.glyph}</span><b>${esc(d.name)}</b> <span class="role">${d.role}</span> <span class="lv">Lv ${h.lvl}</span>
+          <span class="xp">${next ? 'XP ' + h.xp + '/' + next : 'MAX'}</span></div>
+        <div class="small">HP ${Math.round(def.hp)} · ATK ${Math.round(def.atk)} · AP ${Math.round(def.ap)} · ARM ${Math.round(def.armor)} · MR ${Math.round(def.mr)} · AS ${def.as.toFixed(2)} · RNG ${def.range}${def.crit ? ' · CRIT ' + Math.round(def.crit * 100) + '%' : ''}</div>
+        <div class="small"><b>${esc(d.abName)}</b>: ${esc(d.abDesc)}</div>
+        ${specs.length ? `<div class="small specs">${specs.map(s => `<span title="${esc(s.desc)}">★ ${esc(s.name)}</span>`).join(' ')}</div>` : ''}
+        <div class="slots">${slots.join('')}</div>
+        ${h.lvl < 3 ? '<div class="dim small">More item slots at Lv 3, 4 and 5.</div>' : ''}
+      </div>`;
+    }).join('');
+    const bag = run.bag.map((id, i) => `<button class="chip ${ui.selBag === i ? 'on' : ''}" style="border-color:${TIER_COLOR[ITEM[id].tier]}" data-act="bag" data-arg="${i}">${esc(ITEM[id].name)}</button>`).join('');
+    const sel = ui.selBag >= 0 && run.bag[ui.selBag] ? ITEM[run.bag[ui.selBag]] : null;
+    return `<div class="shead"><b>Team</b><button data-act="close">✕</button></div>
+      ${heroes}
+      <h3>Bag</h3>${bag ? `<div class="slots">${bag}</div>` : '<p class="dim small">Empty. Buy items in the Item Shop.</p>'}
+      ${sel ? `<div class="card"><b style="color:${TIER_COLOR[sel.tier]}">${esc(sel.name)}</b> <span class="small">${esc(sel.desc)}</span><div class="row"><span class="dim small">Tap "Equip here" on a hero.</span><button data-act="sell">Sell · +${Run.sellValue(sel.id)}g</button></div></div>` : ''}
+      <h3>Relics</h3>${run.relics.length ? run.relics.map(id => `<div class="small">◆ <b>${esc(RELIC[id].name)}</b>: ${esc(RELIC[id].desc)}</div>`).join('') : '<p class="dim small">None yet.</p>'}`;
+  }
+
+  function fmtTime(ms) { const d = new Date(ms); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  function ago(ms, now) { const s = Math.max(0, Math.round((now - ms) / 1000)); return s < 60 ? s + 's ago' : s < 3600 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago'; }
+  function reviewText(r) {
+    if (!r) return '';
+    const on = r.until > r.now, online = r.seen && r.now - r.seen < 6 * 60e3;
+    return `<div class="review ${on && online ? 'on' : ''}">${on ? `🟢 Auto-review is <b>ON</b>: Claude checks the queue every <b>${r.every} min</b> until ${fmtTime(r.until)}.` : '⚪ Auto-review is <b>off</b> right now. Suggestions wait in the queue for the next review window.'}
+      <span class="dim">${online ? ' Reviewer online (checked ' + ago(r.seen, r.now) + ').' : ' Reviewer offline.'}${r.lastRun ? ' Last update shipped ' + ago(r.lastRun, r.now) + '.' : ''}</span></div>`;
+  }
+  const STATUS = { new: 'queued', doing: 'in progress', done: 'done ✓', declined: 'declined' };
+  function suggestHTML(data, err) {
+    const key = store.get('balance.ownerKey', '');
+    const list = data ? data.list.map(s => `<div class="sug ${s.status}"><div class="row"><b>#${s.id}</b> <span class="dim">${esc(s.name || 'anonymous')} · ${new Date(s.created).toLocaleDateString()}</span><span class="st">${STATUS[s.status] || esc(s.status)}</span></div>
+      <div class="txt">${esc(s.text)}</div>${s.reply ? `<div class="reply">🤖 ${esc(s.reply)}</div>` : ''}</div>`).join('') : '';
+    return `<div class="shead"><b>💡 Suggest a change</b><button data-act="close">✕</button></div>
+      ${data ? reviewText(data.review) : ''}${err ? `<p class="err">${esc(err)}</p>` : ''}
+      <form data-form="suggest" class="stack">
+        <textarea name="text" maxlength="1500" rows="4" required placeholder="A bug, a rebalance, a new hero, item or relic, a UI change, a full restructure... Be specific. Any language is fine."></textarea>
+        <div class="row"><input name="name" maxlength="24" placeholder="Your name (optional)" value="${esc(store.get('balance.name', ''))}"><button class="primary">Send</button></div>
+      </form>
+      <p class="dim small">Suggestions are public. Claude reads them in review windows, implements what fits the game and replies here. It will decline anything harmful or unrelated to the game.</p>
+      <h3>Queue</h3>${list || '<p class="dim small">Nothing yet. Be the first!</p>'}
+      <details class="owner"><summary>Owner controls</summary>
+        <form data-form="review" class="stack">
+          <label class="small">Review for the next
+            <select name="minutes">${[[0, 'off'], [15, '15 min'], [30, '30 min'], [60, '1 hour'], [120, '2 hours'], [240, '4 hours'], [480, '8 hours'], [1440, '24 hours'], [4320, '3 days'], [10080, '7 days']].map(([v, t]) => `<option value="${v}" ${v === 60 ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+          <label class="small">checking every
+            <select name="every">${[1, 2, 5, 10, 15, 30, 60].map(v => `<option value="${v}" ${v === 1 ? 'selected' : ''}>${v} min</option>`).join('')}</select></label>
+          <input name="key" type="password" placeholder="Owner key" value="${esc(key)}" autocomplete="off">
+          <button class="primary">Save review window</button>
+        </form></details>`;
+  }
+  async function openSuggest(err) {
+    openModal(suggestHTML(null, err) + '<p class="dim">Loading…</p>');
+    try { const d = await Net.get('suggest'); if (ui.modal) openModal(suggestHTML(d, err)); }
+    catch (e) { if (ui.modal) openModal(suggestHTML(null, e.message)); }
+  }
+  async function openScores() {
+    openModal('<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="dim">Loading…</p>');
+    try {
+      const d = await Net.get('scores');
+      const rows = d.top.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.name)}</td><td><b>${s.score}</b></td><td>${s.wave}</td><td>${s.heroes.map(k => HEROES[k] ? HEROES[k].glyph : '').join('')}</td></tr>`).join('');
+      if (ui.modal) openModal(`<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="dim small">Onslaught kills.</p>
+        ${rows ? `<table class="tbl"><tr><th>#</th><th>Name</th><th>Kills</th><th>Wave</th><th>Team</th></tr>${rows}</table>` : '<p class="dim">No scores yet.</p>'}`);
+    } catch (e) { if (ui.modal) openModal(`<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="err">${esc(e.message)}</p>`); }
+  }
+  const HOWTO = `<div class="shead"><b>How to play</b><button data-act="close">✕</button></div>
+    <ol class="small howto">
+      <li>Pick 2 starting heroes. Each has a unique ability that fires when its blue mana bar is full.</li>
+      <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 3 and 6 are bosses.</li>
+      <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
+      <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
+      <li>Win fights for gold. Spend it in hero, item and relic shops. Losing costs a heart ♥. Lose all 3 and the run ends. Heroes always heal after a fight.</li>
+      <li>After the second boss and a last shop comes the Onslaught: endless waves from the top row every ${CFG.waveEvery}s. Each kill is 1 point.</li>
+    </ol>`;
+
+  // ------------------------------------------------------------------ actions
+  const ACT = {
+    'new-run': () => { run = Run.newRun((Math.random() * 2 ** 31) | 0); ui.startPick = []; screen = 'run'; save(); render(); },
+    'continue-run': () => { screen = 'run'; render(); },
+    menu: () => { if (battle) return; screen = 'title'; closeModal(); render(); },
+    howto: () => openModal(HOWTO),
+    'start-pick': k => { const i = ui.startPick.indexOf(k); if (i >= 0) ui.startPick.splice(i, 1); else if (ui.startPick.length < 2) ui.startPick.push(k); render(); },
+    'start-go': () => { if (ui.startPick.length !== 2) return; Run.pickStart(run, ui.startPick); save(); render(); },
+    choose: i => { Run.choose(run, +i); ui.info = null; save(); render(); window.scrollTo(0, 0); },
+    spec: i => { Run.chooseSpec(run, +i); save(); render(); },
+    fight: () => startBattle(),
+    speed: s => { ui.speed = +s; store.set('balance.speed', ui.speed); document.querySelectorAll('[data-act=speed]').forEach(b => b.classList.toggle('on', +b.dataset.arg === ui.speed)); },
+    skip: () => skipBattle(),
+    'result-ok': () => { ui.result = null; screen = 'run'; render(); window.scrollTo(0, 0); },
+    buy: i => { const err = Run.buy(run, +i); if (err) toast(err); save(); render(); },
+    reroll: () => { if (!Run.reroll(run)) toast('Not enough gold'); save(); render(); },
+    leave: () => { Run.leave(run); save(); render(); window.scrollTo(0, 0); },
+    event: i => { Run.eventAct(run, +i); save(); render(); },
+    team: () => { if (!run || battle) return; openModal(teamHTML()); },
+    bag: i => { ui.selBag = ui.selBag === +i ? -1 : +i; openModal(teamHTML()); },
+    equip: uid => { if (ui.selBag < 0) { toast('Select an item in the bag first'); return; } const err = Run.equip(run, ui.selBag, +uid); if (err) toast(err); else ui.selBag = -1; save(); openModal(teamHTML()); refreshBehind(); },
+    unequip: a => { const [uid, i] = a.split(':').map(Number); Run.unequip(run, uid, i); save(); openModal(teamHTML()); refreshBehind(); },
+    sell: () => { if (ui.selBag < 0) return; Run.sell(run, ui.selBag); ui.selBag = -1; save(); openModal(teamHTML()); header(); },
+    close: () => { closeModal(); ui.selBag = -1; if (!battle) render(); },
+    suggest: () => openSuggest(),
+    scores: () => openScores(),
+  };
+  function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = run.cur && run.cur.type === 'onslaught' ? Run.onslaughtWorld(run, true) : Run.fightWorld(run, true); drawPreview(); } }
+
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]'); if (!el || el.disabled) return;
+    e.preventDefault(); const f = ACT[el.dataset.act]; if (f) f(el.dataset.arg, el);
+  });
+  $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') ACT.close(); });
+  document.addEventListener('submit', async e => {
+    const f = e.target.closest('form[data-form]'); if (!f) return; e.preventDefault();
+    const kind = f.dataset.form, btn = f.querySelector('button'); if (btn) btn.disabled = true;
+    try {
+      if (kind === 'suggest') {
+        const text = f.text.value.trim(), name = f.name.value.trim();
+        if (name) store.set('balance.name', name);
+        const r = await Net.post('suggest', { text, name });
+        toast('Sent! Suggestion #' + r.id + ' is in the queue.'); await openSuggest();
+      } else if (kind === 'review') {
+        store.set('balance.ownerKey', f.key.value);
+        await Net.post('review', { key: f.key.value, minutes: +f.minutes.value, every: +f.every.value });
+        toast('Review window saved'); await openSuggest();
+      } else if (kind === 'score') {
+        const name = f.name.value.trim(); store.set('balance.name', name);
+        await Net.post('scores', { name, score: run.score, wave: run.wave, heroes: run.heroes.map(h => h.key) });
+        run.submitted = true; save(); render(); openScores();
+      }
+    } catch (err) { toast(err.message); if (btn) btn.disabled = false; }
+  });
+  let rz = 0;
+  window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if ($('#board')) { const cv = $('#board'); view = Render.setup(cv, Math.min(cv.parentElement.clientWidth || 360, 560)); drawPreview(); } }, 150); });
+
+  // ------------------------------------------------------------------ boot
+  if (run && run.v !== 1) run = null;
+  screen = 'title';
+  render();
+  // test hook (headless Chrome tests drive the game through this)
+  window.__bal = { get run() { return run; }, get battle() { return battle; }, ACT, render, skipBattle };
+})();

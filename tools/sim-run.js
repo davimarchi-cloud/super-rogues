@@ -1,0 +1,79 @@
+// Bot plays whole runs headless, to catch crashes and read balance numbers.
+// Usage: node tools/sim-run.js [runs=40] [teamSize=3] [seed=1]
+// Reports: win rate per fight (and bosses), onslaught score, levels reached, abilities that never fired, NaN checks.
+require('../js/hex.js'); require('../js/data.js'); require('../js/sim.js'); require('../js/run.js');
+const RUNS = +(process.argv[2] || 40), TEAM = +(process.argv[3] || 3), SEED0 = +(process.argv[4] || 1);
+const { Run, Sim, HEROES, ITEM } = B;
+
+const casts = {}; for (const k in Sim.abilities) { const f = Sim.abilities[k]; Sim.abilities[k] = (W, u, x) => { const r = f(W, u, x); if (r) casts[k] = (casts[k] || 0) + 1; return r; }; }
+const stats = { fights: {}, boss: { 3: [0, 0], 6: [0, 0] }, scores: [], waves: [], lv: [0, 0, 0, 0, 0, 0], reached: 0, nan: 0, fightSecs: [], hearts: [] };
+const tierRank = { epic: 3, rare: 2, common: 1 };
+
+function equipAll(run) {
+  run.bag.sort((a, b) => tierRank[ITEM[b].tier] - tierRank[ITEM[a].tier]);
+  for (const h of run.heroes) while (h.items.length < Run.slots(run, h) && run.bag.length) Run.equip(run, 0, h.uid);
+}
+function playFight(run, W) {
+  Sim.run(W, 20 * 60 * 20);
+  for (const u of W.units) if (!Number.isFinite(u.hp) || !Number.isFinite(u.mana)) stats.nan++;
+  return W;
+}
+for (let n = 0; n < RUNS; n++) {
+  const run = Run.newRun(SEED0 * 1000 + n);
+  Run.pickStart(run, run.startOffer.slice(0, 2));
+  let guard = 0;
+  while (run.phase !== 'over' && guard++ < 200) {
+    while (run.pending.length) Run.chooseSpec(run, Run.rnd(run) < 0.5 ? 0 : 1);
+    if (run.phase === 'map') {
+      let i = 0;
+      const o = run.opts;
+      if (o.length === 2 && o[0].type === 'fight') i = o.findIndex(x => x.diff === 'medium') >= 0 ? o.findIndex(x => x.diff === 'medium') : 0;
+      else if (o.length === 2) {
+        const want = run.heroes.length < TEAM ? ['heroShop', 'itemShop', 'relicShop'] : ['itemShop', 'relicShop', 'event'];
+        const score = x => { const k = x.type === 'event' ? 'event' : x.kind; const w = want.indexOf(k); return w < 0 ? 9 : w; };
+        i = score(o[0]) <= score(o[1]) ? 0 : 1;
+      }
+      Run.choose(run, i);
+    } else if (run.phase === 'shop') {
+      const st = run.cur.stock;
+      for (let k = 0; k < st.length; k++) {
+        const s = st[k];
+        if (s.kind === 'hero' && run.heroes.length >= TEAM) continue;
+        if (run.gold >= s.price) Run.buy(run, k);
+      }
+      equipAll(run); Run.leave(run);
+    } else if (run.phase === 'event') {
+      const ev = B.EVENT[run.cur.id];
+      let r = Run.eventAct(run, 0); if (r == null) Run.eventAct(run, 1);
+      Run.leave(run);
+    } else if (run.phase === 'deploy') {
+      equipAll(run);
+      if (run.cur && run.cur.type === 'onslaught') {
+        const W = playFight(run, Run.onslaughtWorld(run));
+        stats.scores.push(W.kills); stats.waves.push(W.wave); stats.reached++;
+        Run.finishOnslaught(run, W);
+      } else {
+        const f = run.cur, W = playFight(run, Run.fightWorld(run));
+        const key = f.fightNo + (f.diff === 'boss' ? 'B' : f.diff[0]);
+        stats.fights[key] = stats.fights[key] || [0, 0]; stats.fights[key][1]++; if (W.winner === 0) stats.fights[key][0]++;
+        if (f.diff === 'boss') { stats.boss[f.fightNo][1]++; if (W.winner === 0) stats.boss[f.fightNo][0]++; }
+        stats.fightSecs.push(W.t / 20);
+        Run.finishFight(run, W);
+      }
+    }
+  }
+  for (const h of run.heroes) stats.lv[h.lvl]++;
+  stats.hearts.push(run.hearts);
+}
+const pct = (a) => a[1] ? Math.round(100 * a[0] / a[1]) + '% (' + a[0] + '/' + a[1] + ')' : '-';
+console.log('runs', RUNS, 'team', TEAM);
+console.log('fights:', Object.keys(stats.fights).sort().map(k => k + ' ' + pct(stats.fights[k])).join(' | '));
+console.log('boss 3:', pct(stats.boss[3]), ' boss 6:', pct(stats.boss[6]));
+const avg = a => a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1) : '-';
+console.log('reached onslaught:', stats.reached, ' avg score', avg(stats.scores), ' max', Math.max(0, ...stats.scores), ' avg wave', avg(stats.waves));
+console.log('fight length avg (s):', avg(stats.fightSecs), ' max', Math.max(...stats.fightSecs).toFixed(0));
+console.log('hero levels at end:', stats.lv.slice(1).map((c, i) => 'L' + (i + 1) + ':' + c).join(' '));
+console.log('NaN units:', stats.nan);
+const never = Object.keys(Sim.abilities).filter(k => !casts[k]);
+console.log('casts:', JSON.stringify(casts));
+console.log('never cast:', never.join(', ') || 'none');
