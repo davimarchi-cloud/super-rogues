@@ -17,8 +17,8 @@
   function create(o) {
     const W = {
       t: 0, nid: 0, units: [], byId: {}, occ: new Array(Hx.COLS * Hx.ROWS).fill(0), q: [], fx: [], zones: [],
-      rng: rngOf(o.seed || 1), mode: o.mode || 'fight', over: false, winner: -1, kills: 0, wave: 0, nextWave: 0,
-      sd: 0, fightNo: o.fightNo || 1, fl: {}, once: {}, onsBase: o.onsBase || 2.8, log: [],
+      rng: rngOf(o.seed || 1), mode: o.mode || 'fight', over: false, winner: -1, kills: 0, wave: 0,
+      sd: 0, fightNo: o.fightNo || 1, fl: {}, once: {}, log: [],
     };
     for (const id of (o.relics || [])) { const r = B.RELIC[id]; if (r && r.fl) W.fl[r.fl] = 1; }
     for (const h of (o.heroes || [])) spawn(W, h.def, 0, h.c, h.r);
@@ -68,7 +68,6 @@
     }
     if (W.fl.frostsigil) for (const u of W.units) if (u.side === 1) slow(W, u, 0.4, 4);
     if (W.fl.warhorn) for (const u of W.units) if (u.side === 0) buff(u, 'asPct', 0.3, sec(5), W);
-    if (W.mode === 'onslaught') W.nextWave = W.t + 1;
   }
 
   // ------------------------------------------------------------------ queries
@@ -157,7 +156,6 @@
       if (src.m.giantSlayer && tgt.maxHp > src.maxHp) amp += src.m.giantSlayer;
       if (src.m.execute && tgt.hp < tgt.maxHp * 0.3) amp += src.m.execute;
       if (src.m.eliteDmg && (tgt.elite || tgt.boss)) amp += src.m.eliteDmg;
-      if (W.mode === 'onslaught' && src.side === 0 && W.fl.onslaught) amp += 0.3;
     }
     if (tgt.st.vulnU > W.t) amp += tgt.st.vulnP;
     if (tgt.st.shatterU > W.t) amp += tgt.st.shatterP;
@@ -683,29 +681,6 @@
     if (u.kind === 'hero' && u.side === 0) u.xpT++;
   }
 
-  // ------------------------------------------------------------------ onslaught waves
-  const WAVE_POOL = [['grunt', 'wolf'], ['archer'], ['brute', 'spitter'], ['shaman', 'skulker'], ['bomber', 'hexer'], ['golem', 'summoner', 'shieldbearer', 'knight']];
-  function onsScale(W, w) { return W.onsBase * (1 + 0.14 * (w - 1)) * Math.pow(1.03, w - 1); }
-  function spawnWave(W) {
-    W.wave++;
-    const w = W.wave, n = Math.min(8, 3 + Math.floor(w / 2)), scale = onsScale(W, w);
-    const pool = [].concat(...WAVE_POOL.slice(0, Math.min(WAVE_POOL.length, 1 + Math.floor((w + 1) / 2))));
-    const free = [0, 1].flatMap(r => Hx.all().filter(h => h.r === r && !W.occ[Hx.key(h.c, h.r)]));
-    const eliteChance = Math.max(0, (w - 6) * 0.08);
-    const toSpawn = [];
-    if (w % 10 === 0) toSpawn.push(mobScaleDef(w % 20 === 0 ? 'hollowking' : 'gorewarden', scale * 0.5, { wave: w }));
-    while (toSpawn.length < n) {
-      const d = mobScaleDef(pool[Math.floor(W.rng() * pool.length)], scale, { wave: w });
-      if (W.rng() < eliteChance) applyElite(d, B.ELITES[Math.floor(W.rng() * B.ELITES.length)]);
-      toSpawn.push(d);
-    }
-    // row 0 first, in random order
-    const row0 = free.filter(h => h.r === 0).sort(() => W.rng() - 0.5), row1 = free.filter(h => h.r === 1).sort(() => W.rng() - 0.5);
-    const spots = row0.concat(row1);
-    for (const d of toSpawn) { const h = spots.shift(); if (!h) break; const u = spawn(W, d, 1, h.c, h.r); if (u) { u.busy = W.t + 4; fxRing(W, h.c, h.r, 0, '#f66', 10); if (u.fl.has('dive')) dive(W, u); } }
-    fx(W, { k: 'banner', text: 'Wave ' + w, t1: W.t + 30 });
-  }
-
   // ------------------------------------------------------------------ main step
   function step(W) {
     if (W.over) return;
@@ -715,7 +690,6 @@
       for (const e of due) { e.fn(); if (W.over) break; }
     }
     if (W.mode === 'fight' && W.t > sec(B.CFG.suddenDeath) && W.t % TPS === 0) { W.sd += 0.15; if (W.t === sec(B.CFG.suddenDeath) + TPS) fx(W, { k: 'banner', text: 'Sudden death', t1: W.t + 40 }); }
-    if (W.mode === 'onslaught' && W.t >= W.nextWave) { spawnWave(W); W.nextWave = W.t + sec(B.CFG.waveEvery); }
     if (W.fl.thunder && W.t % sec(4) === 0) {
       const es = W.units.filter(v => !v.dead && v.side === 1);
       if (es.length) { const e = es[Math.floor(W.rng() * es.length)]; fx(W, { k: 'bolt', pts: [[e.c, e.r - 2], [e.c, e.r]], color: '#fff6a0', t1: W.t + 6 }); deal(W, null, e, 60 + 30 * W.fightNo + 5 * W.wave, 'magic', {}); }

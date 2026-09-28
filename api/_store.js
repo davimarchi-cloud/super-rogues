@@ -47,7 +47,6 @@ function memStore() {
     async updateTeam(id, f) { Object.assign((M.teams || []).find(t => t.id === id), f, { updated: Date.now() }); },
     async fixCrowns(pid, crowns) { if (M.players && M.players[pid]) M.players[pid].crowns = crowns; },
     async countTeams(pid, since) { return (M.teams || []).filter(t => t.pid === pid && t.created >= since).length; },
-    async anyLost() { return (M.teams || []).some(t => t.status === 'lost' && t.pid !== 'bot'); },
     async pickOpponent(minWins, pid, own, excludeId) {
       const pool = (M.teams || []).filter(t => (t.status === 'lost' || t.status === 'champion') && t.wins >= minWins && (own ? t.pid === pid && t.id !== excludeId : t.pid !== pid));
       if (!pool.length) return null; const w = Math.min(...pool.map(t => t.wins)); const c = pool.filter(t => t.wins === w);
@@ -91,7 +90,6 @@ function pgStore() {
     async getTeam(id) { const r = await q('select * from teams where id=$1', [id]); return r.length ? num(r[0]) : null; },
     async updateTeam(id, f) { await q('update teams set wins=$2, status=$3, opp=$4, updated=$5 where id=$1', [id, f.wins, f.status, f.opp, Date.now()]); },
     async countTeams(pid, since) { return Number((await q('select count(*)::int n from teams where pid=$1 and created>=$2', [pid, since]))[0].n); },
-    async anyLost() { return (await q("select 1 from teams where status='lost' and pid <> 'bot' limit 1")).length > 0; },
     async pickOpponent(minWins, pid, own, excludeId) {
       const r = own
         ? await q("select * from teams where status in ('lost','champion') and wins >= $1 and pid = $2 and id <> $3 order by wins asc, random() limit 1", [minWins, pid, excludeId || 0])

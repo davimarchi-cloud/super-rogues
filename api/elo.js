@@ -1,7 +1,8 @@
 // Elo + PvP gauntlet (reviews #3 and #4 by David).
 // - No hearts: losing any fight ends the run = a loss against an opponent rated (your Elo - 200)      op 'fail'
-// - After the Onslaught the player's team is stored and enters the gauntlet: round k is against a stored team whose
-//   own gauntlet ended with k wins (or the closest above). Each match is a 1v1 Elo game against that team's rating
+// - After the last shop the player's team is stored as a GHOST and enters the gauntlet: round k is against the ghost of
+//   another run whose own gauntlet ended with k wins (or the closest above). Review #10: only player ghosts, no bots.
+//   Other players' ghosts first; if there are none yet, ghosts of your own older runs. Each match is a 1v1 Elo game against that team's rating
 //   at the time it was stored. A loss ends the run; if nobody ever went further, the player is crowned champion.
 //   ops 'enter' and 'result'. GET: Elo ladder.
 // Fights run in the player's browser (like the rest of the game), so results are trusted: this is a demo.
@@ -31,32 +32,8 @@ function cleanTeam(team) {
   }
   return out;
 }
-const oppView = t => t && { teamId: t.id, name: t.name, elo: Math.round(t.elo_at), wins: t.wins, status: t.status, bot: t.pid === 'bot', team: JSON.parse(t.team), relics: JSON.parse(t.relics) };
+const oppView = (t, pid) => t && { teamId: t.id, name: t.name, elo: Math.round(t.elo_at), wins: t.wins, status: t.status, own: t.pid === pid, team: JSON.parse(t.team), relics: JSON.parse(t.relics) };
 
-// review #5 (David): until the first player team has lost a duel there is nobody to fight in round 1, so the first
-// duel is against a random but believable company: same level and item count as the player's team, random specs,
-// sensible formation. Stored with pid 'bot' / status 'bot' (never picked as a regular opponent). Once any real team
-// has lost, round 1 uses real teams and the bots are gone.
-const BOT_NAMES = ['The Ashen Company', 'Ser Aldric\'s Band', 'The Grey Wardens', 'Wolves of Varn', 'The Last Lanterns', 'Crimson Oath', 'The Hollow Crowns', 'Brothers of the Pass', 'The Salt Guard', 'Duskwatch'];
-const rnd = a => a[Math.floor(Math.random() * a.length)];
-function makeBot(team) {
-  const lvl = Math.max(1, Math.min(5, Math.round(team.reduce((t, h) => t + h.lvl, 0) / team.length)));
-  const nItems = Math.round(team.reduce((t, h) => t + h.items.length, 0) / team.length);
-  const pool = Object.keys(D.HEROES).sort(() => Math.random() - 0.5).slice(0, team.length);
-  const tiers = lvl >= 4 ? ['rare', 'rare', 'epic'] : ['common', 'rare', 'rare'];
-  const taken = new Set();
-  return pool.map(key => {
-    const hd = D.HEROES[key], specs = [];
-    for (let l = 2; l <= lvl; l++) specs.push(rnd(hd.specs[l - 2]).id);
-    const slots = 1 + Math.max(0, lvl - 2), items = [];
-    for (let i = 0; i < Math.min(slots, nItems); i++) items.push(rnd(D.ITEMS.filter(it => it.tier === rnd(tiers) && !it.mods.gold)).id);
-    const rows = hd.range <= 1 ? [4, 5] : [7, 6], cols = [3, 4, 2, 5, 1, 6];
-    let pos = { c: 3, r: rows[0] };
-    for (const r of rows) { const c = cols.find(c => !taken.has(c + ':' + r)); if (c != null) { pos = { c, r }; break; } }
-    taken.add(pos.c + ':' + pos.r);
-    return { key, lvl, specs, items, bonus: {}, pos };
-  });
-}
 // next opponent with at least `wins` wins: other players first, then your own older teams
 async function nextOpponent(st, wins, pid, teamId) { return (await st.pickOpponent(wins, pid, false)) || (await st.pickOpponent(wins, pid, true, teamId)); }
 
@@ -90,15 +67,10 @@ module.exports = async (req, res) => {
       if (await st.countTeams(pid, Date.now() - 3600e3) >= 20) return send(res, 429, { error: 'Too many gauntlet runs this hour.' });
       const id = await st.insertTeam({ pid, name, elo_at: p.elo, team: JSON.stringify(team), relics: JSON.stringify(relics) });
       p.runs++;
-      let opp;
-      if (!(await st.anyLost())) {
-        const botId = await st.insertTeam({ pid: 'bot', name: rnd(BOT_NAMES), elo_at: 1000, team: JSON.stringify(makeBot(team)), relics: '[]' });
-        await st.updateTeam(botId, { wins: 0, status: 'bot', opp: null });
-        opp = await st.getTeam(botId);
-      } else opp = await nextOpponent(st, 0, pid, id);
+      const opp = await nextOpponent(st, 0, pid, id);
       if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, champion: true, over: true })); }
       await st.updateTeam(id, { wins: 0, status: 'running', opp: opp.id }); await save({});
-      return send(res, 200, me({ teamId: id, round: 0, wins: 0, opponent: oppView(opp) }));
+      return send(res, 200, me({ teamId: id, round: 0, wins: 0, opponent: oppView(opp, pid) }));
     }
 
     if (b.op === 'result') {
@@ -119,7 +91,7 @@ module.exports = async (req, res) => {
       p.best = Math.max(p.best, wins);
       if (!next) { await st.updateTeam(t.id, { wins, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: t.id, win, delta, wins, champion: true, over: true })); }
       await st.updateTeam(t.id, { wins, status: 'running', opp: next.id }); await save({});
-      return send(res, 200, me({ teamId: t.id, win, delta, wins, round: wins, opponent: oppView(next) }));
+      return send(res, 200, me({ teamId: t.id, win, delta, wins, round: wins, opponent: oppView(next, pid) }));
     }
     return send(res, 400, { error: 'Unknown op' });
   } catch (e) {

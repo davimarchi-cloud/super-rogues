@@ -12,10 +12,9 @@
     maxLevel: 5, baseSlots: 1,          // item slots: 1 at Lv1-2, +1 at Lv3, Lv4, Lv5
     fightScale: [1, 0.9, 1.1, 1.3, 1.5, 1.75, 2], // by fight number (1..6)
     suddenDeath: 45, fightCap: 150,     // seconds
-    waveEvery: 10,                      // onslaught: seconds between waves
     // node sequence: F = fight (2 of easy/medium/hard), X = shop or event (2 options), B = boss (no option),
-    // S = final shop choice (2 shops), O = onslaught
-    seq: ['F', 'X', 'F', 'X', 'B', 'X', 'F', 'X', 'F', 'X', 'B', 'S', 'O'],
+    // S = final shop choice (2 shops), G = the PvP gauntlet against player ghosts (review #9 removed the Onslaught)
+    seq: ['F', 'X', 'F', 'X', 'B', 'X', 'F', 'X', 'F', 'X', 'B', 'S', 'G'],
   };
 
   // ---------------------------------------------------------------- heroes
@@ -396,7 +395,6 @@
     R('firststrike', 'Opening Gambit', 'Heroes start fights with a shield of 20% max HP.', { mods: { shieldStartPct: 0.2 } }),
     R('purse', 'Coin Purse', 'Gain 10 gold now, and +1 gold per 10 held after each fight.', { fl: 'purse' }),
     R('tome', 'Elder Tome', 'All current heroes gain 45 XP now.', { fl: 'tome' }),
-    R('onslaught', 'Onslaught Banner', 'Heroes deal +30% damage in the Onslaught.', { fl: 'onslaught' }),
     R('wind', 'Swift Wind', 'All heroes +1 move speed.', { mods: { ms: 1 } }),
     R('mark', "Hunter's Mark", '+25% damage to elites and bosses.', { mods: { eliteDmg: 0.25 } }),
     // ---- v5 (review #2)

@@ -1,6 +1,6 @@
 // Bot plays whole runs headless, to catch crashes and read balance numbers.
 // Usage: node tools/sim-run.js [runs=40] [teamSize=3] [seed=1]
-// Reports: win rate per fight (and bosses), onslaught score, levels reached, abilities that never fired, NaN checks.
+// Reports: win rate per fight (and bosses), how many runs reach the gauntlet, levels reached, abilities that never fired, NaN checks.
 require('../js/hex.js'); require('../js/data.js'); require('../js/sim.js'); require('../js/run.js');
 const RUNS = +(process.argv[2] || 40), TEAM = +(process.argv[3] || 3), SEED0 = +(process.argv[4] || 1);
 const { Run, Sim, HEROES, ITEM } = B;
@@ -48,11 +48,7 @@ for (let n = 0; n < RUNS; n++) {
       Run.leave(run);
     } else if (run.phase === 'deploy') {
       equipAll(run);
-      if (run.cur && run.cur.type === 'onslaught') {
-        const W = playFight(run, Run.onslaughtWorld(run));
-        stats.scores.push(W.kills); stats.waves.push(W.wave); stats.reached++;
-        Run.finishOnslaught(run, W);
-      } else {
+      {
         const f = run.cur, W = playFight(run, Run.fightWorld(run));
         const key = f.fightNo + (f.diff === 'boss' ? 'B' : f.diff[0]);
         stats.fights[key] = stats.fights[key] || [0, 0]; stats.fights[key][1]++; if (W.winner === 0) stats.fights[key][0]++;
@@ -62,6 +58,7 @@ for (let n = 0; n < RUNS; n++) {
       }
     }
   }
+  if (run.phase === 'gauntlet') stats.reached++;
   for (const h of run.heroes) stats.lv[h.lvl]++;
 }
 const pct = (a) => a[1] ? Math.round(100 * a[0] / a[1]) + '% (' + a[0] + '/' + a[1] + ')' : '-';
@@ -69,7 +66,7 @@ console.log('runs', RUNS, 'team', TEAM);
 console.log('fights:', Object.keys(stats.fights).sort().map(k => k + ' ' + pct(stats.fights[k])).join(' | '));
 console.log('boss 3:', pct(stats.boss[3]), ' boss 6:', pct(stats.boss[6]));
 const avg = a => a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1) : '-';
-console.log('reached onslaught:', stats.reached, ' avg score', avg(stats.scores), ' max', Math.max(0, ...stats.scores), ' avg wave', avg(stats.waves));
+console.log('reached the gauntlet:', stats.reached, 'of', RUNS);
 console.log('fight length avg (s):', avg(stats.fightSecs), ' max', Math.max(...stats.fightSecs).toFixed(0));
 console.log('hero levels at end:', stats.lv.slice(1).map((c, i) => 'L' + (i + 1) + ':' + c).join(' '));
 console.log('NaN units:', stats.nan);

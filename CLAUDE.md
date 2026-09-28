@@ -33,7 +33,6 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `js/ui.js` | telas DOM + loop da batalha. Sem handler inline (CSP): todo botão tem `data-act` |
 | `js/net.js` | cliente JSON de `/api` |
 | `api/suggest.js` | GET fila pública (agrupada por envio) + status do revisor; POST `{items: [...até 10], name}` = 1 envio (lote). Limite por IP: 3 envios/10 min, 12 envios e 40 mudanças/dia; fila máx 300 |
-| `api/scores.js` | ranking do Onslaught (cliente confiável; é demo) |
 | `api/elo.js` | Elo por jogador (id aleatório guardado no navegador) + Gauntlet PvP: `fail` (perdeu a run = derrota contra Elo−200), `enter` (guarda o time e sorteia o adversário), `result` (Elo 1v1 K=32 contra o Elo do time salvo); GET = ladder. Tabelas `players` e `teams` |
 | `api/_store.js` | Neon em produção, memória no dev/teste. Tabelas `suggestions`, `kv`, `scores` |
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
@@ -49,8 +48,8 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 - Depois de toda luta os heróis curam 100%.
 - Toda etapa tem 2 opções: luta (fácil/média/difícil) e depois loja ou evento, alternando. Lutas 3 e 6 são chefes,
   sem opção. Vencer dá ouro. Lojas: heróis, itens, relíquias.
-- Depois do 2º chefe: última escolha de loja, loja, e o Onslaught: ondas sem fim no topo a cada 10 s, 1 ponto por
-  kill, cada onda mais forte. Placar da run = kills até todos os heróis morrerem.
+- ~~Onslaught (ondas sem fim depois do 2º chefe)~~: REMOVIDO pelo David (lote 6). Depois do 2º chefe e da última loja
+  vem o Gauntlet contra fantasmas de jogadores (lotes 3, 4, 7).
 - Movimento suave: a unidade ocupa o hex de destino ao começar a andar e o renderer interpola; ela chega no tick exato
   em que a próxima ação (windup do ataque) começa. Teste: `motor.js` "attack starts on landing tick".
 - Mobile first. Tem de ser possível um time de 3 heróis com itens vencer os 2 chefes (`boss-matrix.js`).
@@ -115,6 +114,11 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v8 (2026-09-28), lotes 6 e 7 do David**: Onslaught removido por inteiro (modo, ondas, relíquia Onslaught Banner,
+  ranking de kills e `api/scores.js`; a tabela `scores` ficou no banco, sem uso). Depois da última loja vem direto o
+  Gauntlet. Lote 7 ("should only battle player ghosts"): a companhia aleatória do lote 5 saiu; só fantasmas de
+  jogadores, primeiro de outros jogadores, depois das suas próprias runs antigas (cartão diz "ghost of your own
+  earlier run"). O primeiro fantasma de todos, sem ninguém para enfrentar, é coroado. Saves v2 migram (`Run.migrate`).
 - **v7 (2026-09-28), lote 5 do David** ("the gauntlet isn't working"): ele era coroado sem lutar porque não havia
   time salvo de outro jogador. Agora, enquanto nenhum time de jogador perdeu um duelo, a rodada 1 é contra uma
   "companhia" aleatória crível (mesmo tamanho, nível e nº de itens do time dele; `pid 'bot'`, `status 'bot'`); depois

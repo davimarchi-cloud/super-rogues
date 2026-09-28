@@ -81,36 +81,24 @@ for (const r of RELICS) {
   ok(make() === make(), 'same seed, same fight');
 }
 
-// run structure: 2 options per step, bosses at fights 3 and 6 with a single option, final shop, onslaught
+// run structure: 2 options per step, bosses at fights 3 and 6 with a single option, final shop, then the gauntlet
 {
   const run = Run.newRun(5); Run.pickStart(run, run.startOffer.slice(0, 2));
   const seen = [];
   for (let i = 0; i < CFG.seq.length; i++) {
     const t = CFG.seq[run.step]; seen.push(t + run.opts.length);
-    if (t === 'O') break;
+    if (t === 'G') break;
     Run.choose(run, 0);
     if (run.phase === 'deploy') { const W = Run.fightWorld(run); W.over = true; W.winner = 0; Run.finishFight(run, W); }
     else if (run.phase === 'shop' || run.phase === 'event') Run.leave(run);
     while (run.pending.length) Run.chooseSpec(run, 0);
   }
-  ok(seen.join(' ') === 'F2 X2 F2 X2 B1 X2 F2 X2 F2 X2 B1 S2 O1', 'node sequence ' + seen.join(' '));
-  ok(run.fightNo === 6, 'six fights before the onslaught');
+  ok(seen.join(' ') === 'F2 X2 F2 X2 B1 X2 F2 X2 F2 X2 B1 S2 G0' && run.phase === 'gauntlet', 'node sequence ' + seen.join(' '));
+  ok(run.fightNo === 6, 'six fights before the gauntlet');
 }
 
-// onslaught: waves every 10s on the top row, 1 point per kill, ends when heroes die
-{
-  const run = Run.newRun(21); Run.pickStart(run, ['bastion', 'kestrel']); Run.addHero(run, 'pyra');
-  run.cur = { type: 'onslaught' };
-  const W = Run.onslaughtWorld(run);
-  let firstRows = null;
-  while (!W.over && W.t < 20 * 900) {
-    Sim.step(W);
-    if (W.wave === 1 && !firstRows) firstRows = W.units.filter(u => u.side === 1).map(u => u.r);
-  }
-  ok(W.over, 'onslaught ends when the heroes fall (wave ' + W.wave + ', kills ' + W.kills + ')');
-  ok(firstRows && firstRows.every(r => r === 0), 'first wave spawns on the top row');
-  ok(W.wave >= 2 && W.kills > 0, 'several waves and some kills');
-}
+// review #9: the Onslaught is gone
+ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no Onslaught left (mode, relic, node)');
 
 // shops, items, levels
 {
@@ -152,6 +140,7 @@ for (const r of RELICS) {
   const other = Run.newRun(123); Run.pickStart(other, ['bastion', 'kestrel']); Run.addHero(other, 'pyra');
   const run = Run.newRun(124); Run.pickStart(run, ['brakk', 'lumen']); Run.addHero(run, 'tempest');
   run.phase = 'gauntlet'; run.g = { status: 'match', history: [], round: 0, opp: { name: 'X', elo: 1000, team: Run.teamSnapshot(other), relics: ['drum'] } };
+  ok(Run.migrate({ v: 2, step: 12, phase: 'deploy', cur: { type: 'onslaught' }, relics: ['onslaught', 'drum'], opts: [] }).phase === 'gauntlet', 'a saved run standing at the old Onslaught moves to the gauntlet');
   run.cur = { type: 'gauntlet' };
   const W = Run.gauntletWorld(run); Sim.run(W, 20 * 200);
   const foes = W.units.filter(u => u.side === 1 && u.kind === 'hero');

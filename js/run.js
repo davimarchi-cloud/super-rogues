@@ -14,8 +14,15 @@
   function wpick(run, weights) { let s = 0; for (const k in weights) s += weights[k]; let x = rnd(run) * s; for (const k in weights) { x -= weights[k]; if (x <= 0) return k; } return Object.keys(weights)[0]; }
 
   // ------------------------------------------------------------------ run
+  function migrate(run) {
+    if (!run || run.v === 3) return run;
+    if (run.v !== 2) return null;
+    run.v = 3; run.relics = (run.relics || []).filter(id => B.RELIC[id]);
+    if (run.phase !== 'over' && (C.seq[run.step] === 'G' || (run.cur && run.cur.type === 'onslaught') || (run.opts || []).some(o => o.type === 'onslaught'))) { run.phase = 'gauntlet'; run.g = run.g || { status: 'intro', history: [] }; run.cur = null; run.opts = []; }
+    return run;
+  }
   function newRun(seed) {
-    const run = { v: 2, seed: seed >>> 0, rs: seed | 0, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
+    const run = { v: 3, seed: seed >>> 0, rs: seed | 0, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
       step: -1, fightNo: 0, phase: 'start', opts: [], cur: null, pending: [], curse: 0, log: [], won: 0, lost: 0, score: 0, startOffer: [] };
     run.startOffer = pickN(run, Object.keys(B.HEROES), 3);
     return run;
@@ -170,13 +177,6 @@
     return res;
   }
 
-  // ------------------------------------------------------------------ onslaught
-  function onslaughtWorld(run, preview) {
-    for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
-    return B.Sim.create({ mode: 'onslaught', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: 7, relics: run.relics, onsBase: 1.5,
-      heroes: run.heroes.map(h => ({ def: heroDef(run, h), c: h.pos.c, r: h.pos.r })), enemies: [] });
-  }
-  function finishOnslaught(run, W) { run.score = W.kills; run.wave = W.wave; run.cur = null; run.phase = 'gauntlet'; run.g = { status: 'intro', history: [] }; return run.score; }
 
   // ------------------------------------------------------------------ PvP gauntlet (reviews #3 #4): matchmaking + Elo live in api/elo.js
   function teamSnapshot(run) {
@@ -219,8 +219,9 @@
       run.opts = [a, b].map(k => k === 'event' ? { type: 'event', id: pick(run, B.EVENTS).id } : { type: 'shop', kind: k });
     } else if (t === 'S') {
       run.opts = pickN(run, ['heroShop', 'itemShop', 'relicShop'].filter(k => k !== 'heroShop' || run.heroes.length < teamMax(run)), 2).map(k => ({ type: 'shop', kind: k, final: true }));
-    } else if (t === 'O') {
-      run.opts = [{ type: 'onslaught' }];
+    } else if (t === 'G') {
+      // the gauntlet (reviews #3 #4 #9 #10): duels against ghosts of other players' runs
+      run.phase = 'gauntlet'; run.g = { status: 'intro', history: [] }; run.cur = null;
     }
   }
   function choose(run, i) {
@@ -229,7 +230,6 @@
     if (o.type === 'fight') { run.fightNo = o.fightNo; if (run.curse) { o.curse = run.curse; run.curse = 0; } run.phase = 'deploy'; }
     else if (o.type === 'shop') { run.cur = makeShop(run, o.kind); run.phase = 'shop'; }
     else if (o.type === 'event') { run.cur = { type: 'event', id: o.id, done: null }; run.phase = 'event'; }
-    else if (o.type === 'onslaught') run.phase = 'deploy';
   }
 
   // ------------------------------------------------------------------ shops
@@ -303,7 +303,7 @@
   }
 
   B.Run = { newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
-    finishFight, onslaughtWorld, finishOnslaught, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
-    eventAct, teamMax, addHero, gainRelic, rnd, teamSnapshot, gauntletWorld, gauntletUpdate };
+    finishFight, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
+    eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate };
   if (typeof module !== 'undefined') module.exports = B.Run;
 })(typeof window !== 'undefined' ? window : globalThis);

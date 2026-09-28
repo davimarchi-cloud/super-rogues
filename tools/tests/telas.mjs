@@ -123,7 +123,6 @@ while (steps++ < 80) {
       }
       await sleep(900); await shot('05-battle'); await noHScroll('battle');
     }
-    if (st.type === 'onslaught') { await sleep(2500); await shot('10-onslaught'); }
     await click('[data-act=skip]');
     for (let k = 0; k < 60 && (await ev('!!__bal.battle')); k++) await sleep(100);
     continue;
@@ -141,23 +140,15 @@ if (fin.result === 'defeat' && !REMOTE) {
   ok(await ev(`__bal.run.eloEnd === 976 && /Elo/.test(document.querySelector('#screen').textContent) && /976/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run and cost Elo (1000 -> 976)');
 }
 
-// ---- gauntlet: a rival team is already stored; take a strong team through the Onslaught into the duels
+// ---- gauntlet: Rival's ghost is already stored; take a strong team past the last shop into the duels
 if (!REMOTE) {
-  // Rival reaches the gauntlet and loses round 1 to the wandering company (review #5), so its team becomes a real opponent
-  await ev(`(async () => { const post = b => fetch('/api/elo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json());
-    const e = await post({ op: 'enter', pid: 'b'.repeat(32), name: 'Rival', team: [{ key: 'bastion', lvl: 1, specs: [], items: [], bonus: {}, pos: { c: 3, r: 4 } }], relics: [] });
-    await post({ op: 'result', pid: 'b'.repeat(32), teamId: e.teamId, win: false }); })()`);
+  await ev(`fetch('/api/elo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'enter', pid: 'b'.repeat(32), name: 'Rival', team: [{ key: 'bastion', lvl: 1, specs: [], items: [], bonus: {}, pos: { c: 3, r: 4 } }], relics: [] }) })`);
   await click('[data-act=new-run]'); await sleep(150);
   await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`); await click('[data-act=start-go]'); await sleep(150);
   await ev(`(() => { const r = __bal.run; B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k)));
     r.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[0].id); h.items = ['bloodthirster', 'warmog', 'infinity', 'guardian']; });
     r.step = B.CFG.seq.length - 2; r.fightNo = 6; B.Run.advance(r); __bal.render(); })()`);
-  await click('[data-act=choose]'); await sleep(200); await click('[data-act=fight]'); await sleep(2500); await shot('10-onslaught');
-  await click('[data-act=skip]'); for (let k = 0; k < 80 && (await ev('!!__bal.battle')); k++) await sleep(100);
-  ok(await ev(`__bal.run.phase === 'gauntlet' && !!document.querySelector('form[data-form=gauntlet]') && !!document.querySelector('form[data-form=score]')`), 'the Onslaught leads into the Gauntlet (score can still be submitted)');
-  await ev(`(() => { const f = document.querySelector('form[data-form=score]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(800);
-  ok(await ev(`document.querySelector('#modal:not([hidden])') ? document.querySelector('#modal').textContent.includes('TestBot') : false`), 'score shows on the ladder');
-  await click('[data-act=close]'); await sleep(100);
+  ok(await ev(`__bal.run.phase === 'gauntlet' && !!document.querySelector('form[data-form=gauntlet]') && !document.querySelector('form[data-form=score]') && !/Onslaught/.test(document.body.textContent)`), 'after the last shop comes the Gauntlet (no Onslaught)');
   await shot('16-gauntlet-intro');
   await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(900);
   ok(await ev(`__bal.run.g.status === 'match' && document.querySelector('.opp').textContent.includes('Rival')`), 'gauntlet round 1: a card shows the stored rival team');
@@ -175,7 +166,7 @@ if (!REMOTE) {
   await click('[data-act=scores]');
   for (let k = 0; k < 30 && !(await ev(`!!document.querySelector('#modal table')`)); k++) await sleep(100);
   const ladder = await ev(`document.querySelector('#modal').textContent`);
-  ok(ladder.includes('Rival') && ladder.includes('TestBot'), 'Elo ladder lists the players' + (ladder.includes('Rival') && ladder.includes('TestBot') ? '' : ': ' + ladder.replace(/\s+/g, ' ').slice(0, 400)));
+  ok(ladder.includes('Rival') && ladder.includes('TestBot') && !/Onslaught/.test(ladder), 'Elo ladder lists the players' + (ladder.includes('Rival') && ladder.includes('TestBot') ? '' : ': ' + ladder.replace(/\s+/g, ' ').slice(0, 400)));
   await click('[data-act=close]');
 }
 
@@ -187,7 +178,7 @@ if (REMOTE) {
 } else {
   await click('[data-act=suggest]'); await sleep(600);
   const addNote = t => ev(`(() => { const f = document.querySelector('form[data-form=draft]'); f.text.value = ${JSON.stringify(t)}; f.querySelector('button').click(); })()`);
-  await addNote('Please add a hero that <b>reflects</b> spells'); await addNote('Make the Onslaught waves bigger'); await addNote('Pyra burn lasts 1s longer');
+  await addNote('Please add a hero that <b>reflects</b> spells'); await addNote('Make the ghosts smarter'); await addNote('Pyra burn lasts 1s longer');
   await sleep(150);
   ok(await ev(`document.querySelectorAll('#drafts li').length === 3 && document.querySelector('[data-act=send-review]').textContent.includes('Send 3 changes')`), 'three notes wait in the list before sending');
   await ev(`document.querySelectorAll('[data-act=draft-del]')[2].click()`);
