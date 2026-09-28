@@ -121,6 +121,15 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v21 (2026-09-28), lote 19 do David** ("not clear how hero abilities scale with AP, attack etc." + ler a habilidade
+  na tela de itens): `SCALE` no ui.js descreve cada uma das 33 habilidades como o sim calcula (P = % do ataque físico;
+  M = % do ataque × AP/100 mágico; A = mágico sem AP (Eclipse); B = queimadura × AP; H = cura % da vida máx × AP;
+  X/S = cura/escudo % da própria vida; D = % da vida do alvo por s; Z = frase). `scalingHTML` mostra os números atuais
+  (inclui specs e itens): no cartão do herói da ficha do time (tocar no retrato ou na linha "ⓘ habilidade"), no painel
+  de info do tabuleiro (compacto); `scaleTag` ("scales with attack · AP") na loja de heróis e na escolha inicial; regra
+  geral no How to play e na dica do atributo AP. SE MUDAR UMA HABILIDADE NO SIM, ATUALIZE `SCALE` (teste: telas checa
+  as 33 sem NaN).
+
 - **v20 (2026-09-28), lote 18 do David** ("another pass of the ui and battle ui ... pretty, functional, visible,
   engaging"): o celular deixava metade da tela vazia. Batalha: cartão por herói (vida e escudo em números, barra de mana
   com o nome da habilidade e "READY", selos de controle STUN/SILENCE/..., dano ao vivo com coroa no líder, summons

@@ -91,7 +91,11 @@ while (steps++ < 80) {
       globalThis.__teamShot = 1;
       await ev(`document.querySelector('[data-act=team]').click(); document.querySelector('[data-act=bag]').click()`); await sleep(150);
       ok(await ev(`(() => { const c = document.querySelectorAll('.equip .eqcol'); return c.length === 2 && !!c[0].querySelector('.eqitem') && !!c[1].querySelector('.eqhero') && c[0].getBoundingClientRect().left < c[1].getBoundingClientRect().left; })()`), 'equip sheet: items on the left, heroes on the right');
-      await shot('08b-team'); await noHScroll('team sheet'); await noVScroll('team sheet'); await click('[data-act=close]'); await sleep(100);
+      await shot('08b-team'); await noHScroll('team sheet'); await noVScroll('team sheet');
+      // review #19: tapping a hero's portrait shows its ability and how it scales, with its current numbers
+      await click('[data-act=bag]'); await click('.dpor'); await sleep(150);
+      ok(await ev(`!!document.querySelector('.hdetail .scal li') && /How it scales/.test(document.querySelector('.hdetail').textContent) && !/NaN|undefined/.test(document.querySelector('.hdetail').textContent)`), 'team sheet: the hero card shows its ability and how it scales');
+      await shot('08c-hero-card'); await click('[data-act=close]'); await sleep(100);
     }
     // equip everything through the Team sheet
     for (let k = 0; k < 6; k++) {
@@ -150,6 +154,9 @@ if (fin.result === 'defeat' && !REMOTE) {
   await sleep(600);
   ok(await ev(`__bal.run.eloEnd === 984 && /Elo/.test(document.querySelector('#screen').textContent) && /984/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run and cost Elo (review #14: loss vs 1000, 1000 -> 984)');
 }
+
+// ---- review #19: every hero ability has a scaling explanation with real numbers
+ok(await ev(`Object.keys(B.HEROES).every(k => { const d = B.Run.heroDef({ relics: [] }, { key: k, lvl: 3, specs: [], items: [], bonus: {} }); const ps = __bal.scaleParts(d); return ps.length > 0 && ps.every(p => p.t && !/NaN|undefined|Infinity/.test(p.t)); })`), 'every hero ability explains how it scales (33 heroes, no NaN)');
 
 // ---- review #17: events, forced so every test run sees one: 3 choices, a targeted choice with its picker, the result,
 // and a next-fight modifier shown on the map

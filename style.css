@@ -753,3 +753,25 @@ body.side .deploy .fgrid { grid-template-columns: 1fr; }
 body.side .teamstrip.v2, body.landscape .teamstrip.v2 { grid-template-columns: 1fr; }
 body.side .deploy .bar { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; }
 body.side .deploy .bar button { white-space: nowrap; }
+
+/* =====================================================================================================
+   v21 (review #19): how abilities scale (team sheet hero card, unit info, shop/start tag)
+   ===================================================================================================== */
+.scal { margin-top: 6px; padding: 6px 8px; border-radius: 9px; background: #10131a; border: 1px solid #2c3446; }
+.scal-h { font-size: 11px; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+.scal-h .dim { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 4px; }
+.scal ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.scal li { display: flex; gap: 6px; align-items: baseline; font-size: 12px; line-height: 1.35; }
+.scal li i { font-style: normal; width: 14px; flex: none; text-align: center; }
+.scal li .num { color: #fff; }
+.scal .sk-P i { color: #ff9a6a; } .scal .sk-M i, .scal .sk-A i { color: #c79bff; } .scal .sk-H i, .scal .sk-X i { color: #7ee08e; } .scal .sk-S i { color: #9fc6ff; }
+.scal.compact { padding: 3px 6px; margin-top: 3px; } .scal.compact li { font-size: 11px; }
+.scaletag { display: block; margin-top: 4px; font-size: 11px; color: var(--dim); font-style: italic; }
+.hdetail { background: linear-gradient(180deg, #22252f, #181a21); border: 1px solid #5a4a8a; border-left-width: 4px; border-radius: var(--r); padding: 8px; margin: 0 0 6px; }
+.hdetail .row { display: flex; gap: 8px; align-items: flex-start; } .hdetail .por { width: 44px; height: 44px; flex: none; }
+.hdetail .hspecs { margin-top: 5px; display: grid; gap: 2px; }
+.abline { display: block; width: 100%; min-height: 0; padding: 2px 0 0; border: 0; background: none; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; color: inherit; }
+.abline .ib { color: var(--gold); font-weight: 700; }
+.dpor { padding: 0; border: 0; background: none; min-height: 0; cursor: pointer; }
+.eqhero .abline { padding: 0; line-height: 1.25; }
+.eqhero .abline { background: none; border: 0; box-shadow: none; border-radius: 0; }
