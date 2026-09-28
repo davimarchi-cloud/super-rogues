@@ -6,7 +6,7 @@ const RUNS = +(process.argv[2] || 40), TEAM = +(process.argv[3] || 3), SEED0 = +
 const { Run, Sim, HEROES, ITEM } = B;
 
 const casts = {}; for (const k in Sim.abilities) { const f = Sim.abilities[k]; Sim.abilities[k] = (W, u, x) => { const r = f(W, u, x); if (r) casts[k] = (casts[k] || 0) + 1; return r; }; }
-const stats = { fights: {}, boss: { 3: [0, 0], 6: [0, 0] }, scores: [], waves: [], lv: [0, 0, 0, 0, 0, 0], reached: 0, nan: 0, fightSecs: [], hearts: [] };
+const stats = { fights: {}, boss: { 3: [0, 0], 6: [0, 0] }, scores: [], waves: [], lv: [0, 0, 0, 0, 0, 0], reached: 0, nan: 0, fightSecs: [] };
 const tierRank = { epic: 3, rare: 2, common: 1 };
 
 function equipAll(run) {
@@ -22,7 +22,7 @@ for (let n = 0; n < RUNS; n++) {
   const run = Run.newRun(SEED0 * 1000 + n);
   Run.pickStart(run, run.startOffer.slice(0, 2));
   let guard = 0;
-  while (run.phase !== 'over' && guard++ < 200) {
+  while (run.phase !== 'over' && run.phase !== 'gauntlet' && guard++ < 200) {
     while (run.pending.length) Run.chooseSpec(run, Run.rnd(run) < 0.5 ? 0 : 1);
     if (run.phase === 'map') {
       let i = 0;
@@ -63,7 +63,6 @@ for (let n = 0; n < RUNS; n++) {
     }
   }
   for (const h of run.heroes) stats.lv[h.lvl]++;
-  stats.hearts.push(run.hearts);
 }
 const pct = (a) => a[1] ? Math.round(100 * a[0] / a[1]) + '% (' + a[0] + '/' + a[1] + ')' : '-';
 console.log('runs', RUNS, 'team', TEAM);

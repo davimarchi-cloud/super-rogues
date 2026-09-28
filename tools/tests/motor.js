@@ -147,5 +147,22 @@ for (const r of RELICS) {
   ok(grew('echo', (W, u) => W.units.filter(a => a.side === 0).reduce((t, a) => t + Sim.asOf(W, a), 0)), 'Echo: allies attack faster over time');
   ok(CFG.maxTeam === 3, 'team size is 3');
 }
+// v6: gauntlet duel = our team vs a stored team, mirrored into the top rows
+{
+  const other = Run.newRun(123); Run.pickStart(other, ['bastion', 'kestrel']); Run.addHero(other, 'pyra');
+  const run = Run.newRun(124); Run.pickStart(run, ['brakk', 'lumen']); Run.addHero(run, 'tempest');
+  run.phase = 'gauntlet'; run.g = { status: 'match', history: [], round: 0, opp: { name: 'X', elo: 1000, team: Run.teamSnapshot(other), relics: ['drum'] } };
+  run.cur = { type: 'gauntlet' };
+  const W = Run.gauntletWorld(run); Sim.run(W, 20 * 200);
+  const foes = W.units.filter(u => u.side === 1 && u.kind === 'hero');
+  ok(foes.length === 3 && W.over && finite(W), 'gauntlet duel runs to the end');
+  const W0 = Run.gauntletWorld(run, true);
+  ok(W0.units.filter(u => u.side === 1).every(u => u.r <= 3), 'their team stands in the top rows');
+  Run.gauntletUpdate(run, { elo: 1016, delta: 16, win: true, wins: 1, teamId: 5, champion: true, over: true });
+  ok(run.phase === 'over' && run.result === 'gauntlet' && run.g.status === 'champion' && run.g.history.length === 1, 'crowned champion ends the run');
+  const r2 = Run.newRun(5); Run.pickStart(r2, ['vex', 'rook']); r2.cur = Run.makeFight(r2, 'hard', 2);
+  const W2 = Run.fightWorld(r2); W2.over = true; W2.winner = 1; Run.finishFight(r2, W2);
+  ok(r2.phase === 'over' && r2.result === 'defeat', 'no hearts: one lost fight ends the run');
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

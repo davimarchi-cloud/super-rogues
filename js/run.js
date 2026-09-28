@@ -15,7 +15,7 @@
 
   // ------------------------------------------------------------------ run
   function newRun(seed) {
-    const run = { v: 1, seed: seed >>> 0, rs: seed | 0, hearts: C.hearts, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
+    const run = { v: 2, seed: seed >>> 0, rs: seed | 0, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
       step: -1, fightNo: 0, phase: 'start', opts: [], cur: null, pending: [], curse: 0, log: [], won: 0, lost: 0, score: 0, startOffer: [] };
     run.startOffer = pickN(run, Object.keys(B.HEROES), 3);
     return run;
@@ -162,10 +162,11 @@
       res.xp.push({ uid: h.uid, name: B.HEROES[h.key].name, gained: h.xp - xp0, from: before, to: h.lvl });
     }
     if (win) { res.gold = goldAfterWin(run, f.gold) + (run.relics.includes('bounty') ? Math.min(6, W.kills) : 0); run.gold += res.gold; run.won++; }
-    else { run.hearts--; res.gold = 2; run.gold += 2; run.lost++; }
+    else run.lost++;
     run.log.push((win ? 'Won ' : 'Lost ') + (f.diff === 'boss' ? 'boss' : f.diff) + ' fight ' + f.fightNo);
     run.cur = null;
-    if (run.hearts <= 0) { run.phase = 'over'; run.result = 'defeat'; } else advance(run);
+    // review #3: no hearts, one lost fight ends the run
+    if (!win) { run.phase = 'over'; run.result = 'defeat'; } else advance(run);
     return res;
   }
 
@@ -175,7 +176,32 @@
     return B.Sim.create({ mode: 'onslaught', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: 7, relics: run.relics, onsBase: 1.5,
       heroes: run.heroes.map(h => ({ def: heroDef(run, h), c: h.pos.c, r: h.pos.r })), enemies: [] });
   }
-  function finishOnslaught(run, W) { run.score = W.kills; run.wave = W.wave; run.phase = 'over'; run.result = 'onslaught'; return run.score; }
+  function finishOnslaught(run, W) { run.score = W.kills; run.wave = W.wave; run.cur = null; run.phase = 'gauntlet'; run.g = { status: 'intro', history: [] }; return run.score; }
+
+  // ------------------------------------------------------------------ PvP gauntlet (reviews #3 #4): matchmaking + Elo live in api/elo.js
+  function teamSnapshot(run) {
+    for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
+    return run.heroes.map(h => ({ key: h.key, lvl: h.lvl, specs: h.specs.slice(), items: h.items.slice(), bonus: Object.assign({}, h.bonus), pos: { c: h.pos.c, r: h.pos.r } }));
+  }
+  function gauntletWorld(run, preview) {
+    const o = run.g.opp, ghost = { relics: o.relics || [], heroes: [] };
+    for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
+    return B.Sim.create({
+      mode: 'fight', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: 7, relics: run.relics,
+      heroes: run.heroes.map(h => ({ def: heroDef(run, h), c: h.pos.c, r: h.pos.r })),
+      // their formation, mirrored so it faces ours: rows 4..7 -> 3..0
+      enemies: o.team.map(h => { const d = heroDef(ghost, h); d.uid = 0; return { def: d, c: 7 - h.pos.c, r: 7 - h.pos.r }; }),
+    });
+  }
+  // apply an api/elo.js answer to the run
+  function gauntletUpdate(run, r) {
+    const g = run.g;
+    if (g.eloStart == null) g.eloStart = r.elo - (r.delta || 0);
+    g.elo = r.elo; g.teamId = r.teamId; g.wins = r.wins || 0;
+    if (r.delta != null && g.opp) g.history.push({ name: g.opp.name, elo: g.opp.elo, win: !!r.win, delta: r.delta });
+    if (r.opponent) { g.opp = r.opponent; g.round = r.round; g.status = 'match'; run.cur = { type: 'gauntlet' }; }
+    if (r.over) { g.status = r.champion ? 'champion' : 'lost'; g.opp = null; run.cur = null; run.phase = 'over'; run.result = 'gauntlet'; }
+  }
 
   // ------------------------------------------------------------------ map
   function advance(run) {
@@ -251,7 +277,6 @@
   function eventAct(run, i) {
     const ev = B.EVENT[run.cur.id], ch = ev.choices[i]; if (!ch || run.cur.done) return null;
     if (ch.req && ch.req.gold && run.gold < ch.req.gold) return null;
-    if (ch.req && ch.req.hearts && run.hearts < ch.req.hearts) return null;
     const [a, x, y] = ch.act.split(':'); let msg = 'Nothing happens.';
     const rh = () => pick(run, run.heroes), name = h => B.HEROES[h.key].name;
     if (a === 'xpAll') { for (const h of run.heroes) gainXp(run, h, +x); msg = 'All heroes gained ' + x + ' XP.'; }
@@ -260,10 +285,11 @@
     else if (a === 'buyRare') { run.gold -= +x; const id = randomItem(run, 'rare'); run.bag.push(id); msg = 'You got ' + B.ITEM[id].name + '.'; }
     else if (a === 'item') { const id = randomItem(run, x === 'common' ? 'common' : null); run.bag.push(id); msg = 'You got ' + B.ITEM[id].name + '.'; }
     else if (a === 'gamble') { run.gold -= +x; if (rnd(run) < 0.5) { run.gold += +y; msg = 'You won ' + y + ' gold!'; } else msg = 'You lost the bet.'; }
-    else if (a === 'curseRelic' || a === 'heartRelic') {
+    else if (a === 'curseRelic' || a === 'buyRelic') {
+      if (a === 'buyRelic') run.gold -= +x;
       const pool = B.RELICS.filter(r => !run.relics.includes(r.id));
       if (pool.length) { const r = pick(run, pool); gainRelic(run, r.id); msg = 'You gained ' + r.name + '.'; }
-      if (a === 'curseRelic') { run.curse = 0.3; msg += ' The next enemies feel stronger.'; } else run.hearts--;
+      if (a === 'curseRelic') { run.curse = 0.3; msg += ' The next enemies feel stronger.'; }
     }
     else if (a === 'hpAll') { for (const h of run.heroes) h.bonus.hpPct = (h.bonus.hpPct || 0) + (+x); msg = 'Your heroes feel sturdier.'; }
     else if (a === 'gold') { run.gold += +x; msg = '+' + x + ' gold.'; }
@@ -273,12 +299,11 @@
       else { run.gold -= +x; const h = addHero(run, pick(run, pool)); msg = name(h) + ' joins your team!'; }
     }
     else if (a === 'statOne') { const h = rh(); h.bonus[x] = (h.bonus[x] || 0) + (+y); msg = name(h) + ' gained +' + y + ' ' + x + '.'; }
-    else if (a === 'heart') { run.hearts = Math.min(C.hearts, run.hearts + 1); msg = 'Rested. Hearts: ' + run.hearts + '.'; }
     run.cur.done = msg; return msg;
   }
 
   B.Run = { newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
     finishFight, onslaughtWorld, finishOnslaught, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
-    eventAct, teamMax, addHero, gainRelic, rnd };
+    eventAct, teamMax, addHero, gainRelic, rnd, teamSnapshot, gauntletWorld, gauntletUpdate };
   if (typeof module !== 'undefined') module.exports = B.Run;
 })(typeof window !== 'undefined' ? window : globalThis);

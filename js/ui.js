@@ -14,6 +14,14 @@
   let battle = null, view = null, preview = null;
   const ui = { startPick: [], selBag: -1, selUid: 0, info: null, result: null, speed: store.get('balance.speed', 1), drag: null, modal: null };
   const save = () => { if (run) store.set(SAVE, run); };
+  // player identity for Elo (reviews #3 #4): a random id kept in this browser
+  function pid() {
+    let id = store.get('balance.pid', '');
+    if (!/^[a-f0-9]{32}$/.test(id)) { const a = new Uint8Array(16); crypto.getRandomValues(a); id = [...a].map(x => x.toString(16).padStart(2, '0')).join(''); store.set('balance.pid', id); }
+    return id;
+  }
+  const myName = () => store.get('balance.name', '') || '';
+  const setElo = r => { if (r && r.elo != null) store.set('balance.elo', r.elo); };
 
   const MOB_ABIL = {
     smash: 'Smash: a heavy blow that stuns its target.', mend: 'Mend: heals the weakest ally.', explode: 'Explodes when next to an enemy.',
@@ -35,8 +43,10 @@
       return;
     }
     const stepN = Math.max(0, run.step);
-    h.innerHTML = `<span class="hearts">${'♥'.repeat(Math.max(0, run.hearts))}<i>${'♥'.repeat(Math.max(0, CFG.hearts - run.hearts))}</i></span>
-      <span class="gold">💰 ${run.gold}</span><span class="prog">${stepN < CFG.seq.length - 1 ? 'Day ' + (stepN + 1) + '/' + CFG.seq.length : 'Onslaught'}</span>
+    const elo = store.get('balance.elo', null), g = run.g;
+    const prog = g ? (g.round != null ? 'Gauntlet · round ' + (g.round + 1) : 'Gauntlet') : stepN < CFG.seq.length - 1 ? 'Day ' + (stepN + 1) + '/' + CFG.seq.length : 'Onslaught';
+    h.innerHTML = `${elo != null ? `<span class="elo" title="Your Elo rating">⚜ ${elo}</span>` : ''}
+      <span class="gold">💰 ${run.gold}</span><span class="prog">${prog}</span>
       <span class="grow"></span>${battle ? '' : '<button data-act="team">Team</button>'}<button data-act="suggest" class="sugg">💡</button><button data-act="menu">☰</button>`;
   }
 
@@ -49,6 +59,7 @@
     if (screen === 'result') { m.innerHTML = resultHTML(); return; }
     if (run.phase === 'over') { m.innerHTML = overHTML(); return; }
     if (run.pending.length && run.phase !== 'deploy') { m.innerHTML = levelHTML(); return; }
+    if (run.phase === 'gauntlet') { m.innerHTML = gauntletHTML(); return; }
     if (run.phase === 'start') m.innerHTML = startHTML();
     else if (run.phase === 'map') m.innerHTML = mapHTML();
     else if (run.phase === 'deploy') { m.innerHTML = deployHTML(); mountBoard(); }
@@ -60,7 +71,7 @@
     const has = run && run.phase !== 'over';
     return `<section class="title">
       <h1 class="sc">Balance</h1>
-      <p class="tag">Pick heroes. Deploy them on the hex board. Watch them fight.<br>Beat two bosses, then survive the endless Onslaught.</p>
+      <p class="tag">Pick heroes. Deploy them on the hex board. Watch them fight.<br>Beat two bosses, survive the endless Onslaught, then duel other players in the Gauntlet.</p>
       <div class="stack">
         ${has ? '<button class="primary big" data-act="continue-run">Continue run</button>' : ''}
         <button class="${has ? '' : 'primary '}big" data-act="new-run">New run</button>
@@ -131,14 +142,14 @@
   }
 
   function deployHTML() {
-    const ons = run.cur && run.cur.type === 'onslaught';
+    const ons = run.cur && run.cur.type === 'onslaught', gau = run.cur && run.cur.type === 'gauntlet';
     const f = run.cur;
     return `<section class="deploy">
-      <div class="bhead">${ons ? '∞ The Onslaught' : f.diff === 'boss' ? '☠ Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
+      <div class="bhead">${gau ? `⚔ Gauntlet round ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : ons ? '∞ The Onslaught' : f.diff === 'boss' ? '☠ Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
       <p class="hint">Drag heroes (or tap one, then tap a hex) inside the blue rows. Tap any unit for details.${ons ? ' Waves spawn on the top row.' : ''}</p>
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info">${infoHTML()}</div>
-      <div class="bar"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${ons ? 'Begin the Onslaught' : 'Fight!'}</button></div>
+      <div class="bar"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${ons ? 'Begin the Onslaught' : gau ? 'Duel!' : 'Fight!'}</button></div>
     </section>`;
   }
   function battleHTML() {
@@ -148,15 +159,43 @@
       <div class="bar">${[1, 2, 4].map(s => `<button class="${ui.speed === s ? 'on' : ''}" data-act="speed" data-arg="${s}">${s}x</button>`).join('')}<button data-act="skip">Skip ⏭</button></div></section>`;
   }
 
+  function eloLine(r) {
+    if (r.pending) return '<p class="dim">Updating your Elo…</p>';
+    if (r.error) return `<p class="err">${esc(r.error)}</p><button data-act="retry-elo">Try again</button>`;
+    return r.delta != null ? `<p class="elo-line">Elo <b>${r.elo}</b> <span class="${r.delta >= 0 ? 'win' : 'lose'}">(${r.delta >= 0 ? '+' : ''}${r.delta})</span></p>` : '';
+  }
   function resultHTML() {
     const r = ui.result;
-    return `<section><h2 class="${r.win ? 'win' : 'lose'}">${r.win ? 'Victory!' : 'Defeat'}</h2>
-      <p>${r.win ? '+' + r.gold + ' gold' : 'You lost a heart ♥ (+2 gold). ' + (r.timeout ? 'Time ran out.' : '')}</p>
-      <table class="tbl"><tr><th>Hero</th><th>Damage</th><th>XP</th><th>Level</th></tr>
-      ${r.xp.map(x => `<tr><td>${esc(x.name)}</td><td>${Math.round(r.dmg[x.uid] || 0)}</td><td>+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`).join('')}</table>
-      <div class="bar"><button class="primary big" data-act="result-ok">Continue</button></div></section>`;
+    const table = r.gauntlet ? '' : `<table class="tbl"><tr><th>Hero</th><th>Damage</th><th>XP</th><th>Level</th></tr>
+      ${r.xp.map(x => `<tr><td>${esc(x.name)}</td><td>${Math.round(r.dmg[x.uid] || 0)}</td><td>+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`).join('')}</table>`;
+    const sub = r.gauntlet ? `${r.win ? 'You beat' : 'You fell to'} ${esc(r.opp.name)}'s team.`
+      : r.win ? '+' + r.gold + ' gold' : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
+    return `<section><h2 class="${r.win ? 'win' : 'lose'} sc">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${table}
+      <div class="bar"><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
   }
 
+  // ---------------- gauntlet (reviews #3 #4 by David)
+  function teamRow(team, relics) {
+    return `<div class="gteam">${team.map(h => `<div class="gh">${img(h.key, 56)}<b>${esc(HEROES[h.key].name)}</b><span>Lv ${h.lvl}${h.items.length ? ' · ' + h.items.length + ' item' + (h.items.length > 1 ? 's' : '') : ''}</span></div>`).join('')}</div>
+      ${relics && relics.length ? `<div class="small dim">Relics: ${relics.map(id => esc(RELIC[id] ? RELIC[id].name : id)).join(', ')}</div>` : ''}`;
+  }
+  function gauntletHTML() {
+    const g = run.g;
+    if (g.status === 'intro') {
+      return `<section class="title"><h2 class="sc">The Onslaught is over</h2><div class="score">${run.score}</div><p>kills · reached wave ${run.wave}</p>
+        ${run.submitted ? '<p class="win">Score submitted!</p>' : `<form class="row" data-form="score"><input name="name" maxlength="16" placeholder="Your name" value="${esc(myName())}" required><button>Submit score</button></form>`}
+        <div class="card gintro"><h3 class="sc">⚔ The Gauntlet</h3>
+          <p class="small">Your team is saved and duels teams from other players' runs. Round 1 is against a team that lost its first duel, round 2 against one that won once, and so on. Each duel is a 1v1 Elo game. One loss ends your run. Go further than anyone before you and you are crowned champion.</p>
+          <form class="stack" data-form="gauntlet"><input name="name" maxlength="16" placeholder="Your name on the ladder" value="${esc(myName())}" required><button class="primary big">Enter the Gauntlet</button></form></div></section>`;
+    }
+    // match card
+    const o = g.opp;
+    return `<section><h2 class="sc">Gauntlet · round ${g.round + 1}</h2>
+      ${g.history.length ? `<p class="small">${g.history.map(h => `${h.win ? '✔' : '✘'} ${esc(h.name)} (${h.delta >= 0 ? '+' : ''}${h.delta})`).join(' · ')}</p>` : ''}
+      <div class="card opp"><div class="row"><b class="sc">${esc(o.name)}</b><span class="grow"></span><span class="elo">⚜ ${o.elo}</span></div>
+        <p class="small dim">Their run ${o.status === 'champion' ? 'was crowned champion' : 'went ' + o.wins + '-1'} in the gauntlet.</p>${teamRow(o.team, o.relics)}</div>
+      <div class="bar"><button data-act="team">Team & items</button><button class="primary big" data-act="to-duel">Prepare the duel</button></div></section>`;
+  }
   function stockCard(s, i) {
     const dis = s.sold || run.gold < s.price || (s.kind === 'hero' && run.heroes.length >= Run.teamMax(run));
     let body = '';
@@ -174,19 +213,27 @@
   }
   function eventHTML() {
     const e = EVENT[run.cur.id];
-    const ok = ch => !(ch.req && ((ch.req.gold && run.gold < ch.req.gold) || (ch.req.hearts && run.hearts < ch.req.hearts)));
+    const ok = ch => !(ch.req && ch.req.gold && run.gold < ch.req.gold);
     return `<section>${trackHTML()}<h2>❓ ${esc(e.name)}</h2><p>${esc(e.text)}</p>
       ${run.cur.done ? `<div class="card result">${esc(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div>`
         : `<div class="stack">${e.choices.map((ch, i) => `<button class="big" data-act="event" data-arg="${i}" ${ok(ch) ? '' : 'disabled'}>${esc(ch.label)}</button>`).join('')}</div>`}</section>`;
   }
   function overHTML() {
-    const ons = run.result === 'onslaught';
-    const name = store.get('balance.name', '');
-    return `<section class="title"><h2>${ons ? 'The Onslaught is over' : 'Your run has ended'}</h2>
-      ${ons ? `<div class="score">${run.score}</div><p>kills · reached wave ${run.wave}</p>
-        ${run.submitted ? '<p class="win">Score submitted!</p>' : `<form class="row" data-form="score"><input name="name" maxlength="16" placeholder="Your name" value="${esc(name)}" required><button class="primary">Submit score</button></form>`}`
-        : `<p>You fell at fight ${run.fightNo}. Won ${run.won} fight${run.won === 1 ? '' : 's'}.</p>`}
-      <div class="stack"><button class="primary big" data-act="new-run">New run</button><button data-act="scores">🏆 Leaderboard</button></div>
+    const g = run.g;
+    let body;
+    if (run.result === 'gauntlet' && g) {
+      const d = g.elo - g.eloStart;
+      body = `<h2 class="sc">${g.status === 'champion' ? '👑 Champion' : 'The Gauntlet is over'}</h2>
+        <div class="score">${g.wins}</div><p>duel${g.wins === 1 ? '' : 's'} won · Onslaught ${run.score} kills</p>
+        <p class="elo-line">Elo ${g.eloStart} → <b>${g.elo}</b> <span class="${d >= 0 ? 'win' : 'lose'}">(${d >= 0 ? '+' : ''}${d})</span></p>
+        ${g.status === 'champion' ? '<p class="small">No one had ever gone this far. Your team now guards the top of the ladder.</p>' : ''}
+        ${g.history.length ? `<p class="small">${g.history.map(h => `${h.win ? '✔' : '✘'} ${esc(h.name)} (${h.delta >= 0 ? '+' : ''}${h.delta})`).join(' · ')}</p>` : ''}`;
+    } else {
+      body = `<h2 class="sc">Your run has ended</h2><p>You fell at fight ${run.fightNo}. Won ${run.won} fight${run.won === 1 ? '' : 's'}.</p>
+        ${run.eloEnd != null ? `<p class="elo-line">Elo <b>${run.eloEnd}</b> <span class="lose">(${run.eloDelta})</span></p>` : ''}`;
+    }
+    return `<section class="title">${body}
+      <div class="stack"><button class="primary big" data-act="new-run">New run</button><button data-act="scores">🏆 Ladder</button></div>
       <p class="hint">Something felt off? <a href="#" data-act="suggest">Suggest a change</a>.</p></section>`;
   }
 
@@ -203,11 +250,15 @@
   }
 
   // ------------------------------------------------------------------ board mount + input
+  function worldFor(preview) {
+    const t = run.cur && run.cur.type;
+    return t === 'onslaught' ? Run.onslaughtWorld(run, preview) : t === 'gauntlet' ? Run.gauntletWorld(run, preview) : Run.fightWorld(run, preview);
+  }
   function mountBoard() {
     const cv = $('#board'); if (!cv) return;
     const wrap = cv.parentElement;
     view = Render.setup(cv, Math.min(wrap.clientWidth || 360, 560));
-    if (screen !== 'battle') { preview = run.cur && run.cur.type === 'onslaught' ? Run.onslaughtWorld(run, true) : Run.fightWorld(run, true); drawPreview(); }
+    if (screen !== 'battle') { preview = worldFor(true); drawPreview(); }
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', () => { ui.drag = null; drawPreview(); });
   }
   function drawPreview(extra) { if (view && preview && screen !== 'battle') Render.draw(view, preview, performance.now() / 50, Object.assign({ deploy: true, sel: ui.selUid }, extra || {})); }
@@ -227,16 +278,16 @@
     if (d && h && (h.c !== d.from.c || h.r !== d.from.r)) { if (h.r >= 4) { Run.setPos(run, d.uid, h.c, h.r); ui.selUid = 0; save(); } }
     else if (d) ui.selUid = ui.selUid === d.uid ? 0 : d.uid;
     else if (ui.selUid && h && h.r >= 4) { Run.setPos(run, ui.selUid, h.c, h.r); ui.selUid = 0; save(); }
-    preview = run.cur && run.cur.type === 'onslaught' ? Run.onslaughtWorld(run, true) : Run.fightWorld(run, true);
+    preview = worldFor(true);
     drawPreview();
   }
 
   // ------------------------------------------------------------------ battle
   function startBattle() {
-    const ons = run.cur && run.cur.type === 'onslaught';
-    const W = ons ? Run.onslaughtWorld(run) : Run.fightWorld(run);
+    const ons = run.cur && run.cur.type === 'onslaught', gau = run.cur && run.cur.type === 'gauntlet';
+    const W = worldFor(false);
     save();
-    battle = { W, acc: 0, last: performance.now(), endAt: 0, ons };
+    battle = { W, acc: 0, last: performance.now(), endAt: 0, ons, gau };
     ui.info = null; screen = 'battle'; render();
     requestAnimationFrame(loop);
   }
@@ -251,22 +302,34 @@
     const hud = $('#bhud');
     if (hud) {
       const secs = Math.floor(b.W.t / Sim.TPS);
-      hud.textContent = b.ons ? `∞ Wave ${b.W.wave} · Kills ${b.W.kills} · next wave in ${Math.max(0, Math.ceil((b.W.nextWave - b.W.t) / Sim.TPS))}s`
+      hud.textContent = b.gau ? `⚔ Gauntlet round ${run.g.round + 1} vs ${run.g.opp.name} · ${secs}s${secs >= CFG.suddenDeath ? ' · SUDDEN DEATH' : ''}` : b.ons ? `∞ Wave ${b.W.wave} · Kills ${b.W.kills} · next wave in ${Math.max(0, Math.ceil((b.W.nextWave - b.W.t) / Sim.TPS))}s`
         : `${run.cur.diff === 'boss' ? '☠ Boss' : '⚔ ' + B.DIFF[run.cur.diff].name} · ${secs}s${secs >= CFG.suddenDeath ? ' · SUDDEN DEATH' : ''}`;
     }
     if (ui.info && (b.frame = (b.frame || 0) + 1) % 10 === 0) { const el = $('#info'); if (el) el.innerHTML = infoHTML(); }
     if (b.endAt && now >= b.endAt) { endBattle(); return; }
     requestAnimationFrame(loop);
   }
-  function endBattle() {
+  async function endBattle() {
     const b = battle; battle = null; const W = b.W;
-    if (b.ons) { Run.finishOnslaught(run, W); screen = 'run'; }
-    else {
-      const dmg = {}; for (const u of W.units) if (u.uid) dmg[u.uid] = u.dmgDone || 0;
-      for (const u of W.units) if (u.owner && W.byId[u.owner] && W.byId[u.owner].uid) dmg[W.byId[u.owner].uid] = (dmg[W.byId[u.owner].uid] || 0) + (u.dmgDone || 0);
-      ui.result = Run.finishFight(run, W); ui.result.dmg = dmg; screen = 'result';
+    const dmg = {}; for (const u of W.units) if (u.uid) dmg[u.uid] = u.dmgDone || 0;
+    for (const u of W.units) if (u.owner && W.byId[u.owner] && W.byId[u.owner].uid) dmg[W.byId[u.owner].uid] = (dmg[W.byId[u.owner].uid] || 0) + (u.dmgDone || 0);
+    if (b.ons) { Run.finishOnslaught(run, W); screen = 'run'; save(); render(); window.scrollTo(0, 0); return; }
+    if (b.gau) {
+      const win = W.winner === 0;
+      ui.result = { gauntlet: true, win, dmg, xp: run.heroes.map(h => ({ uid: h.uid, name: HEROES[h.key].name, gained: 0, from: h.lvl, to: h.lvl })), opp: run.g.opp, pending: true };
+      screen = 'result'; save(); render();
+      try { const r = await Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win }); setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, pending: false }); }
+      catch (e) { Object.assign(ui.result, { pending: false, error: e.message }); }
+      save(); render(); return;
     }
+    ui.result = Run.finishFight(run, W); ui.result.dmg = dmg; screen = 'result';
     save(); render(); window.scrollTo(0, 0);
+    if (run.phase === 'over') {  // review #3: a lost fight ends the run = Elo loss against (your Elo - 200)
+      ui.result.pending = true; render();
+      try { const r = await Net.post('elo', { op: 'fail', pid: pid(), name: myName() }); setElo(r); run.eloEnd = r.elo; run.eloDelta = r.delta; Object.assign(ui.result, { delta: r.delta, elo: r.elo }); }
+      catch (e) { ui.result.error = e.message; }
+      ui.result.pending = false; save(); render();
+    }
   }
   function skipBattle() { const b = battle; if (!b) return; let n = 0; while (!b.W.over && n++ < 20 * 60 * 30) Sim.step(b.W); b.endAt = performance.now(); }
 
@@ -385,13 +448,16 @@
     btn.disabled = false;
   }
   async function openScores() {
-    openModal('<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="dim">Loading…</p>');
+    const head = '<div class="shead"><b>🏆 Ladder</b><button data-act="close">✕</button></div>';
+    openModal(head + '<p class="dim">Loading…</p>');
     try {
-      const d = await Net.get('scores');
-      const rows = d.top.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.name)}</td><td><b>${s.score}</b></td><td>${s.wave}</td><td class="team">${s.heroes.filter(k => HEROES[k]).map(k => img(k, 24, 'por sm')).join('')}</td></tr>`).join('');
-      if (ui.modal) openModal(`<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="dim small">Onslaught kills.</p>
-        ${rows ? `<table class="tbl"><tr><th>#</th><th>Name</th><th>Kills</th><th>Wave</th><th>Team</th></tr>${rows}</table>` : '<p class="dim">No scores yet.</p>'}`);
-    } catch (e) { if (ui.modal) openModal(`<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="err">${esc(e.message)}</p>`); }
+      const [e, k] = await Promise.all([Net.get('elo'), Net.get('scores')]);
+      const eRows = e.top.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td><b>${p.elo}</b></td><td>${p.best}</td><td>${p.crowns ? '👑' + p.crowns : ''}</td></tr>`).join('');
+      const kRows = k.top.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.name)}</td><td><b>${s.score}</b></td><td>${s.wave}</td><td class="team">${s.heroes.filter(x => HEROES[x]).map(x => img(x, 24, 'por sm')).join('')}</td></tr>`).join('');
+      if (ui.modal) openModal(head + `<h3>Elo</h3><p class="dim small">Rated by gauntlet duels. A run that dies before the gauntlet counts as a loss.</p>
+        ${eRows ? `<table class="tbl"><tr><th>#</th><th>Name</th><th>Elo</th><th>Best</th><th></th></tr>${eRows}</table>` : '<p class="dim">No rated players yet.</p>'}
+        <h3>Onslaught kills</h3>${kRows ? `<table class="tbl"><tr><th>#</th><th>Name</th><th>Kills</th><th>Wave</th><th>Team</th></tr>${kRows}</table>` : '<p class="dim">No scores yet.</p>'}`);
+    } catch (err) { if (ui.modal) openModal(head + `<p class="err">${esc(err.message)}</p>`); }
   }
   const HOWTO = `<div class="shead"><b>How to play</b><button data-act="close">✕</button></div>
     <ol class="small howto">
@@ -399,8 +465,9 @@
       <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 3 and 6 are bosses.</li>
       <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
-      <li>Win fights for gold. Spend it in hero, item and relic shops. Losing costs a heart ♥. Lose all 3 and the run ends. Heroes always heal after a fight.</li>
+      <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the run ends (and costs Elo). Heroes always heal after a fight.</li>
       <li>After the second boss and a last shop comes the Onslaught: endless waves from the top row every ${CFG.waveEvery}s. Each kill is 1 point.</li>
+      <li>When the Onslaught ends, your team enters the Gauntlet: duels against teams saved from other players' runs, climbing one step per win. Each duel is an Elo game. One loss ends it. Beat everyone who came before and you are crowned champion.</li>
     </ol>`;
 
 
@@ -491,6 +558,8 @@
     speed: s => { ui.speed = +s; store.set('balance.speed', ui.speed); document.querySelectorAll('[data-act=speed]').forEach(b => b.classList.toggle('on', +b.dataset.arg === ui.speed)); },
     skip: () => skipBattle(),
     'result-ok': () => { ui.result = null; screen = 'run'; render(); window.scrollTo(0, 0); },
+    'to-duel': () => { run.phase = 'deploy'; run.cur = { type: 'gauntlet' }; ui.info = null; save(); render(); window.scrollTo(0, 0); },
+    'retry-elo': () => { if (ui.result && ui.result.gauntlet) { const w = ui.result.win; ui.result.pending = true; render(); Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win: w }).then(r => { setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, pending: false, error: null }); save(); render(); }).catch(e => { Object.assign(ui.result, { pending: false, error: e.message }); render(); }); } },
     buy: i => { const err = Run.buy(run, +i); if (err) toast(err); save(); render(); },
     reroll: () => { if (!Run.reroll(run)) toast('Not enough gold'); save(); render(); },
     leave: () => { Run.leave(run); save(); render(); window.scrollTo(0, 0); },
@@ -507,7 +576,7 @@
     'sug-refresh': () => loadQueue(),
     scores: () => openScores(),
   };
-  function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = run.cur && run.cur.type === 'onslaught' ? Run.onslaughtWorld(run, true) : Run.fightWorld(run, true); drawPreview(); } }
+  function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = worldFor(true); drawPreview(); } }
 
   document.addEventListener('click', e => {
     if (e.target.closest('#notice')) return;
@@ -525,6 +594,10 @@
         if (t.length < 5) { toast('Write at least a few words'); return; }
         const d = drafts(); if (d.length >= MAX_DRAFTS) { toast('Up to ' + MAX_DRAFTS + ' changes per review'); return; }
         d.push(t); store.set('balance.drafts', d); f.text.value = ''; renderDrafts(); f.text.focus();
+      } else if (kind === 'gauntlet') {
+        const name = f.name.value.trim(); store.set('balance.name', name);
+        const r = await Net.post('elo', { op: 'enter', pid: pid(), name, team: Run.teamSnapshot(run), relics: run.relics });
+        setElo(r); run.g.eloStart = r.elo; Run.gauntletUpdate(run, r); save(); render(); window.scrollTo(0, 0);
       } else if (kind === 'score') {
         const name = f.name.value.trim(); store.set('balance.name', name);
         await Net.post('scores', { name, score: run.score, wave: run.wave, heroes: run.heroes.map(h => h.key) });
@@ -536,7 +609,7 @@
   window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if ($('#board')) { const cv = $('#board'); view = Render.setup(cv, Math.min(cv.parentElement.clientWidth || 360, 560)); drawPreview(); } }, 150); });
 
   // ------------------------------------------------------------------ boot
-  if (run && run.v !== 1) run = null;
+  if (run && run.v !== 2) run = null;
   screen = 'title';
   render();
   bootNotice();

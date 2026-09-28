@@ -34,6 +34,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `js/net.js` | cliente JSON de `/api` |
 | `api/suggest.js` | GET fila pública (agrupada por envio) + status do revisor; POST `{items: [...até 10], name}` = 1 envio (lote). Limite por IP: 3 envios/10 min, 12 envios e 40 mudanças/dia; fila máx 300 |
 | `api/scores.js` | ranking do Onslaught (cliente confiável; é demo) |
+| `api/elo.js` | Elo por jogador (id aleatório guardado no navegador) + Gauntlet PvP: `fail` (perdeu a run = derrota contra Elo−200), `enter` (guarda o time e sorteia o adversário), `result` (Elo 1v1 K=32 contra o Elo do time salvo); GET = ladder. Tabelas `players` e `teams` |
 | `api/_store.js` | Neon em produção, memória no dev/teste. Tabelas `suggestions`, `kv`, `scores` |
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma` |
@@ -54,8 +55,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
   em que a próxima ação (windup do ataque) começa. Teste: `motor.js` "attack starts on landing tick".
 - Mobile first. Tem de ser possível um time de 3 heróis com itens vencer os 2 chefes (`boss-matrix.js`).
 
-Decisões minhas (o dono pode mudar): começa escolhendo 2 de 4 heróis; 3 corações (perder luta custa 1, até o chefe;
-0 = fim); 1 slot de item no Lv 1-2 (o briefing não dizia quantos antes do Lv 3); 1ª onda do Onslaught no segundo 0
+Decisões minhas (o dono pode mudar): começa escolhendo 2 de 3 heróis; sem corações (lote 3 do David: perdeu uma luta, acabou); 1 slot de item no Lv 1-2 (o briefing não dizia quantos antes do Lv 3); 1ª onda do Onslaught no segundo 0
 e depois a cada 10 s; morte súbita aos 45 s de luta normal (dano sobe 15%/s) e limite de 150 s (conta como derrota).
 
 ## Como trabalhar
@@ -115,6 +115,11 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v6 (2026-09-28), lotes 3 e 4 do David**: sem corações (perdeu uma luta = fim da run = derrota de Elo contra
+  Elo−200). Depois do Onslaught vem o Gauntlet: o time é salvo e duela contra times salvos; a rodada k enfrenta um
+  time cujo Gauntlet terminou com k vitórias (ou o mais próximo acima); derrota encerra; se ninguém chegou tão longe,
+  coroa campeão. O lote 3 pedia Elo pela pontuação do Onslaught, o lote 4 mandou tirar: não existe. Eventos de
+  coração viraram ouro/XP. Saves v1 (com corações) são descartados. Robô sem corações: ~8/60 runs chegam ao Onslaught.
 - **v5 (2026-09-28), lote 2 do David**: time máximo 3 (Crest dá 4); +6 heróis com escala passiva (Thorne ataque por
   golpe, Seraph armadura por segundo, Nyx ataque por morte perto, Bramble vida por segundo, Echo velocidade do time,
   Blaze crítico por crítico) e 3 specs antigas que passaram a escalar (Iron Hide, Thick Hide, Quick Cast); +20 itens

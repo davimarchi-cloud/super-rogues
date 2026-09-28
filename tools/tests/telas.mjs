@@ -66,8 +66,12 @@ let fightsSeen = 0, sawSmooth = false, sawShop = false, sawEvent = false, sawLev
 while (steps++ < 80) {
   const st = await ev(`(() => { const r = __bal.run; return { phase: r.phase, screen: document.querySelector('#screen').innerHTML.slice(0, 200), pending: r.pending.length, type: r.cur && r.cur.type, diff: r.cur && r.cur.diff, gold: r.gold, bag: r.bag.length, battle: !!__bal.battle }; })()`);
   if (!st) break;
-  if (st.phase === 'over') break;
+  if (st.phase === 'gauntlet') {
+    if (await ev(`!!document.querySelector('form[data-form=gauntlet]')`)) { if (REMOTE) break; await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(800); continue; }
+    await click('[data-act=to-duel]'); await sleep(150); continue;
+  }
   if (await ev(`!!document.querySelector('[data-act=result-ok]')`)) { if (fightsSeen === 1) await shot('06-result'); await click('[data-act=result-ok]'); await sleep(100); continue; }
+  if (st.phase === 'over') break;
   if (await ev(`!!document.querySelector('[data-act=spec]')`)) { if (!sawLevel) { await shot('07-levelup'); sawLevel = true; } await click('[data-act=spec]'); await sleep(80); continue; }
   if (st.phase === 'map') {
     // prefer medium fights and shops so the run goes the distance
@@ -127,16 +131,46 @@ while (steps++ < 80) {
   await sleep(100);
 }
 ok(sawSmooth, 'units are drawn between hexes while moving (smooth movement)');
-ok(fightsSeen >= 3, 'played ' + fightsSeen + ' battles');
+ok(fightsSeen >= 1, 'played ' + fightsSeen + ' battles (no hearts: a run can end at the first loss)');
 ok(sawShop, 'visited a shop');
 const fin = await ev(`({ phase: __bal.run.phase, result: __bal.run.result, score: __bal.run.score, fightNo: __bal.run.fightNo })`);
-ok(fin.phase === 'over', `run reached the end (${fin.result}, fight ${fin.fightNo}, score ${fin.score})`);
+ok(fin.phase === 'over' || (REMOTE && fin.phase === 'gauntlet'), `run reached the end (${fin.result}, fight ${fin.fightNo}, score ${fin.score})`);
 await shot('11-over'); await noHScroll('over');
-if (fin.result === 'onslaught' && !REMOTE) {
-  ok(sawBoss === 2, 'fought both bosses');
-  await ev(`(() => { const f = document.querySelector('form[data-form=score]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`);
-  await sleep(700);
-  ok(await ev(`document.querySelector('#modal:not([hidden]) table') ? document.querySelector('#modal').textContent.includes('TestBot') : false`), 'score shows on the leaderboard');
+if (fin.result === 'defeat' && !REMOTE) {
+  await sleep(600);
+  ok(await ev(`__bal.run.eloEnd === 976 && /Elo/.test(document.querySelector('#screen').textContent) && /976/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run and cost Elo (1000 -> 976)');
+}
+
+// ---- gauntlet: a rival team is already stored; take a strong team through the Onslaught into the duels
+if (!REMOTE) {
+  await ev(`fetch('/api/elo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'enter', pid: 'b'.repeat(32), name: 'Rival', team: [{ key: 'bastion', lvl: 1, specs: [], items: [], bonus: {}, pos: { c: 3, r: 4 } }], relics: [] }) })`);
+  await click('[data-act=new-run]'); await sleep(150);
+  await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`); await click('[data-act=start-go]'); await sleep(150);
+  await ev(`(() => { const r = __bal.run; B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k)));
+    r.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[0].id); h.items = ['bloodthirster', 'warmog', 'infinity', 'guardian']; });
+    r.step = B.CFG.seq.length - 2; r.fightNo = 6; B.Run.advance(r); __bal.render(); })()`);
+  await click('[data-act=choose]'); await sleep(200); await click('[data-act=fight]'); await sleep(2500); await shot('10-onslaught');
+  await click('[data-act=skip]'); for (let k = 0; k < 80 && (await ev('!!__bal.battle')); k++) await sleep(100);
+  ok(await ev(`__bal.run.phase === 'gauntlet' && !!document.querySelector('form[data-form=gauntlet]') && !!document.querySelector('form[data-form=score]')`), 'the Onslaught leads into the Gauntlet (score can still be submitted)');
+  await ev(`(() => { const f = document.querySelector('form[data-form=score]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(800);
+  ok(await ev(`document.querySelector('#modal:not([hidden])') ? document.querySelector('#modal').textContent.includes('TestBot') : false`), 'score shows on the ladder');
+  await click('[data-act=close]'); await sleep(100);
+  await shot('16-gauntlet-intro');
+  await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(900);
+  ok(await ev(`__bal.run.g.status === 'match' && document.querySelector('.opp').textContent.includes('Rival')`), 'gauntlet round 1: a card shows the stored rival team');
+  await shot('17-gauntlet-opponent'); await noHScroll('gauntlet card');
+  await click('[data-act=to-duel]'); await sleep(300);
+  ok(await ev(`/Rival/.test(document.querySelector('.bhead').textContent) && __bal.run.cur.type === 'gauntlet'`), 'duel deploy screen');
+  await shot('18-gauntlet-deploy');
+  await click('[data-act=fight]'); await sleep(1200); await click('[data-act=skip]');
+  for (let k = 0; k < 80 && !(await ev(`!!document.querySelector('.elo-line')`)); k++) await sleep(100);
+  ok(await ev(`/Elo/.test(document.querySelector('.elo-line').textContent)`), 'duel result shows the Elo change');
+  await click('[data-act=result-ok]'); await sleep(200);
+  const g = await ev(`({ phase: __bal.run.phase, status: __bal.run.g.status, wins: __bal.run.g.wins, elo: __bal.run.g.elo })`);
+  ok(g.phase === 'over' && (g.status === 'champion' || g.status === 'lost'), `gauntlet ends (${g.status}, ${g.wins} win, Elo ${g.elo})`);
+  await shot('19-gauntlet-over');
+  await click('[data-act=scores]'); await sleep(800);
+  ok(await ev(`document.querySelector('#modal').textContent.includes('Rival') && document.querySelector('#modal').textContent.includes('TestBot')`), 'Elo ladder lists the players');
   await click('[data-act=close]');
 }
 

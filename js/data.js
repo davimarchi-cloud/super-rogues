@@ -5,7 +5,7 @@
 
   // ---------------------------------------------------------------- economy / pacing
   B.CFG = {
-    startGold: 10, hearts: 3, maxTeam: 3, heroCost: 7, reroll: 2,
+    startGold: 10, maxTeam: 3, heroCost: 7, reroll: 2,
     itemCost: { common: 3, rare: 5, epic: 8 }, relicCost: 8,
     gold: { easy: 6, medium: 9, hard: 13, boss: 16 },
     xpLevels: [0, 0, 30, 85, 180, 330], // cumulative XP to reach level N (index = level); 1 XP per second alive
@@ -489,11 +489,11 @@
     { id: 'caravan', name: 'Lost Caravan', text: 'An abandoned caravan, still loaded.', choices: [
       { label: 'Take the gold (+10)', act: 'gold:10' },
       { label: 'Take the crate (random item)', act: 'item:any' }] },
-    { id: 'shrine', name: 'Shrine of Sacrifice', text: 'Give up some of your resolve for power.', choices: [
-      { label: 'Sacrifice 1 heart for a relic', act: 'heartRelic', req: { hearts: 2 } },
+    { id: 'shrine', name: 'Shrine of Sacrifice', text: 'The shrine accepts gold in exchange for power.', choices: [
+      { label: 'Offer 6 gold for a relic', act: 'buyRelic:6', req: { gold: 6 } },
       { label: 'Refuse', act: 'none' }] },
     { id: 'hut', name: "Healer's Hut", text: 'A quiet healer offers rest.', choices: [
-      { label: 'Rest (+1 heart, max 3)', act: 'heart' },
+      { label: 'Rest and reflect (+15 XP to all heroes)', act: 'xpAll:15' },
       { label: 'Buy herbs instead (+4 gold)', act: 'gold:4' }] },
     { id: 'recruit', name: 'Village Militia', text: 'Villagers want to learn from your heroes.', choices: [
       { label: 'Teach them (+8 gold)', act: 'gold:8' },
