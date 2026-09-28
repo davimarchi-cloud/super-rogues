@@ -613,3 +613,25 @@ body.wide .dpor .por { width: 68px; height: 68px; }
 body.wide .gwrap, body.landscape .gwrap { display: grid; grid-template-columns: minmax(240px, 340px) minmax(0, 1fr); gap: 14px; align-items: start; }
 body.wide .gauntlet { max-width: 1000px; margin: 0 auto; }
 .tower { text-align: left; }
+
+/* =====================================================================================================
+   v19 (review #17): events with 3 real choices, a target picker, and the next-fight modifier shown on map/deploy
+   ===================================================================================================== */
+.evchoices { gap: 8px; }
+.evch { display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; min-height: 58px; line-height: 1.35; font-size: 14px;
+  background: linear-gradient(180deg, #2a2138, #1c1826); border: 1px solid #5a3f7a; }
+.evch .t { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.evch .por, .evch .ico { width: 40px; height: 40px; flex: none; }
+.evch .price { flex: none; }
+.evch .why { font-size: 11px; color: #ff9a9a; font-style: italic; }
+.evch[disabled] { opacity: .55; }
+.evch .itag { font-size: 11px; }
+.evpick h3 { margin: 8px 0 6px; }
+.tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+.tpick { display: grid; justify-items: center; gap: 3px; padding: 8px 4px; min-height: 0; text-align: center; font-size: 12px; }
+.tpick b { font-size: 13px; } .tpick span { font-size: 11px; color: var(--dim); }
+.tpick .por { width: 48px; height: 48px; } .tpick .ico { width: 40px; height: 40px; }
+.tgrid:has(.tpick.item) { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.nextmod { margin: 2px 0 8px; padding: 6px 10px; border-radius: 8px; border: 1px dashed #b98cff; background: #2a1f3a; color: #e8dcff; font-size: 13px; }
+.hint .nextmod { display: inline-block; margin: 0; padding: 2px 8px; font-size: 12px; }
+.evch .t { display: block; } .evch .itag, .evch .why { display: block; }

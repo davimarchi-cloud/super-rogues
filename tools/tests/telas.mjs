@@ -67,7 +67,7 @@ await sleep(200);
 ok(await ev(`document.querySelectorAll('[data-act=choose]').length`) === 2, 'first map step shows 2 options');
 await shot('03-map'); await noHScroll('map'); await noVScroll('map');
 
-let fightsSeen = 0, sawSmooth = false, sawShop = false, sawEvent = false, sawLevel = false, sawBoss = 0, steps = 0;
+let fightsSeen = 0, sawSmooth = false, sawShop = false, sawEvent = false, sawPicker = false, sawLevel = false, sawBoss = 0, steps = 0;
 while (steps++ < 80) {
   const st = await ev(`(() => { const r = __bal.run; return { phase: r.phase, screen: document.querySelector('#screen').innerHTML.slice(0, 200), pending: r.pending.length, type: r.cur && r.cur.type, diff: r.cur && r.cur.diff, gold: r.gold, bag: r.bag.length, battle: !!__bal.battle }; })()`);
   if (!st) break;
@@ -102,8 +102,14 @@ while (steps++ < 80) {
   }
   if (st.phase === 'event') {
     if (!sawEvent) { await shot('09-event'); await noVScroll('event'); sawEvent = true; }
-    if (!(await click('[data-act=event]:not([disabled])'))) await ev(`document.querySelectorAll('[data-act=event]')[1]?.click()`);
-    await sleep(80); await click('[data-act=leave]'); await sleep(80); continue;
+    ok(await ev(`document.querySelectorAll('[data-act=event]').length === 3`), 'review #17: the event offers 3 choices');
+    await click('[data-act=event]:not([disabled])'); await sleep(80);
+    if (await ev(`!!document.querySelector('[data-act=event-target]')`)) {  // a targeted choice: pick the hero / item / type
+      if (!sawPicker) { await shot('09b-event-target'); await noVScroll('event target picker'); sawPicker = true; }
+      await click('[data-act=event-target]'); await sleep(80);
+    }
+    ok(await ev(`!!__bal.run.cur && !!__bal.run.cur.done`), 'the event choice resolved: ' + (await ev(`(__bal.run.cur && __bal.run.cur.done) || ''`)));
+    await click('[data-act=leave]'); await sleep(80); continue;
   }
   if (st.phase === 'deploy' && !st.battle) {
     fightsSeen++;
@@ -143,6 +149,30 @@ await shot('11-over'); await noHScroll('over');
 if (fin.result === 'defeat' && !REMOTE) {
   await sleep(600);
   ok(await ev(`__bal.run.eloEnd === 984 && /Elo/.test(document.querySelector('#screen').textContent) && /984/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run and cost Elo (review #14: loss vs 1000, 1000 -> 984)');
+}
+
+// ---- review #17: events, forced so every test run sees one: 3 choices, a targeted choice with its picker, the result,
+// and a next-fight modifier shown on the map
+if (!REMOTE) {
+  await click('[data-act=new-run]'); await sleep(150);
+  await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`); await click('[data-act=start-go]'); await sleep(150);
+  await ev(`(() => { const r = __bal.run; r.gold = 30; r.bag.push('cap', 'bloodthirster'); r.phase = 'map'; r.opts = [{ type: 'event', id: 'smith' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(150);
+  ok(await ev(`document.querySelectorAll('[data-act=event]').length === 3 && !document.querySelector('[data-act=event][data-arg="2"]').disabled && !!document.querySelector('[data-act=event][data-arg="2"] .price')`), 'event: 3 choices, the priced one is available');
+  await shot('09-event'); await noHScroll('event'); await noVScroll('event');
+  await click('[data-act=event][data-arg="2"]'); await sleep(120);
+  ok(await ev(`document.querySelectorAll('[data-act=event-target]').length === 2 && /Choose an item/.test(document.querySelector('#screen').textContent)`), 'event: Reforge asks which item (the 2 in the bag)');
+  await shot('09b-event-target'); await noVScroll('event target picker');
+  await click('[data-act=event-target]'); await sleep(120);
+  ok(await ev(`/reforged into/.test(document.querySelector('#screen').textContent) && __bal.run.gold === 25`), 'event: the reforge happened and cost 5 gold');
+  await shot('09c-event-done');
+  await ev(`(() => { const r = __bal.run; r.cur = null; r.phase = 'map'; r.fightNo = 4; r.opts = [{ type: 'event', id: 'armory' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(150);
+  ok(await ev(`document.querySelectorAll('.evch.haspic img').length === 3 && document.querySelectorAll('.evch .itag').length === 3`), 'Armory: 3 items to pick from, with icon, rarity and type');
+  await shot('09e-armory'); await noVScroll('armory event');
+  await ev(`(() => { const r = __bal.run; r.cur = null; r.phase = 'map'; r.opts = [{ type: 'event', id: 'arena' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(100);
+  await click('[data-act=event][data-arg="0"]'); await sleep(100); await click('[data-act=leave]'); await sleep(150);
+  ok(await ev(`/Next fight/.test((document.querySelector('.nextmod') || {}).textContent || '') && /legendary/.test(document.querySelector('.nextmod').textContent)`), 'the Arena challenge shows on the map as the next-fight modifier');
+  await shot('09d-nextmod'); await noVScroll('map with a next-fight modifier');
+  await ev(`(() => { __bal.run.phase = 'over'; __bal.run.result = 'defeat'; __bal.render(); })()`); await sleep(100);
 }
 
 // ---- gauntlet: Rival's ghost is already stored; take a strong team past the last shop into the duels

@@ -761,44 +761,72 @@
   };
 
   // ---------------------------------------------------------------- events
-  // each choice: { label, act: string handled in run.js, req?: {gold} }
+  // Review #17 (David: "the pink events are kinda bad ... add more strategic depth"): every event has 3 real choices with
+  // a visible price or risk. A choice can have:
+  //   act     what it does (run.js eventAct): xpAll:n, xpHero:n, hpAll:p, hpHero:p, buffHero (+mods), gold:n, item:any|common,
+  //           typeItem:rarity, mystery, sellFull, upgradeItem, gambleItem, gamble:bet:odds:win, relic, relicBlood:p,
+  //           relicItem, respec, hire:key, take:itemId, setPiece, tradeSet, none
+  //   cost    gold paid up front              target  'hero' | 'item' | 'type': the player picks what it applies to
+  //   next    a modifier for the NEXT fight: enemyHp / enemyAtk (+-%), manaStart, regen, atkPct (your heroes),
+  //           goldPct, reward ('legendary' item if you win it), rewardGold
+  //   minRarity (item targets)
+  // Events marked dyn build their choices from an offer rolled when the event opens (run.js eventChoices).
   B.EVENTS = [
     { id: 'training', name: 'Training Grounds', text: 'Old veterans offer to drill your team.', choices: [
-      { label: 'Drill everyone (+20 XP to all heroes)', act: 'xpAll:20' },
-      { label: 'Private lessons (+50 XP to a random hero)', act: 'xpOne:50' }] },
-    { id: 'merchant', name: 'Wandering Merchant', text: 'A cloaked merchant opens a heavy chest.', choices: [
-      { label: 'Buy a mystery rare item (6 gold)', act: 'buyRare:6', req: { gold: 6 } },
-      { label: 'Take the free trinket (common item)', act: 'item:common' }] },
+      { label: 'Drill everyone: +20 XP to all heroes', act: 'xpAll:20' },
+      { label: 'Private lessons: +55 XP to one hero', act: 'xpHero:55', target: 'hero' },
+      { label: 'Hire the masters: +40 XP to all heroes', act: 'xpAll:40', cost: 5 }] },
+    { id: 'merchant', name: 'Wandering Merchant', text: 'A cloaked merchant opens a heavy chest of gear.', choices: [
+      { label: 'Order a rare item of the type you choose', act: 'typeItem:rare', cost: 6, target: 'type' },
+      { label: 'Mystery box: 50% an epic item, 50% a common one', act: 'mystery', cost: 4 },
+      { label: 'Sell one of your items for its full price', act: 'sellFull', target: 'item' }] },
     { id: 'gambler', name: "Gambler's Den", text: 'Double or nothing, stranger?', choices: [
-      { label: 'Bet 5 gold (50%: win 12)', act: 'gamble:5:12', req: { gold: 5 } },
-      { label: 'Walk away', act: 'none' }] },
+      { label: 'Small bet: 50% to win 12 gold', act: 'gamble:5:0.5:12', cost: 5 },
+      { label: 'High stakes: 35% to win 40 gold', act: 'gamble:12:0.35:40', cost: 12 },
+      { label: 'Bet an item: 50% it goes up one rarity, 50% it is lost', act: 'gambleItem', target: 'item' }] },
     { id: 'altar', name: 'Cursed Altar', text: 'A relic rests on a humming altar. Something watches.', choices: [
-      { label: 'Take the relic (next fight: enemies +30% HP)', act: 'curseRelic' },
-      { label: 'Leave it', act: 'none' }] },
+      { label: 'Take the relic. The next fight: enemies +30% HP', act: 'relic', next: { enemyHp: 0.3 } },
+      { label: 'Blood price: one hero loses 10% max HP for good, you take the relic', act: 'relicBlood:0.1', target: 'hero' },
+      { label: 'Pry off the gold leaf: +7 gold. The next fight: enemies +15% HP', act: 'gold:7', next: { enemyHp: 0.15 } }] },
     { id: 'fountain', name: 'Fountain of Vigor', text: 'Clear water that glows faintly.', choices: [
-      { label: 'Drink (+8% max HP to all heroes, permanent)', act: 'hpAll:0.08' },
-      { label: 'Fill your purse with the coins inside (+6 gold)', act: 'gold:6' }] },
-    { id: 'mercs', name: 'Mercenary Camp', text: 'A sellsword looks for work.', choices: [
-      { label: 'Hire a random hero (4 gold)', act: 'hire:4', req: { gold: 4 } },
-      { label: 'Move on', act: 'none' }] },
+      { label: 'Everyone drinks: +8% max HP to all heroes', act: 'hpAll:0.08' },
+      { label: 'One hero bathes: +20% max HP to that hero', act: 'hpHero:0.2', target: 'hero' },
+      { label: 'Fish out the coins: +6 gold', act: 'gold:6' }] },
+    { id: 'mercs', name: 'Mercenary Camp', text: 'Two sellswords look for work.', dyn: true },
     { id: 'smith', name: 'Blacksmith', text: 'The forge is still hot.', choices: [
-      { label: 'Sharpen: a random hero gets +12 attack', act: 'statOne:atk:12' },
-      { label: 'Reinforce: a random hero gets +20 armor', act: 'statOne:armor:20' }] },
+      { label: 'Sharpen: +12 attack to one hero', act: 'buffHero', mods: { atk: 12 }, target: 'hero' },
+      { label: 'Reinforce: +20 armor and +20 magic resist to one hero', act: 'buffHero', mods: { armor: 20, mr: 20 }, target: 'hero' },
+      { label: 'Reforge: an item becomes a random item of the same type, one rarity higher', act: 'upgradeItem', cost: 5, target: 'item' }] },
     { id: 'library', name: 'Ancient Library', text: 'Dusty tomes about forgotten wars.', choices: [
-      { label: 'Study (+35 XP to the lowest level hero)', act: 'xpLow:35' },
-      { label: 'Loot the shelves (random item)', act: 'item:any' }] },
-    { id: 'caravan', name: 'Lost Caravan', text: 'An abandoned caravan, still loaded.', choices: [
-      { label: 'Take the gold (+10)', act: 'gold:10' },
-      { label: 'Take the crate (random item)', act: 'item:any' }] },
-    { id: 'shrine', name: 'Shrine of Sacrifice', text: 'The shrine accepts gold in exchange for power.', choices: [
-      { label: 'Offer 6 gold for a relic', act: 'buyRelic:6', req: { gold: 6 } },
-      { label: 'Refuse', act: 'none' }] },
-    { id: 'hut', name: "Healer's Hut", text: 'A quiet healer offers rest.', choices: [
-      { label: 'Rest and reflect (+15 XP to all heroes)', act: 'xpAll:15' },
-      { label: 'Buy herbs instead (+4 gold)', act: 'gold:4' }] },
+      { label: 'Battle tactics: your heroes start the next fight with +40 mana', act: 'none', next: { manaStart: 40 } },
+      { label: 'Forbidden tome: one hero swaps its latest specialization for the other one', act: 'respec', target: 'hero' },
+      { label: 'Loot the shelves: a random item', act: 'item:any' }] },
+    { id: 'caravan', name: 'Lost Caravan', text: 'An abandoned caravan, still loaded. Its tracks lead to a camp.', choices: [
+      { label: 'Take the gold: +10 gold', act: 'gold:10' },
+      { label: 'Take the crate: a random item', act: 'item:any' },
+      { label: 'Follow the tracks. The next fight: enemies +20% HP and attack, it pays +75% gold', act: 'none', next: { enemyHp: 0.2, enemyAtk: 0.2, goldPct: 0.75 } }] },
+    { id: 'shrine', name: 'Shrine of Sacrifice', text: 'The shrine accepts offerings in exchange for power.', choices: [
+      { label: 'Offer gold: gain a relic', act: 'relic', cost: 7 },
+      { label: 'Offer an item (rare or better): gain a relic', act: 'relicItem', target: 'item', minRarity: 'rare' },
+      { label: 'Pray: +10 XP to all heroes', act: 'xpAll:10' }] },
+    { id: 'hut', name: 'Herbalist', text: 'A quiet herbalist sorts roots and powders.', choices: [
+      { label: 'Healing tonic: in the next fight your heroes regenerate 2% max HP per second', act: 'none', next: { regen: 0.02 } },
+      { label: 'Calming draught: one hero ignores the first crowd control of every fight', act: 'buffHero', mods: { cleanseOnce: 1 }, cost: 4, target: 'hero' },
+      { label: 'Sell her your spare herbs: +5 gold', act: 'gold:5' }] },
     { id: 'recruit', name: 'Village Militia', text: 'Villagers want to learn from your heroes.', choices: [
-      { label: 'Teach them (+8 gold)', act: 'gold:8' },
-      { label: 'Learn from them (+12 XP to all)', act: 'xpAll:12' }] },
+      { label: 'Teach them: +8 gold', act: 'gold:8' },
+      { label: 'Learn from them: +15 XP to all heroes', act: 'xpAll:15' },
+      { label: 'Rally them: your heroes get +15% attack in the next fight', act: 'none', next: { atkPct: 0.15 } }] },
+    { id: 'scout', name: "Scout's Report", text: 'A scout has seen the camp ahead.', choices: [
+      { label: 'Ambush: the next fight\'s enemies start with 20% less HP', act: 'none', next: { enemyHp: -0.2 } },
+      { label: 'Sabotage: the next fight\'s enemies have 15% less attack', act: 'none', next: { enemyAtk: -0.15 } },
+      { label: 'Sell the map: +7 gold', act: 'gold:7' }] },
+    { id: 'arena', name: 'Arena Challenge', text: 'A champion challenges your team to a harder bout.', choices: [
+      { label: 'Fight for glory. The next fight: enemies +35% HP, win it for a legendary item', act: 'none', next: { enemyHp: 0.35, reward: 'legendary' } },
+      { label: 'Fight for coin. The next fight: enemies +25% HP, win it for +15 gold', act: 'none', next: { enemyHp: 0.25, rewardGold: 15 } },
+      { label: 'Decline and watch: +10 XP to all heroes', act: 'xpAll:10' }] },
+    { id: 'armory', name: 'Armory', text: 'Racks of gear. The quartermaster lets you take one piece.', dyn: true },
+    { id: 'collector', name: 'Collector', text: 'A collector trades in matched gear.', dyn: true },
   ];
   B.EVENT = {}; for (const e of B.EVENTS) B.EVENT[e.id] = e;
 

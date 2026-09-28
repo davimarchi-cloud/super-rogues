@@ -1,8 +1,9 @@
 // Bot plays whole runs headless, to catch crashes and read balance numbers.
-// Usage: node tools/sim-run.js [runs=40] [teamSize=3] [seed=1]
+// Usage: node tools/sim-run.js [runs=40] [teamSize=3] [seed=1] [events]   ('events' = the bot prefers events over shops)
 // Reports: win rate per fight (and bosses), how many runs reach the gauntlet, levels reached, abilities that never fired, NaN checks.
 require('../js/hex.js'); require('../js/data.js'); require('../js/sim.js'); require('../js/run.js');
-const RUNS = +(process.argv[2] || 40), TEAM = +(process.argv[3] || 3), SEED0 = +(process.argv[4] || 1);
+const RUNS = +(process.argv[2] || 40), TEAM = +(process.argv[3] || 3), SEED0 = +(process.argv[4] || 1), EVENTS = process.argv[5] === 'events';
+let eventsSeen = 0;
 const { Run, Sim, HEROES, ITEM } = B;
 
 const casts = {}; for (const k in Sim.abilities) { const f = Sim.abilities[k]; Sim.abilities[k] = (W, u, x) => { const r = f(W, u, x); if (r) casts[k] = (casts[k] || 0) + 1; return r; }; }
@@ -32,7 +33,7 @@ for (let n = 0; n < RUNS; n++) {
       const o = run.opts;
       if (o.length === 2 && o[0].type === 'fight') i = o.findIndex(x => x.diff === 'medium') >= 0 ? o.findIndex(x => x.diff === 'medium') : 0;
       else if (o.length === 2) {
-        const want = run.heroes.length < TEAM ? ['heroShop', 'itemShop', 'relicShop'] : ['itemShop', 'relicShop', 'event'];
+        const want = EVENTS ? (run.heroes.length < TEAM ? ['heroShop', 'event', 'itemShop'] : ['event', 'itemShop', 'relicShop']) : run.heroes.length < TEAM ? ['heroShop', 'itemShop', 'relicShop'] : ['itemShop', 'relicShop', 'event'];
         const score = x => { const k = x.type === 'event' ? 'event' : x.kind; const w = want.indexOf(k); return w < 0 ? 9 : w; };
         i = score(o[0]) <= score(o[1]) ? 0 : 1;
       }
@@ -46,8 +47,13 @@ for (let n = 0; n < RUNS; n++) {
       }
       equipAll(run); Run.leave(run);
     } else if (run.phase === 'event') {
-      const ev = B.EVENT[run.cur.id];
-      let r = Run.eventAct(run, 0); if (r == null) Run.eventAct(run, 1);
+      // review #17: a random choice the bot can afford; targeted ones go to a random valid target
+      eventsSeen++;
+      const chs = Run.eventChoices(run), open = chs.map((c, k) => k).filter(k => Run.canChoose(run, chs[k]).ok);
+      if (open.length) {
+        const k = open[Math.floor(Run.rnd(run) * open.length)], ts = chs[k].target ? Run.eventTargets(run, chs[k]) : null;
+        Run.eventAct(run, k, ts ? ts[Math.floor(Run.rnd(run) * ts.length)].arg : undefined);
+      }
       Run.leave(run);
     } else if (run.phase === 'deploy') {
       equipAll(run);
@@ -69,7 +75,7 @@ console.log('runs', RUNS, 'team', TEAM);
 console.log('fights:', Object.keys(stats.fights).sort().map(k => k + ' ' + pct(stats.fights[k])).join(' | '));
 console.log('boss 3:', pct(stats.boss[3]), ' boss 6:', pct(stats.boss[6]));
 const avg = a => a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1) : '-';
-console.log('reached the gauntlet:', stats.reached, 'of', RUNS);
+console.log('reached the gauntlet:', stats.reached, 'of', RUNS, EVENTS ? '(events visited: ' + eventsSeen + ')' : '');
 console.log('fight length avg (s):', avg(stats.fightSecs), ' max', Math.max(...stats.fightSecs).toFixed(0));
 console.log('hero levels at end:', stats.lv.slice(1).map((c, i) => 'L' + (i + 1) + ':' + c).join(' '));
 console.log('NaN units:', stats.nan);

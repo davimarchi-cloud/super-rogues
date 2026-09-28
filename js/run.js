@@ -161,8 +161,10 @@
   }
   function enemyDefs(run, fight) {
     return fight.enemies.map(e => {
-      const d = B.Sim.mobScaleDef(e.key, fight.scale);
+      const d = B.Sim.mobScaleDef(e.key, fight.scale), M = fight.mod || {};
       if (fight.curse) d.hp *= 1 + fight.curse;
+      if (M.enemyHp) d.hp *= 1 + M.enemyHp;
+      if (M.enemyAtk) d.atk *= 1 + M.enemyAtk;
       if (e.elite) B.Sim.applyElite(d, B.ELITES.find(x => x.id === e.elite));
       return { def: d, c: e.c, r: e.r };
     });
@@ -173,9 +175,17 @@
     for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
     return B.Sim.create({
       mode: 'fight', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: f.fightNo, relics: run.relics,
-      heroes: run.heroes.map(h => ({ def: heroDef(run, h), c: h.pos.c, r: h.pos.r })),
+      heroes: run.heroes.map(h => ({ def: withMod(heroDef(run, h), f.mod), c: h.pos.c, r: h.pos.r })),
       enemies: enemyDefs(run, f),
     });
+  }
+  // the hero side of a next-fight modifier (review #17)
+  function withMod(d, M) {
+    if (!M) return d;
+    if (M.atkPct) d.atk *= 1 + M.atkPct;
+    if (M.manaStart) d.m.manaStart = (d.m.manaStart || 0) + M.manaStart;
+    if (M.regen) d.m.regen = (d.m.regen || 0) + M.regen;
+    return d;
   }
   function goldAfterWin(run, base) {
     let g = base;
@@ -196,7 +206,12 @@
       gainXp(run, h, u.xpT / B.Sim.TPS);
       res.xp.push({ uid: h.uid, name: B.HEROES[h.key].name, gained: h.xp - xp0, from: before, to: h.lvl });
     }
-    if (win) { res.gold = goldAfterWin(run, f.gold) + (run.relics.includes('bounty') ? Math.min(6, W.kills) : 0); run.gold += res.gold; run.won++; }
+    if (win) {
+      const M = f.mod || {};
+      res.gold = Math.round((goldAfterWin(run, f.gold) + (run.relics.includes('bounty') ? Math.min(6, W.kills) : 0)) * (1 + (M.goldPct || 0))) + (M.rewardGold || 0);
+      run.gold += res.gold; run.won++;
+      if (M.reward) { const id = randomItem(run, M.reward); run.bag.push(id); res.prize = id; }
+    }
     else run.lost++;
     run.log.push((win ? 'Won ' : 'Lost ') + (f.diff === 'boss' ? 'boss' : f.diff) + ' fight ' + f.fightNo);
     run.cur = null;
@@ -259,9 +274,16 @@
   function choose(run, i) {
     const o = run.opts[i]; if (!o) return;
     run.cur = o; run.opts = [];
-    if (o.type === 'fight') { run.fightNo = o.fightNo; if (run.curse) { o.curse = run.curse; run.curse = 0; } run.phase = 'deploy'; }
+    if (o.type === 'fight') {
+      run.fightNo = o.fightNo;
+      // review #17: modifiers bought in events apply to the next fight (run.curse = the old altar, kept for saved runs)
+      const mod = Object.assign({}, run.nextMod || {});
+      if (run.curse) { mod.enemyHp = (mod.enemyHp || 0) + run.curse; run.curse = 0; }
+      run.nextMod = null; if (Object.keys(mod).length) o.mod = mod;
+      run.phase = 'deploy';
+    }
     else if (o.type === 'shop') { run.cur = makeShop(run, o.kind); run.phase = 'shop'; }
-    else if (o.type === 'event') { run.cur = { type: 'event', id: o.id, done: null }; run.phase = 'event'; }
+    else if (o.type === 'event') { run.cur = makeEvent(run, o.id); run.phase = 'event'; }
   }
 
   // ------------------------------------------------------------------ shops
@@ -316,37 +338,133 @@
   function sellValue(id) { return Math.max(1, Math.floor(C.itemCost[B.ITEM[id].tier] / 2)); }
   function sell(run, bagIdx) { const id = run.bag[bagIdx]; if (!id) return; run.gold += sellValue(id); run.bag.splice(bagIdx, 1); }
 
-  // ------------------------------------------------------------------ events
-  function eventAct(run, i) {
-    const ev = B.EVENT[run.cur.id], ch = ev.choices[i]; if (!ch || run.cur.done) return null;
-    if (ch.req && ch.req.gold && run.gold < ch.req.gold) return null;
-    const [a, x, y] = ch.act.split(':'); let msg = 'Nothing happens.';
-    const rh = () => pick(run, run.heroes), name = h => B.HEROES[h.key].name;
+  // ------------------------------------------------------------------ events (review #17: 3 real choices each)
+  const RAR_UP = { common: 'uncommon', uncommon: 'rare', rare: 'epic', epic: 'legendary', set: 'legendary', legendary: 'mythic' };
+  const RAR_ORDER = ['common', 'uncommon', 'rare', 'epic', 'set', 'legendary', 'mythic'];
+  function makeEvent(run, id) { return { type: 'event', id, done: null, offer: rollOffer(run, id) }; }
+  function rollOffer(run, id) {
+    const o = {};
+    if (id === 'mercs') { const have = new Set(run.heroes.map(h => h.key)); o.heroes = pickN(run, Object.keys(B.HEROES).filter(k => !have.has(k)), 2); }
+    if (id === 'armory') {
+      o.items = pickN(run, B.TYPES.map(t => t.id), 3).map(t => {
+        const tier = wpick(run, run.fightNo >= 4 ? { rare: 0.4, epic: 0.35, set: 0.25 } : { uncommon: 0.3, rare: 0.45, epic: 0.15, set: 0.1 });
+        const pool = B.ITEMS.filter(i => i.type === t && i.tier === tier);
+        return pick(run, pool.length ? pool : B.ITEMS.filter(i => i.type === t && i.tier === 'rare')).id;
+      });
+    }
+    if (id === 'collector') { const own = [...new Set(itemRefs(run).map(x => B.ITEM[x.id].set).filter(Boolean))]; o.set = own.length ? pick(run, own) : null; }
+    return o;
+  }
+  // the concrete choices of the open event (dynamic events build theirs from the offer)
+  function eventChoices(run) {
+    const cur = run.cur, ev = B.EVENT[cur.id]; if (!ev) return [];
+    if (!ev.dyn) return ev.choices;
+    cur.offer = cur.offer || rollOffer(run, cur.id);
+    const o = cur.offer;
+    if (cur.id === 'mercs') return o.heroes.map(k => ({ label: `Hire ${B.HEROES[k].name}, ${B.HEROES[k].role.toLowerCase()}: ${B.HEROES[k].abName}`, act: 'hire:' + k, cost: 6, hero: k }))
+      .concat([{ label: 'Spar with them: +25 XP to all heroes', act: 'xpAll:25' }]);
+    if (cur.id === 'armory') return o.items.map(id => ({ label: `Take ${B.ITEM[id].name}: ${B.ITEM[id].desc}`, act: 'take:' + id, item: id }));
+    if (cur.id === 'collector') {
+      const S = o.set && B.SETS[o.set];
+      return [S ? { label: `Complete your ${S.name} set: one of its missing pieces`, act: 'setPiece', cost: 6 } : { label: 'Buy a random set piece', act: 'setPiece', cost: 7 },
+        { label: 'Trade one of your items for a random set piece', act: 'tradeSet', target: 'item' },
+        { label: 'Take a free sample: a random common item', act: 'item:common' }];
+    }
+    return [];
+  }
+  // every item the team owns: in the bag ('b:i') or worn ('h:uid:i')
+  function itemRefs(run) {
+    const out = run.bag.map((id, i) => ({ arg: 'b:' + i, id }));
+    for (const h of run.heroes) h.items.forEach((id, i) => out.push({ arg: 'h:' + h.uid + ':' + i, id, uid: h.uid }));
+    return out;
+  }
+  function eventTargets(run, ch) {
+    if (ch.target === 'hero') return run.heroes.filter(h => ch.act !== 'respec' || h.specs.length).map(h => ({ arg: String(h.uid), uid: h.uid }));
+    if (ch.target === 'type') return B.TYPES.map(t => ({ arg: t.id, type: t.id }));
+    if (ch.target === 'item') {
+      const min = RAR_ORDER.indexOf(ch.minRarity || 'common');
+      return itemRefs(run).filter(x => RAR_ORDER.indexOf(B.ITEM[x.id].tier) >= min && !((ch.act === 'upgradeItem' || ch.act === 'gambleItem') && B.ITEM[x.id].tier === 'mythic'));
+    }
+    return [];
+  }
+  // can this choice be taken now? { ok, why }
+  function canChoose(run, ch) {
+    if (!ch || run.cur.done) return { ok: false, why: '' };
+    if (ch.cost && run.gold < ch.cost) return { ok: false, why: 'Needs ' + ch.cost + ' gold' };
+    if (ch.act.startsWith('hire:') && run.heroes.length >= teamMax(run)) return { ok: false, why: 'Your team is full' };
+    if (ch.target && !eventTargets(run, ch).length) return { ok: false, why: ch.target === 'item' ? (ch.minRarity ? 'Needs a ' + ch.minRarity + ' or better item' : 'Needs an item') : ch.act === 'respec' ? 'No hero has a specialization yet' : 'No valid target' };
+    return { ok: true, why: '' };
+  }
+  function itemAt(run, arg) {
+    const p = String(arg).split(':');
+    if (p[0] === 'b') { const i = +p[1]; return run.bag[i] ? { id: run.bag[i], set: v => { run.bag[i] = v; }, drop: () => run.bag.splice(i, 1) } : null; }
+    const h = run.heroes.find(x => x.uid === +p[1]), i = +p[2];
+    return h && h.items[i] ? { id: h.items[i], set: v => { h.items[i] = v; }, drop: () => h.items.splice(i, 1) } : null;
+  }
+  // a random item of the same type, one rarity higher (skips rarities that type does not have)
+  function upgradedOf(run, id) {
+    const it = B.ITEM[id]; let t = RAR_UP[it.tier];
+    while (t) { const pool = B.ITEMS.filter(i => i.type === it.type && i.tier === t && i.id !== id); if (pool.length) return pick(run, pool).id; t = RAR_UP[t]; }
+    return null;
+  }
+  function randomRelic(run) { const pool = B.RELICS.filter(r => !run.relics.includes(r.id)); if (!pool.length) return null; const r = pick(run, pool); gainRelic(run, r.id); return r; }
+  function eventAct(run, i, arg) {
+    const ch = eventChoices(run)[i];
+    if (!canChoose(run, ch).ok) return null;
+    let tgt = null;
+    if (ch.target) { tgt = eventTargets(run, ch).find(x => x.arg === String(arg)); if (!tgt) return null; }
+    if (ch.cost) run.gold -= ch.cost;
+    const [a, x, y, z] = ch.act.split(':'); let msg = 'Nothing happens.';
+    const name = h => B.HEROES[h.key].name, hero = tgt && tgt.uid ? run.heroes.find(h => h.uid === tgt.uid) : null;
+    const it = tgt && tgt.id ? itemAt(run, tgt.arg) : null, iname = id => B.ITEM[id].name;
     if (a === 'xpAll') { for (const h of run.heroes) gainXp(run, h, +x); msg = 'All heroes gained ' + x + ' XP.'; }
-    else if (a === 'xpOne') { const h = rh(); gainXp(run, h, +x); msg = name(h) + ' gained ' + x + ' XP.'; }
-    else if (a === 'xpLow') { const h = run.heroes.slice().sort((p, q) => p.xp - q.xp)[0]; gainXp(run, h, +x); msg = name(h) + ' gained ' + x + ' XP.'; }
-    else if (a === 'buyRare') { run.gold -= +x; const id = randomItem(run, 'rare'); run.bag.push(id); msg = 'You got ' + B.ITEM[id].name + '.'; }
-    else if (a === 'item') { const id = randomItem(run, x === 'common' ? 'common' : null); run.bag.push(id); msg = 'You got ' + B.ITEM[id].name + '.'; }
-    else if (a === 'gamble') { run.gold -= +x; if (rnd(run) < 0.5) { run.gold += +y; msg = 'You won ' + y + ' gold!'; } else msg = 'You lost the bet.'; }
-    else if (a === 'curseRelic' || a === 'buyRelic') {
-      if (a === 'buyRelic') run.gold -= +x;
-      const pool = B.RELICS.filter(r => !run.relics.includes(r.id));
-      if (pool.length) { const r = pick(run, pool); gainRelic(run, r.id); msg = 'You gained ' + r.name + '.'; }
-      if (a === 'curseRelic') { run.curse = 0.3; msg += ' The next enemies feel stronger.'; }
-    }
-    else if (a === 'hpAll') { for (const h of run.heroes) h.bonus.hpPct = (h.bonus.hpPct || 0) + (+x); msg = 'Your heroes feel sturdier.'; }
+    else if (a === 'xpHero') { gainXp(run, hero, +x); msg = name(hero) + ' gained ' + x + ' XP.'; }
+    else if (a === 'hpAll') { for (const h of run.heroes) h.bonus.hpPct = (h.bonus.hpPct || 0) + (+x); msg = 'Your heroes feel sturdier (+' + Math.round(x * 100) + '% max HP).'; }
+    else if (a === 'hpHero') { hero.bonus.hpPct = (hero.bonus.hpPct || 0) + (+x); msg = name(hero) + ' gained +' + Math.round(x * 100) + '% max HP.'; }
+    else if (a === 'buffHero') { for (const k in ch.mods) hero.bonus[k] = (hero.bonus[k] || 0) + ch.mods[k]; msg = name(hero) + ' got stronger.'; }
     else if (a === 'gold') { run.gold += +x; msg = '+' + x + ' gold.'; }
-    else if (a === 'hire') {
-      const have = new Set(run.heroes.map(h => h.key)), pool = Object.keys(B.HEROES).filter(k => !have.has(k));
-      if (run.heroes.length >= teamMax(run) || !pool.length) msg = 'Your team is full. The mercenary shrugs.';
-      else { run.gold -= +x; const h = addHero(run, pick(run, pool)); msg = name(h) + ' joins your team!'; }
+    else if (a === 'item') { const id = randomItem(run, x === 'common' ? 'common' : null); run.bag.push(id); msg = 'You got ' + iname(id) + '.'; }
+    else if (a === 'typeItem') { const pool = B.ITEMS.filter(q => q.type === tgt.type && q.tier === x); const id = pick(run, pool).id; run.bag.push(id); msg = 'The merchant hands you ' + iname(id) + '.'; }
+    else if (a === 'mystery') { const id = randomItem(run, rnd(run) < 0.5 ? 'epic' : 'common'); run.bag.push(id); msg = 'Inside the box: ' + iname(id) + '.'; }
+    else if (a === 'sellFull') { const v = C.itemCost[B.ITEM[it.id].tier]; msg = 'Sold ' + iname(it.id) + ' for ' + v + ' gold.'; it.drop(); run.gold += v; }
+    else if (a === 'upgradeItem') { const nid = upgradedOf(run, it.id); if (nid) { msg = iname(it.id) + ' was reforged into ' + iname(nid) + '.'; it.set(nid); } else { run.gold += ch.cost || 0; msg = 'Nothing better exists for that item. Your gold is returned.'; } }
+    else if (a === 'gambleItem') {
+      const nid = upgradedOf(run, it.id);
+      if (nid && rnd(run) < 0.5) { msg = 'Luck! ' + iname(it.id) + ' became ' + iname(nid) + '.'; it.set(nid); } else { msg = 'You lost ' + iname(it.id) + '.'; it.drop(); }
     }
-    else if (a === 'statOne') { const h = rh(); h.bonus[x] = (h.bonus[x] || 0) + (+y); msg = name(h) + ' gained +' + y + ' ' + x + '.'; }
+    else if (a === 'gamble') { if (rnd(run) < +y) { run.gold += +z; msg = 'You won ' + z + ' gold!'; } else msg = 'You lost the bet.'; }
+    else if (a === 'relic') { const r = randomRelic(run); msg = r ? 'You gained ' + r.name + '.' : 'You already own every relic.'; }
+    else if (a === 'relicBlood') { hero.bonus.hpPct = (hero.bonus.hpPct || 0) - (+x); const r = randomRelic(run); msg = name(hero) + ' paid in blood. ' + (r ? 'You gained ' + r.name + '.' : ''); }
+    else if (a === 'relicItem') { const was = iname(it.id); it.drop(); const r = randomRelic(run); msg = 'The shrine took ' + was + '. ' + (r ? 'You gained ' + r.name + '.' : ''); }
+    else if (a === 'respec') {
+      const k = hero.specs.length - 1, pair = B.HEROES[hero.key].specs[k], was = hero.specs[k], now = pair[0].id === was ? pair[1] : pair[0];
+      hero.specs[k] = now.id; msg = name(hero) + ' now follows ' + now.name + '.';
+    }
+    else if (a === 'hire') { const h = addHero(run, x); msg = name(h) + ' joins your team!'; }
+    else if (a === 'take') { run.bag.push(x); msg = 'You took ' + iname(x) + '.'; }
+    else if (a === 'setPiece') {
+      const own = new Set(itemRefs(run).map(q => q.id)), S = run.cur.offer && run.cur.offer.set && B.SETS[run.cur.offer.set];
+      let pool = S ? S.pieces.filter(id => !own.has(id)) : [];
+      if (!pool.length) pool = B.ITEMS.filter(q => q.set && !own.has(q.id)).map(q => q.id);
+      if (!pool.length) { run.gold += ch.cost || 0; msg = 'You already own every set piece. Your gold is returned.'; }
+      else { const id = pick(run, pool); run.bag.push(id); msg = 'You got ' + iname(id) + '.'; }
+    }
+    else if (a === 'tradeSet') {
+      const own = new Set(itemRefs(run).map(q => q.id)), pool = B.ITEMS.filter(q => q.set && !own.has(q.id));
+      if (!pool.length) msg = 'You already own every set piece.';
+      else { const was = iname(it.id); it.drop(); const id = pick(run, pool).id; run.bag.push(id); msg = 'Traded ' + was + ' for ' + iname(id) + '.'; }
+    }
+    if (ch.next) {
+      const M = run.nextMod = run.nextMod || {};
+      for (const k in ch.next) M[k] = typeof ch.next[k] === 'number' ? (M[k] || 0) + ch.next[k] : ch.next[k];
+      msg += ' It will matter in your next fight.';
+    }
     run.cur.done = msg; return msg;
   }
 
   B.Run = { newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
     finishFight, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
-    eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate, canEquip, setCounts, setBonuses };
+    eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate, canEquip, setCounts, setBonuses,
+    eventChoices, eventTargets, canChoose, itemRefs, upgradedOf };
   if (typeof module !== 'undefined') module.exports = B.Run;
 })(typeof window !== 'undefined' ? window : globalThis);

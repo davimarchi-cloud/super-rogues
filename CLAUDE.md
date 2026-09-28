@@ -121,6 +121,17 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v19 (2026-09-28), lote 17 do David** ("the pink events are kinda bad ... more strategic depth"): 16 eventos (12
+  refeitos, ids mantidos; novos: scout, arena, armory, collector), todos com 3 escolhas e preço/risco visível. Escolhas
+  com alvo (`target: 'hero'|'item'|'type'`: o jogador escolhe o herói/item/tipo; `Run.eventTargets`), custo em ouro,
+  apostas com chance escrita, trocas (reforjar item para a raridade seguinte do mesmo tipo, apostar item, item por
+  relíquia, vender pelo preço cheio, trocar a última spec), e modificadores da PRÓXIMA luta (`next`: enemyHp/enemyAtk,
+  mana inicial, regen, ataque, ouro, prêmio lendário/ouro se vencer; `run.nextMod` -> `fight.mod`, aparece no mapa e
+  no deploy). Eventos dinâmicos (`dyn`) sorteiam a oferta ao abrir (`run.cur.offer`: 2 heróis nomeados, 3 itens de
+  tipos diferentes, conjunto que você já começou). `canChoose` diz o motivo quando não dá. Bônus de evento nos
+  fantasmas: `cleanTeam` aceita mr, cleanseOnce e hpPct negativo. `sim-run.js ... events` = bot que prefere eventos;
+  300 runs: Gauntlet 16-17 (novos) contra 12 (antigos), igual dentro do ruído.
+
 - **v18 (2026-09-28), lote 16 do David** (Elo dos fantasmas + "cool UI for the gauntlet, moving up"): o duelo conta
   para o fantasma também: o time guardado tem Elo próprio (`teams.elo_at` muda a cada defesa, K 32) e placar de defesas
   (`def_w`/`def_l`); o jogador dono ganha/perde Elo quando o fantasma defende (K 16, e não quando é o seu próprio

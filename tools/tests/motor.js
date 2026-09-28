@@ -182,6 +182,82 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(P.units.filter(u => u.side === 1).every(u => u.st.slowU > P.t) && P.units.filter(u => u.side === 0).every(u => !(u.st.slowU > P.t)), 'our Frost Sigil still slows the enemies in normal fights');
 }
 
+// review #17 (David: "the pink events are kinda bad ... more strategic depth")
+{
+  const fresh = (seed, id) => {
+    const run = Run.newRun(seed); Run.pickStart(run, ['brakk', 'lumen']); run.gold = 50; run.fightNo = 2;
+    run.heroes[0].lvl = 3; run.heroes[0].specs = [B.HEROES.brakk.specs[0][0].id, B.HEROES.brakk.specs[1][0].id];
+    run.heroes[0].items = ['longsword', 'chainmail']; run.bag = ['cap', 'bloodthirster', 'obs_helm'];
+    run.phase = 'map'; run.opts = [{ type: 'event', id }]; Run.choose(run, 0); return run;
+  };
+  let all = 0, bad = [];
+  ok(B.EVENTS.length >= 16, `${B.EVENTS.length} events`);
+  for (const e of B.EVENTS) {
+    const n = Run.eventChoices(fresh(1, e.id)).length;
+    if (n !== 3) bad.push(e.id + ' has ' + n);
+    for (let i = 0; i < n; i++) {
+      const probe = fresh(2, e.id), ch = Run.eventChoices(probe)[i];
+      const targets = ch.target ? Run.eventTargets(probe, ch).map(t => t.arg) : [undefined];
+      for (const arg of targets) {
+        const run = fresh(3, e.id); let msg;
+        try { msg = Run.eventAct(run, i, arg); } catch (err) { bad.push(`${e.id}#${i} ${arg}: ${err.message}`); continue; }
+        all++;
+        if (!msg || !run.cur.done) bad.push(`${e.id}#${i} ${arg}: no result`);
+        if (!Number.isFinite(run.gold) || run.gold < 0) bad.push(`${e.id}#${i}: gold ${run.gold}`);
+        if (run.bag.some(id => !B.ITEM[id]) || run.heroes.some(h => h.items.some(id => !B.ITEM[id]))) bad.push(`${e.id}#${i}: unknown item`);
+      }
+    }
+  }
+  ok(!bad.length && all > 60, `every event choice with every valid target resolves (${all} tried)` + (bad.length ? ': ' + bad.slice(0, 4).join(' | ') : ''));
+  // targeted XP goes to the chosen hero only
+  let run = fresh(4, 'training'); const lu = run.heroes[1], xp0 = lu.xp, bx0 = run.heroes[0].xp;
+  Run.eventAct(run, 1, String(lu.uid));
+  ok(lu.xp === xp0 + 55 && run.heroes[0].xp === bx0, 'Private lessons: the XP goes to the hero you choose');
+  // reforge keeps the type and raises the rarity
+  run = fresh(5, 'smith'); Run.eventAct(run, 2, 'b:0');
+  ok(B.ITEM[run.bag[0]].type === 'helmet' && B.ITEM[run.bag[0]].tier === 'rare' && run.gold === 45, `Reforge: Leather Cap (uncommon helmet) became ${B.ITEM[run.bag[0]].name} (rare helmet) for 5 gold`);
+  run = fresh(5, 'smith'); Run.eventAct(run, 2, 'h:' + run.heroes[0].uid + ':0');
+  ok(B.ITEM[run.heroes[0].items[0]].type === 'weapon' && B.ITEM[run.heroes[0].items[0]].tier === 'uncommon', 'Reforge works on a worn item too, and it stays equipped');
+  // respec swaps the latest specialization for the other one of its pair
+  run = fresh(6, 'library'); const was = run.heroes[0].specs[1]; Run.eventAct(run, 1, String(run.heroes[0].uid));
+  ok(run.heroes[0].specs[1] === B.HEROES.brakk.specs[1][1].id && was === B.HEROES.brakk.specs[1][0].id && run.heroes[0].specs[0] === B.HEROES.brakk.specs[0][0].id, 'Forbidden tome: the latest specialization is swapped');
+  ok(!Run.canChoose(fresh(6, 'library'), { act: 'respec', target: 'hero' }).ok === false, 'respec is available when a hero has a specialization');
+  // shrine: only rare+ items can be offered
+  run = fresh(7, 'shrine'); const offer = Run.eventTargets(run, Run.eventChoices(run)[1]).map(t => t.id);
+  ok(offer.includes('bloodthirster') && offer.includes('obs_helm') && !offer.includes('cap') && !offer.includes('longsword'), 'Shrine: only rare or better items can be offered');
+  // not enough gold / full team give a reason
+  run = fresh(8, 'gambler'); run.gold = 3;
+  ok(Run.canChoose(run, Run.eventChoices(run)[0]).why === 'Needs 5 gold' && Run.eventAct(run, 0) === null, 'a choice you cannot afford is refused, with the reason');
+  run = fresh(9, 'mercs'); Run.addHero(run, Object.keys(B.HEROES).find(k => !run.heroes.some(h => h.key === k)));
+  ok(/full/.test(Run.canChoose(run, Run.eventChoices(run)[0]).why) && Run.canChoose(run, Run.eventChoices(run)[2]).ok, 'Mercenary Camp: hiring needs room in the team, sparring does not');
+  run = fresh(9, 'mercs'); const hk = Run.eventChoices(run)[1].hero; Run.eventAct(run, 1);
+  ok(run.heroes.length === 3 && run.heroes[2].key === hk && run.gold === 44, 'Mercenary Camp: the named hero joins for 6 gold');
+  // armory: 3 items of 3 different types, take one
+  run = fresh(10, 'armory'); const offerItems = Run.eventChoices(run).map(c => c.item);
+  ok(new Set(offerItems.map(id => B.ITEM[id].type)).size === 3, 'Armory: 3 items of 3 different types');
+  Run.eventAct(run, 2); ok(run.bag.includes(offerItems[2]), 'Armory: you take the one you pick');
+  // collector completes a set you started
+  run = fresh(11, 'collector'); Run.eventAct(run, 0);
+  ok(['obs_blade', 'obs_plate'].includes(run.bag[run.bag.length - 1]), 'Collector: a missing piece of the set you own (Obsidian Guard)');
+  // next-fight modifiers reach the fight, then wear off
+  run = fresh(12, 'scout'); Run.eventAct(run, 0);
+  ok(run.nextMod && run.nextMod.enemyHp === -0.2, 'Scout: the ambush is stored for the next fight');
+  run.phase = 'map'; run.cur = null; run.opts = [Run.makeFight(run, 'easy', 2)];
+  const base = Run.makeFight(run, 'easy', 2); Run.choose(run, 0);
+  const W = Run.fightWorld(run), plainHp = B.Sim.mobScaleDef(run.cur.enemies[0].key, run.cur.scale).hp;
+  const e0 = W.units.find(u => u.side === 1 && !u.elite);
+  ok(run.cur.mod && !run.nextMod && e0 && Math.abs(e0.maxHp - Math.round(plainHp * 0.8)) <= 1 || (e0 && e0.elite), `the ambush weakens the next fight's enemies (${e0 && e0.maxHp} vs ${Math.round(plainHp)})`);
+  run = fresh(13, 'arena'); Run.eventAct(run, 0); run.phase = 'map'; run.cur = null; run.opts = [Run.makeFight(run, 'medium', 2)]; Run.choose(run, 0);
+  const g0 = run.gold, res = Run.finishFight(run, { winner: 0, units: [], kills: 0 });
+  ok(res.prize && B.ITEM[res.prize].tier === 'legendary' && run.bag.includes(res.prize) && run.gold > g0, `Arena: winning the harder fight pays a legendary item (${res.prize && B.ITEM[res.prize].name})`);
+  run = fresh(14, 'library'); Run.eventAct(run, 0); run.phase = 'map'; run.cur = null; run.opts = [Run.makeFight(run, 'easy', 2)]; Run.choose(run, 0);
+  const WL = Run.fightWorld(run); const hb = WL.units.find(u => u.side === 0 && u.key === 'lumen');
+  ok(hb.mana >= Math.min(hb.maxMana, 40), 'Battle tactics: your heroes start the next fight with +40 mana');
+  // old saved runs: an event opened before this change still works
+  run = fresh(15, 'mercs'); delete run.cur.offer;
+  ok(Run.eventChoices(run).length === 3 && run.cur.offer.heroes.length === 2, 'an event saved without an offer rolls one when opened');
+}
+
 // v5: passive scaling actually grows during a fight
 {
   const grew = (key, fn, secs = 12, diff = 'hard', n = 4) => {

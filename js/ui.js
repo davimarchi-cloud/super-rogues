@@ -161,10 +161,23 @@
     if (o.type === 'event') return bannerHTML(i, 'event', '?', esc(EVENT[o.id].name), `<span class="small">${esc(EVENT[o.id].text)}</span>`);
     return '';
   }
+  // review #17: what an event did to the next fight, in words
+  function modText(M) {
+    const pc = v => (v > 0 ? '+' : '') + Math.round(v * 100) + '%', out = [];
+    if (M.enemyHp) out.push(`enemies ${pc(M.enemyHp)} HP`);
+    if (M.enemyAtk) out.push(`enemies ${pc(M.enemyAtk)} attack`);
+    if (M.atkPct) out.push(`your heroes ${pc(M.atkPct)} attack`);
+    if (M.manaStart) out.push(`your heroes start with +${M.manaStart} mana`);
+    if (M.regen) out.push(`your heroes regenerate ${Math.round(M.regen * 100)}% HP per second`);
+    if (M.goldPct) out.push(`${pc(M.goldPct)} gold`);
+    if (M.reward) out.push(`win it for a ${M.reward} item`);
+    if (M.rewardGold) out.push(`win it for +${M.rewardGold} gold`);
+    return out.join(', ');
+  }
   function mapHTML() {
     const t = CFG.seq[run.step];
     const title = t === 'B' ? 'A boss blocks the way' : t === 'S' ? 'One last shop' : 'Choose your path';
-    return `<section>${trackHTML()}<h2 class="sc">Day ${run.step + 1} · ${title}</h2><div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
+    return `<section>${trackHTML()}<h2 class="sc">Day ${run.step + 1} · ${title}</h2>${run.nextMod ? `<p class="nextmod">⚑ Next fight: ${fmt(modText(run.nextMod))}</p>` : ''}<div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
       <p class="hint">${run.heroes.length} hero${run.heroes.length > 1 ? 'es' : ''} · ${run.bag.length} item${run.bag.length === 1 ? '' : 's'} in bag${run.bag.length ? ' (<a href="#" data-act="team">equip them</a>)' : ''}</p></section>`;
   }
 
@@ -183,7 +196,7 @@
     const f = run.cur;
     return `<section class="deploy">
       <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '☠ Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
-      <p class="hint tight">Drag heroes within the blue rows. Tap a unit for details.</p>
+      <p class="hint tight">${!gau && f.mod ? `<span class="nextmod">⚑ ${fmt(modText(f.mod))}</span>` : 'Drag heroes within the blue rows. Tap a unit for details.'}</p>
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
       <div class="bar sticky"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${gau ? 'Duel!' : 'Fight!'}</button></div>
@@ -223,7 +236,7 @@
     const table = r.gauntlet ? '' : `<table class="tbl"><tr><th>Hero</th><th>Damage</th><th>XP</th><th>Level</th></tr>
       ${r.xp.map(x => { const hk = (run.heroes.find(h => h.uid === x.uid) || {}).key; return `<tr><td class="who">${hk ? img(hk, 28, 'por sm') : ''}${esc(x.name)}</td><td><b class="num">${Math.round(r.dmg[x.uid] || 0)}</b></td><td class="kw-xp">+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`; }).join('')}</table>`;
     const sub = r.gauntlet ? `${r.win ? 'You beat' : 'You fell to'} ${esc(r.opp.name)}'s team.`
-      : r.win ? '+' + r.gold + ' gold' : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
+      : r.win ? '+' + r.gold + ' gold' + (r.prize ? ` · prize: <b style="color:${TIER_COLOR[ITEM[r.prize].tier]}">${esc(ITEM[r.prize].name)}</b>` : '') : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
     const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${esc(r.ghost.name)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})${r.ghost.ownerDelta != null ? ` · its player ${r.ghost.ownerDelta >= 0 ? '+' : ''}${r.ghost.ownerDelta}` : ''}</p>` : '';
     return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${gh}${table}
       <div class="bar"><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
@@ -301,12 +314,27 @@
       <div class="grid">${c.stock.map(stockCard).join('') || '<p>Nothing left to sell.</p>'}</div>
       <div class="bar sticky"><button data-act="reroll" ${run.gold < rc ? 'disabled' : ''}>Reroll · ${rc}g</button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
   }
+  // review #17: 3 choices with a visible price or risk; some ask you to pick the hero, item or item type they apply to
   function eventHTML() {
-    const e = EVENT[run.cur.id];
-    const ok = ch => !(ch.req && ch.req.gold && run.gold < ch.req.gold);
-    return `<section>${trackHTML()}<h2>❓ ${esc(e.name)}</h2><p>${esc(e.text)}</p>
-      ${run.cur.done ? `<div class="card result">${fmt(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div>`
-        : `<div class="stack">${e.choices.map((ch, i) => `<button class="big" data-act="event" data-arg="${i}" ${ok(ch) ? '' : 'disabled'}>${fmt(ch.label)}</button>`).join('')}</div>`}</section>`;
+    const e = EVENT[run.cur.id], chs = Run.eventChoices(run);
+    const head = `<section class="event">${trackHTML()}<h2>❓ ${esc(e.name)}</h2><p>${esc(e.text)}</p>`;
+    if (run.cur.done) return head + `<div class="card result">${fmt(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div></section>`;
+    const pickCh = run.cur.pick != null ? chs[run.cur.pick] : null;
+    if (pickCh) {
+      const ts = Run.eventTargets(run, pickCh);
+      let grid;
+      if (pickCh.target === 'hero') grid = ts.map(t => { const h = run.heroes.find(x => x.uid === t.uid); return `<button class="tpick" data-act="event-target" data-arg="${t.arg}">${img(h.key, 48)}<b>${esc(HEROES[h.key].name)}</b><span>Lv ${h.lvl}${pickCh.act === 'respec' && h.specs.length ? ' · ★ ' + esc((Run.specOf(h.key, h.specs[h.specs.length - 1]) || {}).name || '') : ''}</span></button>`; }).join('');
+      else if (pickCh.target === 'type') grid = ts.map(t => `<button class="tpick" data-act="event-target" data-arg="${t.arg}"><img class="ico" src="${B.Icons.slot(t.type, 40)}" alt=""><b>${B.TYPE[t.type].name}</b></button>`).join('');
+      else grid = ts.map(t => { const it = ITEM[t.id], who = t.uid ? run.heroes.find(h => h.uid === t.uid) : null; return `<button class="tpick item" data-act="event-target" data-arg="${t.arg}">${ico('item', t.id, 40)}<b style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</b><span>${B.RARITY[it.tier].name} ${B.TYPE[it.type].name.toLowerCase()}${who ? ' · on ' + esc(HEROES[who.key].name) : ' · bag'}</span></button>`; }).join('');
+      return head + `<div class="card evpick"><div class="small">${fmt(pickCh.label)}${pickCh.cost ? ` <span class="price">${pickCh.cost}</span>` : ''}</div>
+        <h3>${pickCh.target === 'hero' ? 'Choose a hero' : pickCh.target === 'type' ? 'Choose an item type' : 'Choose an item'}</h3><div class="tgrid">${grid}</div></div>
+        <div class="bar"><button data-act="event-back">Back</button></div></section>`;
+    }
+    return head + `<div class="stack evchoices">${chs.map((ch, i) => {
+      const c = Run.canChoose(run, ch), pic = ch.hero ? img(ch.hero, 40) : ch.item ? ico('item', ch.item, 40) : '';
+      const tag = ch.item ? `<span class="itag" style="color:${TIER_COLOR[ITEM[ch.item].tier]}">${B.RARITY[ITEM[ch.item].tier].name} ${B.TYPE[ITEM[ch.item].type].name.toLowerCase()}</span>` : '';
+      return `<button class="evch ${pic ? 'haspic' : ''}" data-act="event" data-arg="${i}" ${c.ok ? '' : 'disabled'}>${pic}<span class="t">${tag}${fmt(ch.label)}${ch.target ? ' <i class="dim">(you choose)</i>' : ''}${c.ok ? '' : `<span class="why">${esc(c.why)}</span>`}</span>${ch.cost ? `<span class="price">${ch.cost}</span>` : ''}</button>`;
+    }).join('')}</div></section>`;
   }
   function overHTML() {
     const g = run.g;
@@ -700,7 +728,13 @@
     buy: i => { const err = Run.buy(run, +i); if (err) toast(err); save(); render(); },
     reroll: () => { if (!Run.reroll(run)) toast('Not enough gold'); save(); render(); },
     leave: () => { Run.leave(run); save(); render(); window.scrollTo(0, 0); },
-    event: i => { Run.eventAct(run, +i); save(); render(); },
+    event: i => {
+      const ch = Run.eventChoices(run)[+i]; if (!ch) return;
+      if (ch.target) { run.cur.pick = +i; render(); return; }
+      Run.eventAct(run, +i); run.cur.pick = null; save(); render();
+    },
+    'event-target': arg => { const i = run.cur.pick; run.cur.pick = null; if (i == null) return; Run.eventAct(run, i, arg); save(); render(); },
+    'event-back': () => { run.cur.pick = null; render(); },
     team: () => { if (!run || battle) return; openModal(teamHTML()); },
     bag: i => { ui.selBag = ui.selBag === +i ? -1 : +i; openModal(teamHTML()); },
     equip: uid => { if (ui.selBag < 0) { toast('Select an item in the bag first'); return; } const err = Run.equip(run, ui.selBag, +uid); if (err) toast(err); else ui.selBag = -1; save(); openModal(teamHTML()); refreshBehind(); },
