@@ -193,7 +193,7 @@
     return `<section><h2 class="sc">Gauntlet · round ${g.round + 1}</h2>
       ${g.history.length ? `<p class="small">${g.history.map(h => `${h.win ? '✔' : '✘'} ${esc(h.name)} (${h.delta >= 0 ? '+' : ''}${h.delta})`).join(' · ')}</p>` : ''}
       <div class="card opp"><div class="row"><b class="sc">${esc(o.name)}</b><span class="grow"></span><span class="elo">⚜ ${o.elo}</span></div>
-        <p class="small dim">Their run ${o.status === 'champion' ? 'was crowned champion' : 'went ' + o.wins + '-1'} in the gauntlet.</p>${teamRow(o.team, o.relics)}</div>
+        <p class="small dim">${o.bot ? 'A wandering company guards the first step until a player\'s team falls in the Gauntlet.' : o.status === 'champion' ? 'Their run was crowned champion in the gauntlet.' : 'Their run went ' + o.wins + '-1 in the gauntlet.'}</p>${teamRow(o.team, o.relics)}</div>
       <div class="bar"><button data-act="team">Team & items</button><button class="primary big" data-act="to-duel">Prepare the duel</button></div></section>`;
   }
   function stockCard(s, i) {

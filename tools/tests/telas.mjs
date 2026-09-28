@@ -143,7 +143,10 @@ if (fin.result === 'defeat' && !REMOTE) {
 
 // ---- gauntlet: a rival team is already stored; take a strong team through the Onslaught into the duels
 if (!REMOTE) {
-  await ev(`fetch('/api/elo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'enter', pid: 'b'.repeat(32), name: 'Rival', team: [{ key: 'bastion', lvl: 1, specs: [], items: [], bonus: {}, pos: { c: 3, r: 4 } }], relics: [] }) })`);
+  // Rival reaches the gauntlet and loses round 1 to the wandering company (review #5), so its team becomes a real opponent
+  await ev(`(async () => { const post = b => fetch('/api/elo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json());
+    const e = await post({ op: 'enter', pid: 'b'.repeat(32), name: 'Rival', team: [{ key: 'bastion', lvl: 1, specs: [], items: [], bonus: {}, pos: { c: 3, r: 4 } }], relics: [] });
+    await post({ op: 'result', pid: 'b'.repeat(32), teamId: e.teamId, win: false }); })()`);
   await click('[data-act=new-run]'); await sleep(150);
   await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`); await click('[data-act=start-go]'); await sleep(150);
   await ev(`(() => { const r = __bal.run; B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k)));
@@ -169,8 +172,10 @@ if (!REMOTE) {
   const g = await ev(`({ phase: __bal.run.phase, status: __bal.run.g.status, wins: __bal.run.g.wins, elo: __bal.run.g.elo })`);
   ok(g.phase === 'over' && (g.status === 'champion' || g.status === 'lost'), `gauntlet ends (${g.status}, ${g.wins} win, Elo ${g.elo})`);
   await shot('19-gauntlet-over');
-  await click('[data-act=scores]'); await sleep(800);
-  ok(await ev(`document.querySelector('#modal').textContent.includes('Rival') && document.querySelector('#modal').textContent.includes('TestBot')`), 'Elo ladder lists the players');
+  await click('[data-act=scores]');
+  for (let k = 0; k < 30 && !(await ev(`!!document.querySelector('#modal table')`)); k++) await sleep(100);
+  const ladder = await ev(`document.querySelector('#modal').textContent`);
+  ok(ladder.includes('Rival') && ladder.includes('TestBot'), 'Elo ladder lists the players' + (ladder.includes('Rival') && ladder.includes('TestBot') ? '' : ': ' + ladder.replace(/\s+/g, ' ').slice(0, 400)));
   await click('[data-act=close]');
 }
 
