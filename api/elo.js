@@ -74,7 +74,8 @@ function cleanTeam(team) {
     const lvl = Math.max(1, Math.min(5, Math.round(Number(h.lvl) || 1)));
     const allSpecs = new Set(hd.specs.flat().map(s => s.id));
     const specs = (Array.isArray(h.specs) ? h.specs : []).filter(id => allSpecs.has(id)).slice(0, lvl - 1);
-    const items = (Array.isArray(h.items) ? h.items : []).filter(id => D.ITEM[id]).slice(0, 5);
+    const types = new Set();  // itemization v16: one item per type
+    const items = (Array.isArray(h.items) ? h.items : []).filter(id => D.ITEM[id] && !types.has(D.ITEM[id].type) && types.add(D.ITEM[id].type)).slice(0, 5);
     const bonus = {};
     for (const [k, max] of [['hpPct', 1], ['atk', 60], ['armor', 80]]) { const v = Number(h.bonus && h.bonus[k]); if (v > 0) bonus[k] = Math.min(max, v); }
     const c = Math.max(0, Math.min(7, Math.round(Number(h.pos && h.pos.c)))), r = Math.max(4, Math.min(7, Math.round(Number(h.pos && h.pos.r))));
@@ -167,3 +168,4 @@ module.exports = async (req, res) => {
 };
 module.exports.eloAfter = eloAfter;
 module.exports.usedIn = usedIn;
+module.exports.cleanTeam = cleanTeam;

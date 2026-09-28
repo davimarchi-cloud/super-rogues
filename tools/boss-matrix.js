@@ -4,7 +4,8 @@ require('../js/hex.js'); require('../js/data.js'); require('../js/sim.js'); requ
 const { Run, Sim } = B; const TRIES = +(process.argv[2] || 4);
 const keys = Object.keys(B.HEROES);
 const LOAD = { 3: { lvl: 2, items: ['longsword', 'chainmail', 'rod', 'recurve', 'belt', 'fang'] },
-               6: { lvl: 3, items: ['bloodthirster', 'warmog', 'deathcap', 'crossbow', 'guardplate', 'infinity'] } };
+               // v16: one item per type, so the 2nd weapon (Rapid Crossbow) became boots of the same power (Berserker Greaves)
+               6: { lvl: 3, items: ['bloodthirster', 'warmog', 'deathcap', 'b_greaves', 'guardplate', 'infinity'] } };
 for (const fightNo of [3, 6]) {
   let comps = 0, beat = 0, wins = 0, total = 0; const worst = [];
   for (let a = 0; a < keys.length; a++) for (let b = a + 1; b < keys.length; b++) for (let c = b + 1; c < keys.length; c++) {

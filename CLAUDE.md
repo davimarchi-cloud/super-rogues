@@ -25,12 +25,12 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | Arquivo | O quê |
 |---|---|
 | `js/hex.js` | grade 8x8 pointy-top "odd-r"; linha 0 = topo (inimigo), linhas 4-7 = deploy do jogador |
-| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 33 heróis (habilidade + 4 pares de spec; 6 com escala passiva), 78 itens, 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
+| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 33 heróis (habilidade + 4 pares de spec; 6 com escala passiva), 120 itens com tipo e raridade (`TYPES`, `RARITIES`, `SETS`), 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
 | `js/sim.js` | motor de combate puro e determinístico (20 ticks/s). Roda no navegador e no Node |
 | `js/run.js` | máquina de estados da run (mapa, lutas, lojas, eventos, XP, itens). JSON puro, salvo no localStorage |
 | `js/models.js` | modelos 2.5D desenhados em código (humanoide, fera, bomba, golem, serpente, espectro, torre) com poses parado/andando/ataque/habilidade/morte; `portrait()` gera os retratos dos menus |
 | `js/splash.js` | splash art de cada unidade (fora da luta): pose heroica com o modelo em modo `detail`, luz na cor do herói, raios, bokeh, névoa, luz de contorno e brilho; `B.Splash.image(key, w, h, 'bust'|'full')`, cache em data: URL |
-| `js/icons.js` | ícones de itens e relíquias desenhados em código (~60 desenhos; cada item/relíquia mapeado em `IT`/`RE`), moldura na cor do tier, cache em data: URL |
+| `js/icons.js` | ícones de itens e relíquias desenhados em código (~60 desenhos; cada item/relíquia mapeado em `IT`/`RE`), moldura na cor da raridade (lendário com brilho, mítico com moldura dupla), `B.Icons.slot(tipo)` = espaço vazio, cache em data: URL |
 | `js/render.js` | canvas 2.5D: tabuleiro achatado (K=0.6) com espessura, unidades pelos modelos, barras, efeitos. Interpola posição entre hexes |
 | `js/ui.js` | telas DOM + loop da batalha. Sem handler inline (CSP): todo botão tem `data-act` |
 | `js/net.js` | cliente JSON de `/api` |
@@ -55,6 +55,11 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 - Movimento suave: a unidade ocupa o hex de destino ao começar a andar e o renderer interpola; ela chega no tick exato
   em que a próxima ação (windup do ataque) começa. Teste: `motor.js` "attack starts on landing tick".
 - Mobile first. Tem de ser possível um time de 3 heróis com itens vencer os 2 chefes (`boss-matrix.js`).
+- Itens (v16, pedido do dono "como Obsidian Knight"): cada item tem TIPO = espaço de equipamento (arma, mão
+  secundária, elmo, armadura, luvas, botas, berloque) e RARIDADE (comum, incomum, raro, épico, conjunto, lendário,
+  mítico). Herói usa no máximo 1 item de cada tipo e no máximo `Run.slots()` itens no total (1 no Lv1-2, +1 por
+  nível a partir do Lv3). Equipar um tipo que o herói já usa troca os dois. Conjuntos: 3 peças em 3 tipos; 2 e 3
+  peças no MESMO herói dão bônus (`B.SETS`, `Run.setBonuses`).
 
 Decisões minhas (o dono pode mudar): começa escolhendo 2 de 3 heróis; sem corações (lote 3 do David: perdeu uma luta, acabou); 1 slot de item no Lv 1-2 (o briefing não dizia quantos antes do Lv 3); 1ª onda do Onslaught no segundo 0
 e depois a cada 10 s; morte súbita aos 45 s de luta normal (dano sobe 15%/s) e limite de 150 s (conta como derrota).
@@ -115,6 +120,17 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v16 (2026-09-28), pedido direto do dono** ("itemização com itens divididos por tipo e raridade, parecidos com
+  Obsidian Knight"): 7 tipos e 7 raridades (preços 3/4/5/8/7/10/13). Os 78 itens antigos ganharam tipo (ids iguais:
+  saves, fantasmas e Elo de conteúdo seguem valendo); 11 comuns de 2 atributos viraram incomuns. 42 novos: 13 para
+  tipos com poucos itens, 7 lendários e 7 míticos (1 por tipo), 5 conjuntos de 3 peças (Obsidian Guard, Stormcaller,
+  Arcanist, Bloodmoon, Ranger). Loja: lendário/conjunto a partir da 2ª luta, mítico só a partir da 4ª. `addMods` pega
+  o melhor de cada parte da corrente (antes somava "a cada N ataques", o que piorava). Save v4 (`migrate`: 2º item do
+  mesmo tipo volta à bolsa); o servidor (`cleanTeam`) guarda fantasmas com 1 item por tipo. Ficha do time: bolsa em
+  grade de ícones (melhor raridade primeiro) com o cartão do item selecionado no topo; cada herói é um boneco com os 7
+  espaços em volta do retrato e os atributos ao lado; relíquias numa linha (tocar mostra o texto). Balanceamento igual
+  dentro do ruído (bot 150 runs: 1º chefe 24% contra 23%, Gauntlet 6 contra 8; matriz 65% e 45%).
 
 - **v15 (2026-09-28), lote 14 do David** (Elo): chegar ao Gauntlet = vitória contra um adversário de Elo 1000 (antes
   não mexia no Elo); perder a run = derrota contra 1000 (antes era contra o próprio Elo − 200). Elo separado para cada

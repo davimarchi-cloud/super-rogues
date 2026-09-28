@@ -7,11 +7,14 @@ const { Run, Sim, HEROES, ITEM } = B;
 
 const casts = {}; for (const k in Sim.abilities) { const f = Sim.abilities[k]; Sim.abilities[k] = (W, u, x) => { const r = f(W, u, x); if (r) casts[k] = (casts[k] || 0) + 1; return r; }; }
 const stats = { fights: {}, boss: { 3: [0, 0], 6: [0, 0] }, scores: [], waves: [], lv: [0, 0, 0, 0, 0, 0], reached: 0, nan: 0, fightSecs: [] };
-const tierRank = { epic: 3, rare: 2, common: 1 };
+const rank = id => B.RARITIES.findIndex(r => r.id === ITEM[id].tier);
 
+// best rarity first, one item per type (itemization v16): an item whose type the hero already wears waits for the next hero
 function equipAll(run) {
-  run.bag.sort((a, b) => tierRank[ITEM[b].tier] - tierRank[ITEM[a].tier]);
-  for (const h of run.heroes) while (h.items.length < Run.slots(run, h) && run.bag.length) Run.equip(run, 0, h.uid);
+  run.bag.sort((a, b) => rank(b) - rank(a));
+  for (const h of run.heroes) for (let i = 0; i < run.bag.length && h.items.length < Run.slots(run, h);) {
+    if (h.items.some(x => ITEM[x].type === ITEM[run.bag[i]].type)) i++; else Run.equip(run, i, h.uid);
+  }
 }
 function playFight(run, W) {
   Sim.run(W, 20 * 60 * 20);

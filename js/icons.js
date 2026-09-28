@@ -85,27 +85,51 @@
     knuckles: ['fist', '#9aa0a8'], warpaint: ['drop', '#c43a3a'], bandana: ['cloak', '#c43a3a'], oakshield: ['shield', '#8a5a32'], candle: ['candle'], jerky: ['bone'], whistle: ['horn'], berserkeraxe: ['axe', '#e05555'],
     stoneheart: ['heart', '#8a8f9a'], soulbinder: ['skull', '#bff4ff'], frenzyblade: ['sword', '#ff9d3d'], manaweave: ['cloak', '#3a5ac4'], lightningrod: ['bolt', '#bfe6ff'], lifeline: ['amulet', '#5fd47a'],
     crackedlens: ['lens'], colossus: ['heart', '#e05555'], eclipsecrown: ['crown', '#5a4a8a'], reaper: ['scythe'], mirrorshield: ['shield', '#dfe6ee'], hourglass: ['hourglass'],
+    // itemization v16
+    g_leather: ['glove', '#8a5a3a'], g_gauntlets: ['glove', '#c9d2dc'], g_silk: ['glove', '#c77dff'], g_assassin: ['glove', '#8a1f24'], g_venom: ['glove', '#5fd47a'],
+    b_padded: ['boots', '#8a5a3a'], b_treads: ['boots', '#dfe6ee'], b_greaves: ['boots', '#e05555'], b_shadow: ['boots', '#3a3a5a'],
+    h_iron: ['helm'], h_circlet: ['crown', '#bfe6ff'], a_jerkin: ['armor', '#8a5a3a'], a_plate: ['armor', '#dfe6ee'],
+    obsidianblade: ['greatsword', '#4a3a5e'], aegis: ['shield', '#ffd27a'], magicrown: ['crown', '#5fa8ff'], dragonscale: ['armor', '#3a8a5a'],
+    furygauntlets: ['glove', '#ff7a3d'], windwalkers: ['boots', '#8af4ff'], mountainheart: ['heart', '#9aa0a8'],
+    worldsplitter: ['greatsword', '#ff4d5e'], eternitytome: ['book', '#c77dff'], voidmask: ['mask', '#5a3a8a'], obsidianplate: ['armor', '#2a2030'],
+    ruinhands: ['fist', '#ff4d5e'], phantomboots: ['boots', '#c77dff'], phoenixheart: ['feather', '#ff7a3d'],
+    obs_blade: ['sword', '#4a3a5e'], obs_helm: ['helm', '#4a3a5e'], obs_plate: ['armor', '#4a3a5e'],
+    storm_gloves: ['glove', '#bfe6ff'], storm_boots: ['boots', '#5fa8ff'], storm_sigil: ['bolt', '#bfe6ff'],
+    arc_hood: ['hat', '#3a5ac4'], arc_orb: ['gem', '#8ab4ff'], arc_robe: ['cloak', '#3a5ac4'],
+    bm_cleaver: ['axe', '#8a1f24'], bm_grips: ['glove', '#8a1f24'], bm_pendant: ['amulet', '#c43a3a'],
+    rg_hood: ['cloak', '#4a6a3a'], rg_quiver: ['bow', '#4a6a3a'], rg_boots: ['boots', '#4a6a3a'],
   };
+  // the empty slot of each item type shows this glyph, faded
+  const SLOT = { weapon: 'sword', offhand: 'shield', helmet: 'helm', armor: 'armor', gloves: 'glove', boots: 'boots', trinket: 'ring' };
   const RE = {
     idol: ['idol'], drum: ['drum'], standard: ['banner', '#6a6f7a'], lens: ['lantern'], feather: ['feather'], seal: ['seal'], dice: ['dice'], font: ['drop', '#5fa8ff'], bloodstone: ['gem', '#c43a3a'], tooth: ['fang'],
     wits: ['eye'], clover: ['clover'], backpack: ['backpack'], crest: ['crest'], vengeance: ['skull', '#e05555'], frostsigil: ['snowflake'], thunder: ['bolt'], spring: ['drop', '#5fd47a'], firststrike: ['shield', '#e8b84a'],
     purse: ['purse'], tome: ['book', '#1f2f55'], wind: ['wind'], mark: ['target'], ember: ['flame'], warhorn: ['horn'], ironwill: ['fist', '#9aa0a8'], seed: ['leaf', '#8ac43a'], bounty: ['scroll'], bloodpact: ['drop', '#8a1f24'],
     lastbreath: ['skull'], whetset: ['stone', '#9aa0a8'], battery: ['gem', '#c77dff'], treasure: ['scroll', '#e8c890'], rally: ['banner', '#3a5ac4'],
   };
-  const TIER = { common: '#9aa3b5', rare: '#5fa8ff', epic: '#c77dff', relic: '#e8b84a' };
+  const tierColor = t => t === 'relic' ? '#e8b84a' : B.RARITY && B.RARITY[t] ? B.RARITY[t].color : '#9aa3b5';
   const cache = {};
+  // kind 'item' | 'relic' | 'slot' (an empty equipment slot: id = item type)
   function icon(kind, id, px) {
     const key = kind + ':' + id + ':' + px; if (cache[key]) return cache[key];
     if (typeof document === 'undefined') return '';
-    const spec = (kind === 'item' ? IT : RE)[id] || ['gem'], tier = kind === 'item' ? (B.ITEM[id] || {}).tier || 'common' : 'relic';
+    const slot = kind === 'slot';
+    const spec = slot ? [SLOT[id] || 'gem', '#8a90a0'] : (kind === 'item' ? IT : RE)[id] || ['gem'], tier = kind === 'item' ? (B.ITEM[id] || {}).tier || 'common' : 'relic';
     const cv = document.createElement('canvas'), dpr = 3; cv.width = cv.height = px * dpr; const c = cv.getContext('2d'); c.scale(dpr, dpr);
-    // frame: dark bevelled plate + tier-coloured rim
-    const f = TIER[tier], r = px * 0.18;
-    const g = c.createRadialGradient(px * 0.45, px * 0.35, px * 0.05, px / 2, px / 2, px * 0.75); g.addColorStop(0, '#2c3242'); g.addColorStop(1, '#0e1016');
-    c.fillStyle = g; c.beginPath(); c.roundRect ? c.roundRect(1, 1, px - 2, px - 2, r) : c.rect(1, 1, px - 2, px - 2); c.fill();
-    c.strokeStyle = f; c.lineWidth = 2; c.stroke();
-    c.save(); c.translate(px / 2, px / 2); c.scale(px / 120, px / 120); (D[spec[0]] || D.gem)(c, spec[1]); c.restore();
+    // frame: dark bevelled plate + rarity-coloured rim; rarer items get a tinted plate and a glow (mythic a double rim)
+    const f = slot ? '#3a4050' : tierColor(tier), r = px * 0.18, hi = !slot && (tier === 'legendary' || tier === 'mythic' || tier === 'set');
+    const rr = (x, y, w, h, q) => { c.beginPath(); c.roundRect ? c.roundRect(x, y, w, h, q) : c.rect(x, y, w, h); };
+    const g = c.createRadialGradient(px * 0.45, px * 0.35, px * 0.05, px / 2, px / 2, px * 0.75);
+    g.addColorStop(0, slot ? '#1c2029' : hi ? M().shade(f, -0.55) : '#2c3242'); g.addColorStop(1, slot ? '#0c0e13' : '#0e1016');
+    c.fillStyle = g; rr(1, 1, px - 2, px - 2, r); c.fill();
+    if (slot) { c.setLineDash([3, 3]); c.strokeStyle = f; c.lineWidth = 1.5; c.stroke(); c.setLineDash([]); }
+    else {
+      if (hi) { c.save(); c.shadowColor = f; c.shadowBlur = px * 0.2; c.strokeStyle = f; c.lineWidth = 2; c.stroke(); c.restore(); }
+      c.strokeStyle = f; c.lineWidth = 2; c.stroke();
+      if (tier === 'mythic') { c.strokeStyle = '#ffd27a'; c.lineWidth = 1; rr(4, 4, px - 8, px - 8, r * 0.7); c.stroke(); }
+    }
+    c.save(); c.translate(px / 2, px / 2); c.scale(px / 120, px / 120); if (slot) c.globalAlpha = 0.28; (D[spec[0]] || D.gem)(c, spec[1]); c.restore();
     return (cache[key] = cv.toDataURL());
   }
-  B.Icons = { item: (id, px = 40) => icon('item', id, px), relic: (id, px = 40) => icon('relic', id, px), drawers: D, IT, RE };
+  B.Icons = { item: (id, px = 40) => icon('item', id, px), relic: (id, px = 40) => icon('relic', id, px), slot: (type, px = 40) => icon('slot', type, px), drawers: D, IT, RE, SLOT };
 })(typeof window !== 'undefined' ? window : globalThis);

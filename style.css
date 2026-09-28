@@ -514,3 +514,69 @@ body.wide .gteam { grid-template-columns: repeat(auto-fit, minmax(120px, 160px))
 .ctbl td.who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctbl tr.unrated { color: var(--dim); } .ctbl tr.unrated td[colspan] { font-size: 12px; font-style: italic; }
 .ctbl .ico.sm, .ctbl .por.sm { width: 26px; height: 26px; }
+
+/* =====================================================================================================
+   v16 itemization (the owner: "items divided by type and rarity, like Obsidian Knight"): rarity colours, item tags,
+   set lines and the paper doll (one slot per item type around the hero portrait) in the team sheet
+   ===================================================================================================== */
+.r-common { color: #b8c0cc; } .r-uncommon { color: #5fd47a; } .r-rare { color: #5fa8ff; } .r-epic { color: #c77dff; }
+.r-set { color: #2fd6c0; } .r-legendary { color: #ff9f40; } .r-mythic { color: #ff4d5e; }
+.itag { display: block; font-size: 11px; font-style: italic; letter-spacing: .5px; text-transform: lowercase; }
+.itag::first-letter { text-transform: uppercase; }
+.eqitem .itag { font-size: 10px; }
+.setline { font-size: 11px; color: #9fe9df; margin-top: 3px; line-height: 1.35; }
+.setline b { color: #2fd6c0; } .setline.on b { text-shadow: 0 0 6px #2fd6c066; }
+.setname { font-size: 10px; color: #2fd6c0 !important; }
+.eqhero .hrow { display: block; }
+.doll { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; grid-template-rows: 40px 40px 40px; gap: 3px 4px;
+  grid-template-areas: "helmet por trinket" "weapon por offhand" "gloves armor boots"; justify-items: center; align-items: center; }
+.dpor { grid-area: por; display: grid; place-items: center; }
+.dpor .por { width: 64px; height: 64px; border-radius: 12px; box-shadow: 0 0 0 1px var(--line), 0 6px 14px #0008; }
+.d-helmet { grid-area: helmet; } .d-trinket { grid-area: trinket; } .d-weapon { grid-area: weapon; } .d-offhand { grid-area: offhand; }
+.d-gloves { grid-area: gloves; } .d-armor { grid-area: armor; } .d-boots { grid-area: boots; }
+.dslot { width: 38px; height: 38px; min-height: 0; padding: 1px; border-radius: 9px; border: 1px solid var(--rc, transparent); background: #0e1016;
+  display: grid; place-items: center; box-shadow: 0 0 8px color-mix(in srgb, var(--rc, #000) 35%, transparent); }
+.dslot img { width: 34px; height: 34px; display: block; }
+.dslot.empty { border: 0; background: none; box-shadow: none; }
+.dslot.fit { outline: 2px solid var(--gold); outline-offset: 1px; animation: fitpulse 1s ease-in-out infinite alternate; }
+@keyframes fitpulse { from { outline-color: #ffcf5a55; } to { outline-color: var(--gold); } }
+@media (prefers-reduced-motion: reduce) { .dslot.fit { animation: none; } }
+body.wide .doll { grid-template-columns: 46px minmax(0, 1fr) 46px; grid-template-rows: 46px 46px 46px; }
+body.wide .dslot { width: 44px; height: 44px; } body.wide .dslot img { width: 40px; height: 40px; }
+
+/* v16: compact team sheet: a narrow inventory grid on the left, heroes with doll + stats side by side on the right */
+.equip { grid-template-columns: 56px minmax(0, 1fr); }
+.bagcol h3 { font-size: 12px; }
+.baggrid { display: grid; grid-template-columns: repeat(auto-fill, 50px); gap: 6px; justify-content: start; }
+.eqitem.tile { width: 50px; height: 50px; padding: 2px; display: grid; place-items: center; border: 1px solid var(--line); border-left-width: 1px;
+  border-color: var(--tier); background: #0e1016; border-radius: 10px; box-shadow: 0 0 8px color-mix(in srgb, var(--tier) 30%, transparent); }
+.eqitem.tile .ico { width: 44px; height: 44px; }
+.eqitem.tile.on { outline: 2px solid var(--gold); outline-offset: 1px; background: #3a3320; }
+.idetail { display: flex; gap: 8px; align-items: flex-start; background: linear-gradient(180deg, #22252f, #181a21); border: 1px solid var(--tier);
+  border-left-width: 4px; border-radius: var(--r); padding: 6px 8px; margin: 0 0 6px; }
+.idetail .t { flex: 1; min-width: 0; display: grid; gap: 1px; } .idetail .t b { font-size: 14px; } .idetail .small { font-size: 12px; }
+.idetail .chip { flex: none; }
+.eqhero { gap: 3px; }
+.eqhero .hrow { display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; font-size: 13px; }
+.eqhero .hrow .tap { margin-left: auto; font-size: 11px; }
+.hbody { display: flex; gap: 6px; align-items: center; }
+.hbody .stats-row { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: center; }
+.doll { flex: none; grid-template-columns: 34px 56px 34px; grid-template-rows: 34px 34px 34px; gap: 2px 3px; }
+.dslot { width: 34px; height: 34px; border-radius: 8px; } .dslot img { width: 30px; height: 30px; }
+.dpor .por { width: 52px; height: 52px; border-radius: 10px; }
+body.wide .equip { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+body.wide .doll { grid-template-columns: 44px 72px 44px; grid-template-rows: 44px 44px 44px; }
+body.wide .dpor .por { width: 68px; height: 68px; }
+/* v16: the team sheet has to fit a phone with 3 heroes at Lv 5: one line for specs and for sets (the full set text is on
+   the selected piece's card), XP bar inside the name row */
+.eqhero > .small, .eqhero > .setline { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eqhero .hrow .xpbar { flex: 1 1 40px; min-width: 30px; max-width: 90px; margin: 0; align-self: center; }
+.idetail .small { font-size: 12px; line-height: 1.35; }
+.doll { grid-template-rows: 32px 32px 32px; grid-template-columns: 32px 54px 32px; }
+.dslot { width: 32px; height: 32px; } .dslot img { width: 28px; height: 28px; }
+.dpor .por { width: 50px; height: 50px; }
+.idetail .itag { display: inline; }
+.relicline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 8px; }
+.relicline > b { font-family: var(--serif); text-transform: uppercase; letter-spacing: 2px; font-size: 13px; color: var(--gold); margin-right: 4px; }
+.relicbtn { min-height: 0; padding: 0; border: 0; background: none; width: 32px; height: 32px; }
+.relicbtn .ico { width: 30px; height: 30px; }

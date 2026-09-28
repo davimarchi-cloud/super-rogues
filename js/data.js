@@ -6,7 +6,7 @@
   // ---------------------------------------------------------------- economy / pacing
   B.CFG = {
     startGold: 10, maxTeam: 3, heroCost: 7, reroll: 2,
-    itemCost: { common: 3, rare: 5, epic: 8 }, relicCost: 8,
+    itemCost: { common: 3, uncommon: 4, rare: 5, epic: 8, set: 7, legendary: 10, mythic: 13 }, relicCost: 8,
     gold: { easy: 6, medium: 9, hard: 13, boss: 16 },
     xpLevels: [0, 0, 30, 85, 180, 330], // cumulative XP to reach level N (index = level); 1 XP per second alive
     maxLevel: 5, baseSlots: 1,          // item slots: 1 at Lv1-2, +1 at Lv3, Lv4, Lv5
@@ -496,7 +496,7 @@
   };
   for (const k in B.HEROES) B.HEROES[k].key = k;
 
-  // ---------------------------------------------------------------- items (56)
+  // ---------------------------------------------------------------- items (78 first, 120 since v16: see TYPES below)
   const I = (id, name, tier, mods, desc) => ({ id, name, tier, mods, desc });
   B.ITEMS = [
     // common
@@ -582,6 +582,94 @@
     I('mirrorshield', 'Mirror Shield', 'epic', { mr: 30, thorns: 0.35 }, '+30 MR, reflects 35% of melee damage'),
     I('hourglass', 'Stasis Hourglass', 'epic', { ap: 20, armor: 20, stasis: 1 }, 'Once per fight at 40% HP: invulnerable for 2s'),
   ];
+
+  // ---------------------------------------------------------------- itemization v16 (the owner: "items divided by type
+  // and rarity, like Obsidian Knight"). Every item has a TYPE, which is its equipment slot: a hero wears at most one item
+  // of each type (and still up to Run.slots() items in total). And a RARITY, low to high: common, uncommon, rare, epic,
+  // set (pieces of a named set: 2 and 3 pieces on the same hero give set bonuses), legendary, mythic.
+  B.TYPES = [
+    { id: 'weapon', name: 'Weapon' }, { id: 'offhand', name: 'Off-hand' }, { id: 'helmet', name: 'Helmet' }, { id: 'armor', name: 'Armor' },
+    { id: 'gloves', name: 'Gloves' }, { id: 'boots', name: 'Boots' }, { id: 'trinket', name: 'Trinket' },
+  ];
+  B.TYPE = {}; for (const t of B.TYPES) B.TYPE[t.id] = t;
+  B.RARITIES = [
+    { id: 'common', name: 'Common', color: '#b8c0cc' }, { id: 'uncommon', name: 'Uncommon', color: '#5fd47a' },
+    { id: 'rare', name: 'Rare', color: '#5fa8ff' }, { id: 'epic', name: 'Epic', color: '#c77dff' },
+    { id: 'set', name: 'Set', color: '#2fd6c0' }, { id: 'legendary', name: 'Legendary', color: '#ff9f40' }, { id: 'mythic', name: 'Mythic', color: '#ff4d5e' },
+  ];
+  B.RARITY = {}; for (const r of B.RARITIES) B.RARITY[r.id] = r;
+  // the first 78 items, sorted into slots (ids never change: saved runs, ghosts and content Elo use them)
+  const LEGACY_TYPE = {
+    weapon: 'longsword dagger rod recurve sling crossbow bloodthirster infinity emberblade frozenhammer executioner giantslayer gunblade shojin frenzyblade berserkeraxe needle lightningrod stormbringer botrk archangel lastwhisper reaper',
+    offhand: 'buckler oakshield focus guardplate bluecrystal banner totem zeke mirrorshield morello stoneplate hourglass',
+    helmet: 'cap bandana warpaint deathcap visage crackedlens rabadon crown eclipsecrown',
+    armor: 'chainmail belt cloak thornmail warmog sunfire manaweave stoneheart colossus',
+    gloves: 'gloves knuckles titan dragonclaw',
+    boots: 'boots tabi phantomdancer striders',
+    trinket: 'tear fang coin charm amber moss whetstone jerky candle whistle venomvial quicksilver scope lifeline soulbinder guardian redemption',
+  };
+  for (const t in LEGACY_TYPE) for (const id of LEGACY_TYPE[t].split(' ')) B.ITEMS.find(i => i.id === id).type = t;
+  // the old commons with two stats are now uncommon
+  for (const id of 'gloves cap whetstone amber dagger oakshield candle jerky whistle bandana knuckles'.split(' ')) B.ITEMS.find(i => i.id === id).tier = 'uncommon';
+
+  const N = (type, id, name, tier, mods, desc, set) => ({ id, name, type, tier, mods, desc, set });
+  B.ITEMS.push(
+    // slots that had few items
+    N('gloves', 'g_leather', 'Leather Gloves', 'common', { asPct: 0.15 }, '+15% attack speed'),
+    N('gloves', 'g_gauntlets', 'Iron Gauntlets', 'uncommon', { armor: 15, atk: 8 }, '+15 armor, +8 attack'),
+    N('gloves', 'g_silk', 'Silk Gloves', 'uncommon', { ap: 15, manaOnHit: 3 }, '+15 AP, +3 mana per attack'),
+    N('gloves', 'g_assassin', "Assassin's Grips", 'rare', { crit: 0.15, critDmg: 0.3 }, '+15% crit, +30% crit damage'),
+    N('gloves', 'g_venom', 'Venom Claws', 'rare', { asPct: 0.15, poisonOnHit: 0.015 }, '+15% attack speed, attacks poison 1.5% max HP/s'),
+    N('boots', 'b_padded', 'Padded Boots', 'common', { hp: 150 }, '+150 HP'),
+    N('boots', 'b_treads', 'Mercury Treads', 'uncommon', { ms: 1, mr: 15 }, '+1 move speed, +15 MR'),
+    N('boots', 'b_greaves', 'Berserker Greaves', 'rare', { ms: 1, asPct: 0.25 }, '+1 move speed, +25% attack speed'),
+    N('boots', 'b_shadow', 'Shadow Steps', 'rare', { dodge: 0.15, firstMoveAtk: 0.3 }, '+15% dodge, attack after moving deals +30%'),
+    N('helmet', 'h_iron', 'Iron Helm', 'common', { armor: 12, mr: 12 }, '+12 armor and MR'),
+    N('helmet', 'h_circlet', "Sage's Circlet", 'uncommon', { ap: 15, manaStart: 15 }, '+15 AP, +15 starting mana'),
+    N('armor', 'a_jerkin', 'Leather Jerkin', 'common', { hp: 120, dodge: 0.04 }, '+120 HP, +4% dodge'),
+    N('armor', 'a_plate', "Knight's Plate", 'uncommon', { armor: 22, hp: 80 }, '+22 armor, +80 HP'),
+    // legendary: one per slot
+    N('weapon', 'obsidianblade', 'Obsidian Greatsword', 'legendary', { atk: 30, splash: 0.35, armorPen: 0.2 }, '+30 attack, attacks splash 35% to adjacent enemies, ignore 20% armor'),
+    N('offhand', 'aegis', 'Aegis of Dawn', 'legendary', { shieldStartPct: 0.3, aura: [{ r: 1, stat: 'armor', val: 20 }, { r: 1, stat: 'mr', val: 20 }] }, 'Starts fights with a 30% shield, adjacent allies +20 armor and MR'),
+    N('helmet', 'magicrown', 'Crown of the Magi', 'legendary', { ap: 60, manaStart: 30, manaRegen: 2 }, '+60 AP, +30 starting mana, +2 mana per second'),
+    N('armor', 'dragonscale', 'Dragonscale Mail', 'legendary', { hp: 350, armor: 30, mr: 30, dmgReduce: 0.1 }, '+350 HP, +30 armor and MR, takes 10% less damage'),
+    N('gloves', 'furygauntlets', 'Gauntlets of Fury', 'legendary', { asPct: 0.25, rageDmg: 0.5 }, '+25% attack speed, up to +50% damage as HP drops'),
+    N('boots', 'windwalkers', 'Windwalker Boots', 'legendary', { ms: 2, dodge: 0.2, asPct: 0.15 }, '+2 move speed, +20% dodge, +15% attack speed'),
+    N('trinket', 'mountainheart', 'Heart of the Mountain', 'legendary', { hpPct: 0.25, regen: 0.015, ccResist: 0.3 }, '+25% max HP, 1.5% regen per second, crowd control 30% shorter'),
+    // mythic: one per slot, only in late shops
+    N('weapon', 'worldsplitter', 'Worldsplitter', 'mythic', { atk: 40, crit: 0.2, critDmg: 0.5, multishot: 0.5, reap: 0.1 }, '+40 attack, +20% crit, +50% crit damage, attacks also hit a 2nd enemy for 50%, execute enemies below 10% HP (not bosses)'),
+    N('offhand', 'eternitytome', 'Tome of Eternity', 'mythic', { ap: 50, apPerSec: 4, abilityBurn: 0.03, manaMaxPct: -0.2 }, '+50 AP, +4 AP every second, abilities burn 3% max HP/s and need 20% less mana'),
+    N('helmet', 'voidmask', 'Mask of the Void', 'mythic', { allPct: 0.25, cleanseOnce: 1, omni: 0.15 }, '+25% HP, attack, AP, armor and MR, ignores the first crowd control, abilities heal 15% of damage'),
+    N('armor', 'obsidianplate', 'Obsidian Bulwark', 'mythic', { hp: 500, armor: 40, mr: 40, thorns: 0.3, stasis: 1 }, '+500 HP, +40 armor and MR, reflects 30% melee damage, once per fight at 40% HP: invulnerable for 2s'),
+    N('gloves', 'ruinhands', 'Hands of Ruin', 'mythic', { asPct: 0.35, curHpOnHit: 0.06, chainEvery: 3, chainTargets: 2, chainDmg: 0.6 }, '+35% attack speed, attacks deal 6% current HP, every 3rd attack chains to 2 enemies'),
+    N('boots', 'phantomboots', 'Phantom Boots', 'mythic', { ms: 2, dodge: 0.3, asPct: 0.2, firstMoveAtk: 0.8 }, '+2 move speed, +30% dodge, +20% attack speed, attack after moving deals +80%'),
+    N('trinket', 'phoenixheart', 'Phoenix Heart', 'mythic', { revive: 0.7, hp: 250, onDeathHeal: 0.3 }, 'Revives once at 70% HP, +250 HP, on death heals allies within 2 hexes for 30%'),
+    // sets: 3 pieces each, in 3 different slots
+    N('weapon', 'obs_blade', 'Obsidian Blade', 'set', { atk: 18, armorPen: 0.15 }, '+18 attack, ignore 15% armor', 'obsidian'),
+    N('helmet', 'obs_helm', 'Obsidian Helm', 'set', { armor: 20, hp: 100 }, '+20 armor, +100 HP', 'obsidian'),
+    N('armor', 'obs_plate', 'Obsidian Cuirass', 'set', { armor: 25, hp: 150 }, '+25 armor, +150 HP', 'obsidian'),
+    N('gloves', 'storm_gloves', 'Storm Gauntlets', 'set', { asPct: 0.15, atk: 6 }, '+15% attack speed, +6 attack', 'storm'),
+    N('boots', 'storm_boots', 'Storm Treads', 'set', { ms: 1, asPct: 0.1 }, '+1 move speed, +10% attack speed', 'storm'),
+    N('trinket', 'storm_sigil', 'Storm Sigil', 'set', { crit: 0.1, manaRegen: 1 }, '+10% crit, +1 mana per second', 'storm'),
+    N('helmet', 'arc_hood', 'Arcanist Hood', 'set', { ap: 20, mr: 10 }, '+20 AP, +10 MR', 'arcanist'),
+    N('offhand', 'arc_orb', 'Arcanist Orb', 'set', { ap: 20, manaStart: 15 }, '+20 AP, +15 starting mana', 'arcanist'),
+    N('armor', 'arc_robe', 'Arcanist Robe', 'set', { mr: 20, manaRegen: 2 }, '+20 MR, +2 mana per second', 'arcanist'),
+    N('weapon', 'bm_cleaver', 'Bloodmoon Cleaver', 'set', { atk: 15, ls: 0.08 }, '+15 attack, +8% lifesteal', 'bloodmoon'),
+    N('gloves', 'bm_grips', 'Bloodmoon Grips', 'set', { atk: 8, crit: 0.08 }, '+8 attack, +8% crit', 'bloodmoon'),
+    N('trinket', 'bm_pendant', 'Bloodmoon Pendant', 'set', { hp: 150, ls: 0.05 }, '+150 HP, +5% lifesteal', 'bloodmoon'),
+    N('helmet', 'rg_hood', "Ranger's Hood", 'set', { crit: 0.08, asPct: 0.08 }, '+8% crit, +8% attack speed', 'ranger'),
+    N('offhand', 'rg_quiver', "Ranger's Quiver", 'set', { asPct: 0.15 }, '+15% attack speed', 'ranger'),
+    N('boots', 'rg_boots', "Ranger's Boots", 'set', { ms: 1, dodge: 0.08 }, '+1 move speed, +8% dodge', 'ranger'),
+  );
+  // set bonuses count the pieces worn by the SAME hero (Run.heroMods)
+  B.SETS = {
+    obsidian: { name: 'Obsidian Guard', bonus: { 2: { mods: { armor: 25, mr: 25 }, desc: '+25 armor and MR' }, 3: { mods: { shieldStartPct: 0.2, thorns: 0.25, atkPct: 0.15 }, desc: 'Starts fights with a 20% shield, reflects 25% melee damage, +15% attack' } } },
+    storm: { name: 'Stormcaller', bonus: { 2: { mods: { asPct: 0.2 }, desc: '+20% attack speed' }, 3: { mods: { chainEvery: 3, chainTargets: 3, chainDmg: 0.5 }, desc: 'Every 3rd attack chains to 3 enemies' } } },
+    arcanist: { name: 'Arcanist', bonus: { 2: { mods: { ap: 30 }, desc: '+30 AP' }, 3: { mods: { manaMaxPct: -0.25, abilityBurn: 0.02 }, desc: 'Abilities need 25% less mana and burn 2% max HP/s' } } },
+    bloodmoon: { name: 'Bloodmoon', bonus: { 2: { mods: { ls: 0.12 }, desc: '+12% lifesteal' }, 3: { mods: { rageDmg: 0.6, omni: 0.1 }, desc: 'Up to +60% damage as HP drops, abilities heal 10% of damage' } } },
+    ranger: { name: 'Ranger', bonus: { 2: { mods: { range: 1 }, desc: '+1 range' }, 3: { mods: { multishot: 0.5 }, desc: 'Attacks also hit a 2nd enemy for 50%' } } },
+  };
+  for (const sid in B.SETS) { B.SETS[sid].id = sid; B.SETS[sid].pieces = B.ITEMS.filter(i => i.set === sid).map(i => i.id); }
   B.ITEM = {}; for (const it of B.ITEMS) B.ITEM[it.id] = it;
 
   // ---------------------------------------------------------------- relics (24) — team-wide

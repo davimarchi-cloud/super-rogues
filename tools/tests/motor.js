@@ -118,6 +118,49 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(d3.hp > d1.hp && d3.atk > d1.atk, 'levels raise stats');
 }
 
+// itemization v16 (the owner: "items divided by type and rarity, like Obsidian Knight")
+{
+  const T = new Set(B.TYPES.map(t => t.id)), RR = new Set(B.RARITIES.map(r => r.id));
+  ok(B.ITEMS.length >= 120 && B.ITEMS.every(i => T.has(i.type) && RR.has(i.tier) && CFG.itemCost[i.tier] > 0), `every item has a type, a rarity and a price (${B.ITEMS.length} items)`);
+  ok(B.TYPES.every(t => ['common', 'uncommon', 'rare', 'legendary', 'mythic', 'set'].every(r => B.ITEMS.some(i => i.type === t.id && i.tier === r))), 'every type has common, uncommon, rare, set, legendary and mythic items');
+  ok(Object.values(B.SETS).length >= 5 && Object.values(B.SETS).every(S => S.pieces.length === 3 && new Set(S.pieces.map(id => B.ITEM[id].type)).size === 3), 'each set has 3 pieces in 3 different slots');
+  ok(B.ITEMS.every(i => B.Icons ? true : true) && new Set(B.ITEMS.map(i => i.id)).size === B.ITEMS.length, 'item ids are unique');
+  const run = Run.newRun(5); Run.pickStart(run, ['brakk', 'morrow']); const h = run.heroes[0]; h.lvl = 5;
+  run.bag.push('longsword', 'bloodthirster');
+  ok(Run.equip(run, 0, h.uid) === null && Run.equip(run, 0, h.uid) === null && h.items.join() === 'bloodthirster' && run.bag.join() === 'longsword', 'a second weapon swaps with the one worn (one item per type)');
+  ok(Run.canEquip(run, h, 'longsword') && Run.canEquip(run, h, 'chainmail'), 'a free slot or a same-type swap can always be equipped');
+  h.items = ['longsword', 'chainmail', 'cap', 'boots']; run.bag = ['tear'];
+  ok(Run.equip(run, 0, h.uid) !== null && Run.canEquip(run, h, 'dagger'), 'Lv 5 with 4 items: a new type needs a free slot, a swap does not');
+  h.items = [];
+  const m0 = Run.heroMods(run, h);
+  h.items = ['obs_helm', 'obs_plate'];
+  const m2 = Run.heroMods(run, h);
+  ok(Math.round((m2.armor || 0) - (m0.armor || 0)) === 20 + 25 + 25 && Run.setBonuses(h.items).length === 1, 'Obsidian Guard 2 pieces: +25 armor on top of the pieces');
+  h.items.push('obs_blade');
+  const m3 = Run.heroMods(run, h);
+  ok(m3.shieldStartPct >= 0.2 && m3.thorns >= 0.25 && Run.setBonuses(h.items).length === 2, 'Obsidian Guard 3 pieces: shield, thorns and attack');
+  h.items = ['lightningrod', 'storm_gloves', 'storm_boots', 'storm_sigil'];
+  const ms = Run.heroMods(run, h);
+  ok(ms.chainEvery === 3 && ms.chainTargets === 3 && ms.chainDmg === 0.5, `two chain sources keep the best of each part (every ${ms.chainEvery}, ${ms.chainTargets} targets), not the sum`);
+  const set3 = Run.newRun(6); Run.pickStart(set3, ['kestrel', 'bastion']); set3.heroes[0].lvl = 4; set3.heroes[0].items = ['rg_hood', 'rg_quiver', 'rg_boots'];
+  set3.cur = Run.makeFight(set3, 'easy', 1);
+  const W = Run.fightWorld(set3); const k = W.units.find(u => u.uid === set3.heroes[0].uid);
+  ok(k.range === B.HEROES.kestrel.range + 1 && k.m.multishot === 0.5, 'Ranger set reaches the fight: +1 range and multishot');
+  const old = { v: 3, heroes: [{ uid: 1, items: ['longsword', 'bloodthirster', 'chainmail'] }], bag: [], relics: [] };
+  const mig = Run.migrate(old);
+  ok(mig.v === 4 && mig.heroes[0].items.join() === 'longsword,chainmail' && mig.bag.join() === 'bloodthirster', 'old saves: a second item of a type goes back to the bag');
+  let late = 0, early = 0;
+  for (let s = 0; s < 60; s++) {
+    const r = Run.newRun(s); Run.pickStart(r, ['brakk', 'morrow']);
+    r.fightNo = 1; r.cur = Run.makeShop ? null : null;
+    for (const [n, add] of [[1, x => { early += x; }], [5, x => { late += x; }]]) {
+      r.fightNo = n; r.phase = 'map'; r.opts = [{ type: 'shop', kind: 'itemShop' }]; Run.choose(r, 0);
+      add(r.cur.stock.filter(x => ['legendary', 'mythic'].includes(B.ITEM[x.id].tier)).length);
+    }
+  }
+  ok(early === 0 && late > 0, `legendary and mythic items only show up after the first fights (early ${early}, late ${late})`);
+}
+
 // v5: passive scaling actually grows during a fight
 {
   const grew = (key, fn, secs = 12, diff = 'hard', n = 4) => {

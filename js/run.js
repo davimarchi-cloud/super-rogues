@@ -15,14 +15,25 @@
 
   // ------------------------------------------------------------------ run
   function migrate(run) {
-    if (!run || run.v === 3) return run;
-    if (run.v !== 2) return null;
-    run.v = 3; run.relics = (run.relics || []).filter(id => B.RELIC[id]);
-    if (run.phase !== 'over' && (C.seq[run.step] === 'G' || (run.cur && run.cur.type === 'onslaught') || (run.opts || []).some(o => o.type === 'onslaught'))) { run.phase = 'gauntlet'; run.g = run.g || { status: 'intro', history: [] }; run.cur = null; run.opts = []; }
-    return run;
+    if (!run) return run;
+    if (run.v === 2) {
+      run.v = 3; run.relics = (run.relics || []).filter(id => B.RELIC[id]);
+      if (run.phase !== 'over' && (C.seq[run.step] === 'G' || (run.cur && run.cur.type === 'onslaught') || (run.opts || []).some(o => o.type === 'onslaught'))) { run.phase = 'gauntlet'; run.g = run.g || { status: 'intro', history: [] }; run.cur = null; run.opts = []; }
+    }
+    // v4 (itemization v16): one item per type on each hero; a second item of a type goes back to the bag
+    if (run.v === 3) {
+      run.v = 4;
+      run.bag = run.bag || [];
+      for (const h of run.heroes || []) {
+        const seen = new Set(), keep = [];
+        for (const id of h.items) { const t = (B.ITEM[id] || {}).type; if (!t) continue; if (seen.has(t)) run.bag.push(id); else { seen.add(t); keep.push(id); } }
+        h.items = keep;
+      }
+    }
+    return run.v === 4 ? run : null;
   }
   function newRun(seed) {
-    const run = { v: 3, seed: seed >>> 0, rs: seed | 0, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
+    const run = { v: 4, seed: seed >>> 0, rs: seed | 0, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
       step: -1, fightNo: 0, phase: 'start', opts: [], cur: null, pending: [], curse: 0, log: [], won: 0, lost: 0, score: 0, startOffer: [] };
     run.startOffer = pickN(run, Object.keys(B.HEROES), 3);
     return run;
@@ -38,10 +49,24 @@
   const teamMax = run => C.maxTeam + (run.relics.includes('crest') ? 1 : 0);
 
   // ------------------------------------------------------------------ stats
+  // chain lightning from two sources keeps the best of each part (summing "every Nth attack" made it rarer)
+  const BEST = { chainEvery: Math.min, chainTargets: Math.max, chainDmg: Math.max };
   function addMods(t, m) {
     if (!m) return t;
-    for (const k in m) { const v = m[k]; if (Array.isArray(v)) t[k] = (t[k] || []).concat(v); else if (typeof v === 'number') t[k] = (t[k] || 0) + v; else t[k] = v; }
+    for (const k in m) {
+      const v = m[k];
+      if (Array.isArray(v)) t[k] = (t[k] || []).concat(v);
+      else if (typeof v === 'number') t[k] = BEST[k] && t[k] ? BEST[k](t[k], v) : (t[k] || 0) + v;
+      else t[k] = v;
+    }
     return t;
+  }
+  // set pieces worn by one hero: { setId: count }, and the bonuses they unlock (2 and 3 pieces)
+  function setCounts(items) { const n = {}; for (const id of items) { const s = (B.ITEM[id] || {}).set; if (s) n[s] = (n[s] || 0) + 1; } return n; }
+  function setBonuses(items) {
+    const out = [], n = setCounts(items);
+    for (const sid in n) for (const k of [2, 3]) if (n[sid] >= k) out.push(B.SETS[sid].bonus[k]);
+    return out;
   }
   function specOf(key, id) { for (const pair of B.HEROES[key].specs) for (const s of pair) if (s.id === id) return s; return null; }
   function heroMods(run, h) {
@@ -49,6 +74,7 @@
     addMods(m, B.HEROES[h.key].mods);
     for (const id of h.specs) addMods(m, (specOf(h.key, id) || {}).mods);
     for (const id of h.items) addMods(m, (B.ITEM[id] || {}).mods);
+    for (const b of setBonuses(h.items)) addMods(m, b.mods);
     for (const id of run.relics) addMods(m, (B.RELIC[id] || {}).mods);
     addMods(m, h.bonus);
     return m;
@@ -238,7 +264,13 @@
 
   // ------------------------------------------------------------------ shops
   const seal = run => run.relics.includes('seal') ? 1 : 0;
-  function tierWeights(run) { const n = run.fightNo; return n <= 1 ? { common: 0.7, rare: 0.28, epic: 0.02 } : n <= 3 ? { common: 0.45, rare: 0.43, epic: 0.12 } : { common: 0.25, rare: 0.47, epic: 0.28 }; }
+  // itemization v16: 7 rarities; set and legendary from the 2nd fight on, mythic only in the late shops
+  function tierWeights(run) {
+    const n = run.fightNo;
+    return n <= 1 ? { common: 0.55, uncommon: 0.3, rare: 0.13, epic: 0.02 }
+      : n <= 3 ? { common: 0.25, uncommon: 0.27, rare: 0.28, epic: 0.1, set: 0.07, legendary: 0.03 }
+      : { common: 0.1, uncommon: 0.17, rare: 0.3, epic: 0.18, set: 0.12, legendary: 0.09, mythic: 0.04 };
+  }
   function randomItem(run, tier) { const t = tier || wpick(run, tierWeights(run)); return pick(run, B.ITEMS.filter(i => i.tier === t)).id; }
   function stockFor(run, kind) {
     if (kind === 'heroShop') {
@@ -267,9 +299,14 @@
   function leave(run) { run.cur = null; advance(run); }
 
   // ------------------------------------------------------------------ items
+  // one item per type: equipping onto a hero that already wears that type swaps them (the old one goes to the bag)
+  function sameType(h, id) { const t = B.ITEM[id].type; return h.items.findIndex(x => B.ITEM[x].type === t); }
+  function canEquip(run, h, id) { return sameType(h, id) >= 0 || h.items.length < slots(run, h); }
   function equip(run, bagIdx, uid) {
     const h = run.heroes.find(x => x.uid === uid), id = run.bag[bagIdx];
     if (!h || !id) return 'No item';
+    const j = sameType(h, id);
+    if (j >= 0) { run.bag[bagIdx] = h.items[j]; h.items[j] = id; return null; }
     if (h.items.length >= slots(run, h)) return 'No free slot (level 3+ adds slots)';
     h.items.push(id); run.bag.splice(bagIdx, 1); return null;
   }
@@ -308,6 +345,6 @@
 
   B.Run = { newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
     finishFight, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
-    eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate };
+    eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate, canEquip, setCounts, setBonuses };
   if (typeof module !== 'undefined') module.exports = B.Run;
 })(typeof window !== 'undefined' ? window : globalThis);

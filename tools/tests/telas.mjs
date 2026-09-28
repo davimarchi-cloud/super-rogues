@@ -151,10 +151,15 @@ if (!REMOTE) {
   await click('[data-act=new-run]'); await sleep(150);
   await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`); await click('[data-act=start-go]'); await sleep(150);
   await ev(`(() => { const r = __bal.run; B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k)));
-    r.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[0].id); h.items = ['bloodthirster', 'warmog', 'infinity', 'guardian']; });
+    r.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[0].id); h.items = ['bloodthirster', 'warmog', 'deathcap', 'guardian']; }); r.heroes[0].items = ['obs_blade', 'obs_plate', 'obs_helm', 'mountainheart']; r.bag.push('worldsplitter', 'aegis', 'storm_boots');
     r.relics.push('drum'); r.step = B.CFG.seq.length - 2; r.fightNo = 6; B.Run.advance(r); __bal.render(); })()`);
   ok(await ev(`__bal.run.phase === 'gauntlet' && !!document.querySelector('form[data-form=gauntlet]') && !document.querySelector('form[data-form=score]') && !/Onslaught/.test(document.body.textContent)`), 'after the last shop comes the Gauntlet (no Onslaught)');
   await shot('16-gauntlet-intro');
+  // itemization v16: the team sheet with 3 heroes at Lv 5, a full set and items in the bag still fits the phone
+  await click('[data-act=team]'); await sleep(250); await click('[data-act=bag]'); await sleep(150);
+  ok(await ev(`document.querySelectorAll('.eqhero .doll').length === 3 && /Obsidian Guard\\s*3\\/3/.test(document.querySelector('#modal').textContent) && /Mythic weapon/i.test((document.querySelector('.idetail') || {}).textContent || '')`), 'team sheet: paper dolls, set bonus 3/3, the selected mythic item card (best rarity first)');
+  await shot('16b-team-full'); await noHScroll('team sheet full'); await noVScroll('team sheet, 3 heroes with items');
+  await click('[data-act=close]'); await sleep(100);
   await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(900);
   ok(await ev(`__bal.run.g.status === 'match' && document.querySelector('.opp').textContent.includes('Rival')`), 'gauntlet round 1: a card shows the stored rival team');
   ok(await ev(`/Reached the Gauntlet \\(\\+\\d+\\)/.test(document.querySelector('#screen').textContent) && __bal.run.g.history[0].win`), 'review #14: reaching the gauntlet shows as an Elo win');

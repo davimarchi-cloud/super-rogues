@@ -60,7 +60,12 @@
     return `<span class="stats-row">${c('s-hp', '❤', d.hp, 'Health')}${c('s-atk', '⚔', d.atk, 'Attack')}${full ? c('s-ap', '✦', d.ap, 'Ability power') : ''}${c('s-arm', '⛨', d.armor, 'Armor')}${c('s-mr', '◈', d.mr, 'Magic resist')}${c('s-as', '»', d.as, 'Attacks per second')}${c('s-rng', '➶', d.range, 'Range (hexes)')}${d.crit ? c('s-crit', '✸', d.crit, 'Crit chance') : ''}${d.dodge ? c('s-dodge', '↯', d.dodge, 'Dodge') : ''}</span>`;
   }
   const pct = x => Math.round(x * 100) + '%';
-  const TIER_COLOR = { common: '#b8c0cc', rare: '#5fa8ff', epic: '#c77dff' };
+  const TIER_COLOR = {}; for (const r of B.RARITIES) TIER_COLOR[r.id] = r.color;
+  // itemization v16: "Legendary weapon" under the name, and the set an item belongs to
+  const itemTag = it => `<span class="itag" style="color:${TIER_COLOR[it.tier]}">${B.RARITY[it.tier].name} ${B.TYPE[it.type].name.toLowerCase()}</span>`;
+  const setInfo = it => { const S = it.set && B.SETS[it.set]; return S ? `<div class="setline">◆ <b>${esc(S.name)}</b> set · 2 pieces: ${fmt(S.bonus[2].desc)} · 3 pieces: ${fmt(S.bonus[3].desc)}</div>` : ''; };
+  const RANK = id => B.RARITIES.findIndex(r => r.id === ITEM[id].tier);
+  const DOLL = ['helmet', 'trinket', 'weapon', 'offhand', 'gloves', 'armor', 'boots'];
   const NODE_ICON = { F: '⚔', X: '?', B: '☠', S: '🛒', G: '♛' };
   const SHOP_NAME = { heroShop: 'Hero Shop', itemShop: 'Item Shop', relicShop: 'Relic Shop' };
   const SHOP_DESC = { heroShop: 'Recruit new heroes.', itemShop: 'Buy items to equip.', relicShop: 'Team-wide relics.' };
@@ -248,13 +253,13 @@
     const dis = s.sold || run.gold < s.price || (s.kind === 'hero' && run.heroes.length >= Run.teamMax(run));
     let body = '';
     if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><div class="small"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div>`; }
-    else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div><div class="tier t-${it.tier}">${it.tier}</div></div></div><div class="small">${fmt(it.desc)}</div>`; }
+    else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div>${itemTag(it)}</div></div><div class="small">${fmt(it.desc)}</div>${setInfo(it)}`; }
     else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier t-relic">relic</div></div></div><div class="small">${fmt(r.desc)}</div>`; }
     return `<div class="card stock ${s.sold ? 'sold' : ''}">${body}<button class="${dis ? '' : 'primary'}" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''}>${s.sold ? 'Sold' : `Buy <span class="price">${s.price}</span>`}</button></div>`;
   }
   function shopHTML() {
     const c = run.cur, rc = Run.rerollCost(run);
-    const note = c.kind === 'heroShop' ? `Team ${run.heroes.length}/${Run.teamMax(run)}` : c.kind === 'itemShop' ? `Items go to your bag. Equip them in Team.` : 'Relics affect every hero.';
+    const note = c.kind === 'heroShop' ? `Team ${run.heroes.length}/${Run.teamMax(run)}` : c.kind === 'itemShop' ? `Items go to your bag. Each hero wears one item of each type.` : 'Relics affect every hero.';
     return `<section>${trackHTML()}<h2>🛒 ${SHOP_NAME[c.kind]}</h2><p class="hint">${note}</p>
       <div class="grid">${c.stock.map(stockCard).join('') || '<p>Nothing left to sell.</p>'}</div>
       <div class="bar sticky"><button data-act="reroll" ${run.gold < rc ? 'disabled' : ''}>Reroll · ${rc}g</button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
@@ -400,39 +405,50 @@
   // ------------------------------------------------------------------ modals
   function openModal(html) { const m = $('#modal'); m.innerHTML = `<div class="sheet">${html}</div>`; m.hidden = false; ui.modal = true; }
   function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.modal = null; clearInterval(ui.sugTimer); }
-  function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2200); }
+  function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), Math.max(2200, String(msg).length * 45)); }
 
   // Team sheet (review #2): items on the LEFT, heroes on the RIGHT. Tap an item, then tap a hero to equip it.
+  // Itemization v16: the bag is an inventory grid of rarity-framed icons (best first) and the selected item's card sits
+  // on top; each hero is a paper doll with one slot per item type around the portrait, stats beside it (tap a worn item
+  // to take it off; equipping a type the hero already wears swaps the two).
   function teamHTML() {
     const selId = ui.selBag >= 0 ? run.bag[ui.selBag] : null, sel = selId ? ITEM[selId] : null;
-    const items = run.bag.map((id, i) => { const it = ITEM[id]; return `<button class="eqitem ${ui.selBag === i ? 'on' : ''}" style="--tier:${TIER_COLOR[it.tier]}" data-act="bag" data-arg="${i}">
-      ${ico('item', id, 34)}<span class="t"><b>${esc(it.name)}</b><span>${fmt(it.desc)}</span></span></button>`; }).join('');
+    const order = run.bag.map((id, i) => i).sort((a, b) => RANK(run.bag[b]) - RANK(run.bag[a]) || DOLL.indexOf(ITEM[run.bag[a]].type) - DOLL.indexOf(ITEM[run.bag[b]].type));
+    const items = order.map(i => { const id = run.bag[i], it = ITEM[id]; return `<button class="eqitem tile ${ui.selBag === i ? 'on' : ''}" style="--tier:${TIER_COLOR[it.tier]}" data-act="bag" data-arg="${i}" title="${esc(it.name)}" aria-label="${esc(it.name + ', ' + B.RARITY[it.tier].name + ' ' + B.TYPE[it.type].name)}">${ico('item', id, 44)}</button>`; }).join('');
     const heroes = run.heroes.map(h => {
-      const d = HEROES[h.key], def = Run.heroDef(run, h), sl = Run.slots(run, h), full = h.items.length >= sl;
+      const d = HEROES[h.key], def = Run.heroDef(run, h), sl = Run.slots(run, h);
       const next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null, prev = CFG.xpLevels[h.lvl] || 0;
       const specs = h.specs.map(id => Run.specOf(h.key, id)).filter(Boolean);
-      const slots = [];
-      for (let i = 0; i < sl; i++) {
-        const id = h.items[i];
-        slots.push(id ? `<button class="chip slot" style="border-color:${TIER_COLOR[ITEM[id].tier]}" data-act="unequip" data-arg="${h.uid}:${i}" title="${esc(ITEM[id].desc)}">${ico('item', id, 22, 'ico sm')}${esc(ITEM[id].name)} ✕</button>`
-          : `<span class="chip empty">empty</span>`);
-      }
-      const target = sel && !full;
-      return `<div class="eqhero ${target ? 'target' : ''} ${sel && full ? 'full' : ''}" ${sel ? `data-act="equip" data-arg="${h.uid}"` : ''}>
-        <div class="hrow">${img(h.key, 40)}<div><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span><div class="xpbar"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></div></div></div>
-        ${target ? '<div class="tap">Tap to equip here</div>' : sel && full ? '<div class="tap dim">No free slot</div>' : ''}
-        <div class="slots">${slots.join('')}</div>
-        ${chips({ hp: Math.round(def.hp), atk: Math.round(def.atk), ap: Math.round(def.ap), armor: Math.round(def.armor), mr: Math.round(def.mr), as: def.as.toFixed(2), range: def.range, crit: def.crit ? pct(def.crit) : 0, dodge: def.dodge ? pct(def.dodge) : 0 }, true)}
+      const worn = {}; h.items.forEach((id, i) => { worn[ITEM[id].type] = i; });
+      const can = !!sel && Run.canEquip(run, h, selId), swap = can && worn[sel.type] != null;
+      const cell = t => {
+        const i = worn[t], fit = sel && sel.type === t && can ? ' fit' : '';
+        if (i == null) return `<span class="dslot d-${t} empty${fit}" title="${B.TYPE[t].name}"><img src="${B.Icons.slot(t, 34)}" alt="${B.TYPE[t].name}"></span>`;
+        const id = h.items[i], it = ITEM[id], pic = `<img src="${B.Icons.item(id, 34)}" alt="${esc(it.name)}">`;
+        // while an item is selected the whole card is the tap target (equip / swap), so worn items are not buttons
+        return sel ? `<span class="dslot d-${t}${fit}" style="--rc:${TIER_COLOR[it.tier]}" title="${esc(it.name)}">${pic}</span>`
+          : `<button class="dslot d-${t}" style="--rc:${TIER_COLOR[it.tier]}" data-act="unequip" data-arg="${h.uid}:${i}" title="${esc(it.name + ': ' + it.desc + ' (tap to take off)')}">${pic}</button>`;
+      };
+      const sc = Run.setCounts(h.items);
+      const sets = Object.keys(sc).map(sid => { const S = B.SETS[sid], n = sc[sid]; return `<div class="setline ${n >= 2 ? 'on' : ''}">◆ <b>${esc(S.name)}</b> ${n}/3${n >= 2 ? ' · ' + fmt(S.bonus[2].desc) : ''}${n >= 3 ? ' · ' + fmt(S.bonus[3].desc) : ''}</div>`; }).join('');
+      return `<div class="eqhero ${can ? 'target' : ''} ${sel && !can ? 'full' : ''}" ${sel ? `data-act="equip" data-arg="${h.uid}"` : ''}>
+        <div class="hrow"><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span> <span class="dim small">items ${h.items.length}/${sl}</span>
+          <div class="xpbar" title="XP"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></div>
+          ${can ? `<span class="tap">${swap ? 'tap to swap' : 'tap to equip'}</span>` : sel ? '<span class="tap dim">no free slot</span>' : ''}</div>
+        <div class="hbody"><div class="doll">${DOLL.map(cell).join('')}<div class="dpor">${img(h.key, 52)}</div></div>
+        ${chips({ hp: Math.round(def.hp), atk: Math.round(def.atk), ap: Math.round(def.ap), armor: Math.round(def.armor), mr: Math.round(def.mr), as: def.as.toFixed(2), range: def.range, crit: def.crit ? pct(def.crit) : 0, dodge: def.dodge ? pct(def.dodge) : 0 }, true)}</div>${sets}
         <div class="small"><b>${esc(d.abName)}</b>${specs.length ? ' · ' + specs.map(sp => `<span class="spec" title="${esc(sp.desc)}">★ ${esc(sp.name)}</span>`).join(' ') : ''}</div>
       </div>`;
     }).join('');
     return `<div class="shead"><b>Team & items</b><button data-act="close">✕</button></div>
-      <p class="hint">${sel ? `<b>${esc(sel.name)}</b> selected: tap a hero on the right. <a href="#" data-act="sell">Sell for ${Run.sellValue(sel.id)}g</a>` : 'Tap an item on the left, then tap a hero on the right.'}</p>
+      ${sel ? `<div class="idetail" style="--tier:${TIER_COLOR[sel.tier]}">${ico('item', selId, 44)}<div class="t"><div><b style="color:${TIER_COLOR[sel.tier]}">${esc(sel.name)}</b> ${itemTag(sel)}</div><div class="small">${fmt(sel.desc)}</div>${setInfo(sel)}</div>
+        <button class="chip" data-act="sell">Sell ${Run.sellValue(sel.id)}g</button></div>`
+        : `<p class="hint">${run.bag.length ? 'Tap an item on the left, then a hero on the right. One item of each type per hero.' : 'Your bag is empty: buy items in the Item Shop. Tap a worn item to take it off.'}</p>`}
       <div class="equip">
-        <div class="eqcol"><h3>Items (${run.bag.length})</h3>${items || '<p class="dim small">Bag is empty. Buy items in the Item Shop.</p>'}</div>
+        <div class="eqcol bagcol"><h3>Bag</h3><div class="baggrid">${items || '<p class="dim small">Empty</p>'}</div></div>
         <div class="eqcol"><h3>Heroes (${run.heroes.length}/${Run.teamMax(run)})</h3>${heroes}</div>
       </div>
-      <h3>Relics</h3>${run.relics.length ? `<div class="relics">${run.relics.map(id => `<div class="relic-row">${ico('relic', id, 30)}<span><b class="relic">${esc(RELIC[id].name)}</b> <span class="desc">${fmt(RELIC[id].desc)}</span></span></div>`).join('')}</div>` : '<p class="dim small">None yet.</p>'}`;
+      <div class="relicline"><b>Relics</b>${run.relics.length ? run.relics.map(id => `<button class="relicbtn" data-act="relic-info" data-arg="${id}" title="${esc(RELIC[id].name + ': ' + RELIC[id].desc)}" aria-label="${esc(RELIC[id].name)}">${ico('relic', id, 30)}</button>`).join('') + '<span class="dim small">tap one to read it</span>' : '<span class="dim small">none yet</span>'}</div>`;
   }
 
   function ago(ms, now) { const s = Math.max(0, Math.round((now - ms) / 1000)); return s < 60 ? s + 's ago' : s < 3600 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago'; }
@@ -520,7 +536,7 @@
     const noFight = id => kind !== 'hero' && B.NONCOMBAT[kind].includes(id);
     const rated = ids.filter(id => by[id] && by[id].games).sort((a, b) => by[b].elo - by[a].elo || by[b].games - by[a].games);
     const rest = ids.filter(id => !rated.includes(id)).sort((a, b) => noFight(a) - noFight(b));
-    const name = id => `<td class="who">${pic(id)}<span>${esc(def(id).name)}</span></td>`;
+    const name = id => `<td class="who">${pic(id)}<span${kind === 'item' ? ` style="color:${TIER_COLOR[ITEM[id].tier]}"` : ''}>${esc(def(id).name)}</span></td>`;
     const rows = rated.map((id, i) => { const r = by[id]; return `<tr><td>${i + 1}</td>${name(id)}<td><b>${r.elo}</b></td><td>${r.games}</td><td>${Math.round(100 * r.wins / r.games)}%</td></tr>`; }).join('')
       + rest.map(id => `<tr class="unrated"><td></td>${name(id)}<td colspan="3">${noFight(id) ? 'no combat effect' : 'not played yet'}</td></tr>`).join('');
     return `<p class="dim small">Every ${kind} has its own Elo, apart from the players, to guide balance. It only counts in fights where it acted: heroes on the board, equipped items and relics with a combat effect. Losing a run is a loss against 1000, reaching the Gauntlet a win against 1000, and a duel is a game against the other team's ${kind === 'hero' ? 'heroes' : kind + 's'}.</p>
@@ -549,6 +565,7 @@
       <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 3 and 6 are bosses.</li>
       <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
+      <li>Items have a type (weapon, off-hand, helmet, armor, gloves, boots, trinket) and a rarity: <span class="r-common">common</span>, <span class="r-uncommon">uncommon</span>, <span class="r-rare">rare</span>, <span class="r-epic">epic</span>, <span class="r-set">set</span>, <span class="r-legendary">legendary</span> and <span class="r-mythic">mythic</span>. A hero wears one item of each type, up to their slot count. Two or three pieces of a set on the same hero unlock set bonuses.</li>
       <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the run ends (an Elo loss against a 1000 rated opponent). Heroes always heal after a fight.</li>
       <li>After the second boss and a last shop, your team enters the Gauntlet (an Elo win against a 1000 rated opponent) as a ghost and duels the ghosts of other players' runs, climbing one step per win. Each duel is an Elo game. One loss ends it. Beat everyone who came before and you are crowned champion.</li>
     </ol>`;
@@ -658,6 +675,7 @@
     'send-review': (a, el) => sendReview(el),
     'sug-refresh': () => loadQueue(),
     scores: () => openScores(),
+    'relic-info': id => { const r = RELIC[id]; if (r) toast(r.name + ': ' + r.desc); },
     'ladder-tab': k => openScores(k),
   };
   function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = worldFor(true); drawPreview(); } }
