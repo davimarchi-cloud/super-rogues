@@ -121,7 +121,7 @@
     if (!alive(u) || s <= 0) return;
     if (ccImmune(W, u)) { fxText(W, u, 'IMMUNE', '#fff'); return; }
     if (u.m.cleanseOnce && !u.once.cleanse) { u.once.cleanse = 1; fxText(W, u, 'CLEANSED', '#fff'); return; }
-    const d = sec(s * (u.boss ? 0.5 : 1));
+    const d = sec(s * (u.boss ? 0.5 : 1) * (1 - Math.min(0.8, u.m.ccResist || 0)));
     u.st[kind] = Math.max(u.st[kind] || 0, W.t + d);
   }
   function slow(W, u, p, s) {
@@ -145,6 +145,7 @@
     if (!alive(tgt) || raw <= 0) return 0;
     if (tgt.st.invuln > W.t) { if (!o.dot) fxText(W, tgt, 'IMMUNE', '#fff'); return 0; }
     if (o.atk && tgt.dodge > 0 && W.rng() < tgt.dodge) { fxText(W, tgt, 'miss', '#ccc'); return 0; }
+    if (o.atk && src && src.st.blindU > W.t) { fxText(W, tgt, 'blind', '#ccc'); return 0; }
     let dmg = raw, crit = false;
     if (src && (o.atk || o.canCrit) && (o.forceCrit || W.rng() < src.crit)) {
       dmg *= src.critDmg; crit = true;
@@ -156,12 +157,14 @@
       if (src.m.giantSlayer && tgt.maxHp > src.maxHp) amp += src.m.giantSlayer;
       if (src.m.execute && tgt.hp < tgt.maxHp * 0.3) amp += src.m.execute;
       if (src.m.eliteDmg && (tgt.elite || tgt.boss)) amp += src.m.eliteDmg;
+      if (src.m.rageDmg) amp += src.m.rageDmg * Math.max(0, 1 - src.hp / src.maxHp);
     }
     if (tgt.st.vulnU > W.t) amp += tgt.st.vulnP;
     if (tgt.st.shatterU > W.t) amp += tgt.st.shatterP;
     dmg *= amp;
     if (type === 'phys') { const arm = Math.max(0, armorOf(W, tgt) * (1 - Math.min(0.9, (src ? src.m.armorPen || 0 : 0) + (o.pen || 0)))); dmg *= 100 / (100 + arm); }
     else if (type === 'magic') dmg *= 100 / (100 + Math.max(0, mrOf(W, tgt)));
+    dmg *= 1 - Math.min(0.8, (tgt.m.dmgReduce || 0) + bsum(W, tgt, 'dr'));
     dmg = Math.max(1, Math.round(dmg));
     let abs = 0;
     if (tgt.shield > 0 && tgt.shieldU > W.t) { abs = Math.min(tgt.shield, dmg); tgt.shield -= abs; dmg -= abs; }
@@ -272,9 +275,14 @@
 
   // ------------------------------------------------------------------ targeting & attacks
   function pickTarget(W, u) {
+    if (u.st.confuseU > W.t) {
+      let best = null, bd = 99;
+      for (const a of W.units) if (!a.dead && a !== u && a.side === u.side) { const d = Hx.dist(u, a); if (d < bd) { bd = d; best = a; } }
+      if (best) { u.tgt = best.id; return best; }
+    }
     if (u.st.tauntU > W.t) { const t = W.byId[u.st.tauntBy]; if (alive(t) && targetable(W, t)) return t; }
     const cur = W.byId[u.tgt];
-    if (alive(cur) && targetable(W, cur) && Hx.dist(u, cur) <= Math.max(1, u.range)) return cur;
+    if (alive(cur) && cur.side !== u.side && targetable(W, cur) && Hx.dist(u, cur) <= Math.max(1, u.range)) return cur;
     let best = null, bd = 99;
     for (const e of W.units) {
       if (e.dead || e.side === u.side || !targetable(W, e)) continue;
@@ -603,6 +611,194 @@
       });
     }
     u.busy = W.t + 2 * ab.shots + 2; return true;
+  };
+  // --- v12 heroes (review #11)
+  function push(W, src, t, n) {
+    if (t.boss || t.dead || n <= 0) return;
+    let c = t.c, r = t.r, steps = 0;
+    for (let i = 0; i < n; i++) {
+      const away = Hx.neighbors(c, r).filter(h => Hx.dist(h, src) > Hx.dist({ c, r }, src));
+      const free = away.filter(h => !W.occ[Hx.key(h.c, h.r)]).sort((a, b) => Hx.dist(b, src) - Hx.dist(a, src))[0];
+      if (!free) {
+        const blk = away.map(h => W.byId[W.occ[Hx.key(h.c, h.r)]]).find(v => v && !v.dead && v !== t && v.side !== src.side);
+        if (blk) { fxRing(W, blk.c, blk.r, 0, '#bff4ff', 8); deal(W, src, blk, atkOf(W, src), 'phys', { ability: true }); cc(W, blk, 'stun', 1); deal(W, src, t, atkOf(W, src) * 0.5, 'phys', {}); }
+        break;
+      }
+      c = free.c; r = free.r; steps++;
+    }
+    if (steps) { place(W, t, c, r, 3 * steps); t.busy = Math.max(t.busy, W.t + 3 * steps); t.anim = null; }
+  }
+  const nearestFoes = (W, u, n) => enemies(W, u).filter(e => targetable(W, e)).sort((a, b) => Hx.dist(u, a) - Hx.dist(u, b)).slice(0, n);
+  function shot(W, u, e, delay, color, fn) {
+    const tt = W.t + delay + Math.max(2, Math.round(Hx.dist(u, e) * 1.6));
+    fx(W, { k: 'proj', from: u.id, fc: u.c, fr: u.r, to: e.id, tc: e.c, tr: e.r, color, t0: W.t + delay, t1: tt });
+    at(W, tt, () => { if (alive(e)) fn(e); });
+  }
+  A.javelin = (W, u) => {
+    const ab = u.ab, es = enemies(W, u).filter(e => targetable(W, e)); if (!es.length) return false;
+    for (let i = 0; i < ab.count; i++) {
+      const e = i < es.length ? es.sort((a, b) => Hx.dist(u, a) - Hx.dist(u, b))[i] : es[Math.floor(W.rng() * es.length)];
+      shot(W, u, e, i * 2, '#e8c070', t => { deal(W, u, t, ab.dmg * atkOf(W, u), 'phys', { ability: true, canCrit: true }); dot(W, t, 'poison', ab.poison * t.maxHp * (t.boss ? 0.4 : 1), 4, u); if (ab.root) cc(W, t, 'root', ab.root); });
+    }
+    return true;
+  };
+  A.headshot = (W, u) => {
+    const ab = u.ab, t = enemies(W, u).filter(e => targetable(W, e)).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (!t) return false;
+    fx(W, { k: 'bolt', pts: [[u.c, u.r], [t.c, t.r]], color: '#ff4040', t1: W.t + 12 });
+    for (let i = 0; i < ab.shots; i++) at(W, W.t + 12 + i * 6, () => {
+      if (!alive(t) || u.dead) return;
+      fx(W, { k: 'proj', from: u.id, fc: u.c, fr: u.r, to: t.id, tc: t.c, tr: t.r, color: '#fff2a0', size: 1.5, t1: W.t + 3 });
+      deal(W, u, t, ab.dmg * atkOf(W, u) * (1 + 0.08 * Hx.dist(u, t)), 'phys', { ability: true, canCrit: true });
+      if (alive(t) && !t.boss && t.hp < t.maxHp * ab.exec) { fxText(W, t, 'HEADSHOT', '#ff4040'); deal(W, u, t, t.hp + t.shield + 1, 'true', {}); }
+      if (alive(t) && ab.stun) cc(W, t, 'stun', ab.stun);
+    });
+    if (ab.camo) u.st.untarg = W.t + sec(ab.camo);
+    u.busy = W.t + 12; return true;
+  };
+  A.bloodfeast = (W, u) => {
+    const ab = u.ab, es = enemies(W, u).filter(e => Hx.dist(e, u) <= ab.radius); if (!es.length) return false;
+    fxRing(W, u.c, u.r, ab.radius, '#b0203a', 14); let tot = 0;
+    for (const e of es) { tot += deal(W, u, e, ab.dmg * atkOf(W, u) * apF(u), 'magic', { ability: true }); if (ab.bleed) dot(W, e, 'poison', ab.bleed * e.maxHp * (e.boss ? 0.4 : 1), 3, u); fx(W, { k: 'bolt', pts: [[e.c, e.r], [u.c, u.r]], color: '#d0304a', t1: W.t + 8 }); }
+    heal(W, u, tot, true);
+    if (ab.share) for (const a of allies(W, u)) if (a !== u && Hx.dist(a, u) <= 2) heal(W, a, tot * ab.share, true);
+    for (let i = 0; i < ab.bats; i++) summon(W, u, { key: 'bat', name: 'Bat', glyph: '🦇', hp: 160 * (1 + 0.15 * (u.lvl - 1)), atk: 22 * (1 + 0.15 * (u.lvl - 1)), armor: 5, mr: 5, as: 1.3, range: 1, ms: 4, m: { ls: 0.3 }, size: 0.7 });
+    return true;
+  };
+  A.smoke = (W, u) => {
+    const ab = u.ab; fxRing(W, u.c, u.r, ab.radius, '#8a8fa0', 16);
+    for (const e of enemies(W, u)) if (Hx.dist(e, u) <= ab.radius) cc(W, e, 'blindU', ab.blind);
+    u.st.untarg = W.t + sec(1.5); if (ab.heal) heal(W, u, u.maxHp * ab.heal, true); if (ab.backstab) u.backstab = ab.backstab;
+    const es = enemies(W, u).filter(e => targetable(W, e)); if (!es.length) return true;
+    for (let i = 0; i < ab.count; i++) shot(W, u, es[i % es.length], i, '#dfe6ee', t => { deal(W, u, t, ab.dmg * atkOf(W, u), 'phys', { ability: true, canCrit: true }); if (ab.poison) dot(W, t, 'poison', ab.poison * t.maxHp * (t.boss ? 0.4 : 1), 3, u); });
+    return true;
+  };
+  A.howl = (W, u) => {
+    const ab = u.ab; fxRing(W, u.c, u.r, ab.radius, '#e8c070', 12);
+    for (const a of allies(W, u)) if (Hx.dist(a, u) <= ab.radius) { buff(a, 'atkPct', ab.buff, sec(4), W); buff(a, 'asPct', ab.buff, sec(4), W); }
+    if (ab.taunt) for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) { e.st.tauntU = W.t + sec(ab.taunt); e.st.tauntBy = u.id; }
+    const es = enemies(W, u).filter(e => targetable(W, e)); if (!es.length) return true;
+    const t = ab.reach ? (es.filter(e => Hx.dist(u, e) <= ab.reach).sort((a, b) => Hx.dist(u, b) - Hx.dist(u, a))[0] || es[0]) : es.sort((a, b) => Hx.dist(u, a) - Hx.dist(u, b))[0];
+    if (Hx.dist(u, t) > 1) { const n = freeNeighbors(W, t.c, t.r).sort((a, b) => Hx.dist(a, u) - Hx.dist(b, u))[0]; if (!n) return true; place(W, u, n.c, n.r, 4); u.busy = W.t + 4; }
+    at(W, W.t + 4, () => {
+      if (u.dead) return;
+      const bite = ab.cleave ? enemies(W, u).filter(e => Hx.dist(e, u) <= 1) : [t];
+      for (const e of bite) if (alive(e)) { deal(W, u, e, ab.dmg * atkOf(W, u), 'phys', { ability: true, canCrit: true }); dot(W, e, 'poison', ab.bleed * e.maxHp * (e.boss ? 0.4 : 1), 3, u); if (ab.stun) cc(W, e, 'stun', ab.stun); }
+    });
+    u.tgt = t.id; return true;
+  };
+  A.hypnosis = (W, u) => {
+    const ab = u.ab, t = bestCluster(W, u, ab.radius); if (!t) return false;
+    fxRing(W, t.c, t.r, ab.radius, '#9a6aff', 16);
+    for (const e of enemies(W, u)) if (Hx.dist(e, t) <= ab.radius) {
+      deal(W, u, e, ab.dmg * atkOf(W, u) * apF(u), 'magic', { ability: true });
+      cc(W, e, 'confuseU', ab.dur); e.anim = null;
+      if (e.st.confuseU > W.t) { fxText(W, e, 'CONFUSED', '#c9a2ff'); if (ab.amp) buff(e, 'dmgAmp', ab.amp, sec(ab.dur), W); if (ab.dot) dot(W, e, 'poison', ab.dot * e.maxHp * (e.boss ? 0.4 : 1), ab.dur, u); }
+    }
+    if (ab.shield) shield(W, u, u.maxHp * ab.shield, 4);
+    return true;
+  };
+  A.trick = (W, u) => {
+    const ab = u.ab, es = enemies(W, u).filter(e => targetable(W, e)); if (!es.length) return false;
+    const tricks = ['pie', 'balloons', 'knives', 'confetti', 'flower'], done = [];
+    const one = k => {
+      const t = pickTarget(W, u) || es[0];
+      if (k === 'pie') shot(W, u, t, 0, '#fff6e0', e => { deal(W, u, e, 1.5 * atkOf(W, u), 'phys', { ability: true }); cc(W, e, 'stun', ab.pie); fxText(W, e, 'PIE!', '#fff'); });
+      else if (k === 'balloons') { for (const a of allies(W, u)) heal(W, a, a.maxHp * ab.heal * apF(u), true); fxRing(W, u.c, u.r, 3, '#ff8ab8', 14); }
+      else if (k === 'knives') for (let i = 0; i < ab.knives; i++) shot(W, u, es[Math.floor(W.rng() * es.length)], i, '#dfe6ee', e => deal(W, u, e, atkOf(W, u), 'phys', { ability: true, canCrit: true }));
+      else if (k === 'confetti') { fxRing(W, t.c, t.r, 2, '#ffe066', 14); for (const e of enemies(W, u)) if (Hx.dist(e, t) <= 2) { deal(W, u, e, 0.8 * atkOf(W, u) * apF(u), 'magic', { ability: true }); slow(W, e, 0.5, 3); if (ab.silence) cc(W, e, 'silence', ab.silence); } }
+      else { cc(W, t, 'blindU', 3); fxText(W, t, 'SQUIRT!', '#9fd8ff'); }
+      fxText(W, u, k.toUpperCase() + '!', '#ff8ab8');
+    };
+    const k1 = tricks[Math.floor(W.rng() * tricks.length)]; one(k1); done.push(k1);
+    if (W.rng() < ab.encore) { const rest = tricks.filter(k => !done.includes(k)); one(rest[Math.floor(W.rng() * rest.length)]); }
+    return true;
+  };
+  A.keg = (W, u) => {
+    const ab = u.ab, es = enemies(W, u).filter(e => Hx.dist(e, u) <= ab.radius); if (!es.length) return false;
+    fxRing(W, u.c, u.r, ab.radius, '#b8792a', 12);
+    for (const e of es) { deal(W, u, e, ab.dmg * atkOf(W, u), 'phys', { ability: true }); cc(W, e, 'stun', ab.stun); slow(W, e, 0.3, ab.stun + 2); if (ab.burn) dot(W, e, 'burn', ab.burn * atkOf(W, u), 3, u); }
+    heal(W, u, u.maxHp * ab.heal, true); fxText(W, u, '*hic*', '#ffe066');
+    return true;
+  };
+  A.hellfire = (W, u) => {
+    const ab = u.ab, es = enemies(W, u).filter(e => Hx.dist(e, u) <= ab.radius); if (!es.length) return false;
+    if (ab.cost > 0) u.hp = Math.max(1, u.hp - u.hp * ab.cost);
+    fxRing(W, u.c, u.r, ab.radius, '#ff4a1a', 16);
+    for (const e of es) { deal(W, u, e, ab.dmg * atkOf(W, u) * apF(u), 'magic', { ability: true }); dot(W, e, 'burn', ab.burn * atkOf(W, u), 3, u); }
+    for (let i = 0; i < ab.imps; i++) summon(W, u, mobScaleDef('imp', 1 + 0.2 * (u.lvl - 1)));
+    return true;
+  };
+  A.boulder = (W, u) => {
+    const ab = u.ab, es = enemies(W, u).filter(e => targetable(W, e)); if (!es.length) return false;
+    const t = es.filter(e => Hx.dist(u, e) <= 5).sort((a, b) => Hx.dist(u, b) - Hx.dist(u, a))[0] || es.sort((a, b) => Hx.dist(u, a) - Hx.dist(u, b))[0];
+    fx(W, { k: 'proj', from: u.id, fc: u.c, fr: u.r, to: t.id, tc: t.c, tr: t.r, color: '#8a7a6a', size: 3, t1: W.t + 10 });
+    at(W, W.t + 10, () => {
+      if (!alive(t)) return; fxRing(W, t.c, t.r, ab.radius, '#a08a6a', 12);
+      deal(W, u, t, ab.dmg * atkOf(W, u), 'phys', { ability: true }); cc(W, t, 'stun', ab.stun);
+      for (const e of enemies(W, u)) if (e !== t && Hx.dist(e, t) <= ab.radius) deal(W, u, e, atkOf(W, u), 'phys', { ability: true });
+    });
+    if (ab.frenzy) buff(u, 'asPct', ab.frenzy, sec(4), W);
+    return true;
+  };
+  A.wrap = (W, u) => {
+    const ab = u.ab, ts = nearestFoes(W, u, ab.count); if (!ts.length) return false;
+    for (const e of ts) {
+      fx(W, { k: 'bolt', pts: [[u.c, u.r], [e.c, e.r]], color: '#e8dcb0', t1: W.t + 8 });
+      cc(W, e, 'root', ab.root); e.st.antiHealU = Math.max(e.st.antiHealU || 0, W.t + sec(ab.root + 2));
+      dot(W, e, 'poison', ab.decay * e.maxHp * (e.boss ? 0.4 : 1), 3, u);
+      if (ab.vuln) { e.st.vulnU = W.t + sec(4); e.st.vulnP = Math.max(e.st.vulnP || 0, ab.vuln); }
+    }
+    if (ab.shield) shield(W, u, u.maxHp * ab.shield, 4);
+    return true;
+  };
+  A.phalanx = (W, u) => {
+    const ab = u.ab; fxRing(W, u.c, u.r, ab.radius, '#d9c36a', 12);
+    for (const a of allies(W, u)) if (Hx.dist(a, u) <= ab.radius) buff(a, 'dr', ab.dr, sec(4), W);
+    if (ab.taunt) for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 2) { e.st.tauntU = W.t + sec(ab.taunt); e.st.tauntBy = u.id; }
+    const ts = ab.hits >= 9 ? enemies(W, u).filter(e => Hx.dist(e, u) <= 2) : nearestFoes(W, u, ab.hits).filter(e => Hx.dist(e, u) <= u.range + 1);
+    for (const e of ts) { deal(W, u, e, ab.dmg * atkOf(W, u), 'phys', { ability: true, canCrit: true }); if (ab.stun) cc(W, e, 'stun', ab.stun); }
+    return true;
+  };
+  A.waltz = (W, u) => {
+    const ab = u.ab, ts = nearestFoes(W, u, ab.hits); if (!ts.length) return false;
+    ts.forEach((e, i) => at(W, W.t + i * 4, () => {
+      if (u.dead || !alive(e)) return;
+      if (Hx.dist(u, e) > 1) { const n = freeNeighbors(W, e.c, e.r).sort((a, b) => Hx.dist(a, u) - Hx.dist(b, u))[0]; if (n) blink(W, u, n.c, n.r); }
+      deal(W, u, e, ab.dmg * atkOf(W, u), 'phys', { ability: true, canCrit: true }); if (ab.silence) cc(W, e, 'silence', ab.silence);
+    }));
+    u.busy = W.t + ts.length * 4; if (ab.untarg) at(W, W.t + ts.length * 4, () => { u.st.untarg = W.t + sec(ab.untarg); });
+    return true;
+  };
+  A.flask = (W, u) => {
+    const ab = u.ab, es = enemies(W, u).filter(e => targetable(W, e)); if (!es.length) return false;
+    const kinds = ['acid', 'heal', 'frost', 'poison'];
+    for (let i = 0; i < ab.count; i++) {
+      const k = kinds[Math.floor(W.rng() * kinds.length)];
+      if (k === 'heal') { const a = allies(W, u).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; if (a) { heal(W, a, a.maxHp * ab.heal * apF(u), true); fxRing(W, a.c, a.r, 0, '#7ee08e', 8); } continue; }
+      const col = k === 'acid' ? '#b8e040' : k === 'frost' ? '#9fe8ff' : '#7ac83a';
+      shot(W, u, es[Math.floor(W.rng() * es.length)], i * 2, col, t => {
+        const hit = enemies(W, u).filter(e => Hx.dist(e, t) <= ab.radius);
+        fxRing(W, t.c, t.r, ab.radius, col, 8);
+        for (const e of hit) {
+          if (k === 'acid') { deal(W, u, e, 1.5 * atkOf(W, u) * apF(u), 'magic', { ability: true }); buff(e, 'armor', -20, sec(5), W); }
+          else if (k === 'frost') { cc(W, e, 'stun', 1); e.st.frozenU = e.st.stun; }
+          else dot(W, e, 'poison', 0.03 * e.maxHp * (e.boss ? 0.4 : 1), 3, u);
+        }
+      });
+      if (ab.mana) u.mana = Math.min(u.maxMana, u.mana + ab.mana);
+    }
+    return true;
+  };
+  A.galekick = (W, u) => {
+    const ab = u.ab, ts = enemies(W, u).filter(e => Hx.dist(e, u) <= 1).slice(0, ab.targets); if (!ts.length) return false;
+    for (const t of ts) {
+      fxRing(W, t.c, t.r, 0, '#bff4ff', 10);
+      deal(W, u, t, ab.dmg * atkOf(W, u), 'phys', { ability: true, canCrit: true }); if (ab.stun) cc(W, t, 'stun', ab.stun);
+      if (alive(t)) push(W, u, t, ab.push);
+    }
+    if (ab.splash) for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1 && !ts.includes(e)) deal(W, u, e, ab.splash * atkOf(W, u), 'phys', { ability: true });
+    if (ab.tailwind) for (const a of allies(W, u)) if (Hx.dist(a, u) <= 2) buff(a, 'asPct', ab.tailwind, sec(3), W);
+    return true;
   };
   // --- mob & boss abilities
   A.smash = (W, u) => { const t = pickTarget(W, u); if (!t || Hx.dist(u, t) > 1) return false; deal(W, u, t, 2.5 * atkOf(W, u), 'phys', { ability: true }); cc(W, t, 'stun', 0.8); fxRing(W, t.c, t.r, 0, '#f96', 8); return true; };

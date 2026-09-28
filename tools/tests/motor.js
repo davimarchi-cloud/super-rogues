@@ -153,5 +153,34 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   const W2 = Run.fightWorld(r2); W2.over = true; W2.winner = 1; Run.finishFight(r2, W2);
   ok(r2.phase === 'over' && r2.result === 'defeat', 'no hearts: one lost fight ends the run');
 }
+// v12 (review #11): new mechanics work as described
+{
+  const W0 = (heroKey, enemies) => { const run = Run.newRun(99); Run.pickStart(run, [heroKey, 'bastion']); const h = run.heroes[0]; h.pos = { c: 3, r: 4 }; run.heroes[1].pos = { c: 0, r: 7 };
+    return Sim.create({ seed: 3, noStart: true, heroes: run.heroes.map(x => ({ def: Run.heroDef(run, x), c: x.pos.c, r: x.pos.r })), enemies: enemies.map(([k, c, r]) => ({ def: Sim.mobScaleDef(k, 1), c, r })) }); };
+  // hypnosis: a hypnotized enemy targets its own ally
+  let W = W0('vey', [['grunt', 3, 2], ['grunt', 4, 2], ['grunt', 3, 1]]); let u = W.units[0];
+  Sim.abilities.hypnosis(W, u);
+  const g = W.units.find(x => x.side === 1 && x.st.confuseU > W.t);
+  ok(g && (() => { Sim.step(W); const t = W.byId[g.tgt]; return t && t.side === 1; })(), 'Vey: hypnotized enemies attack their own allies');
+  // smoke: blinded enemies miss
+  W = W0('kage', [['grunt', 3, 3]]); u = W.units[0]; const e = W.units.find(x => x.side === 1);
+  Sim.abilities.smoke(W, u);
+  for (let i = 0; i < 30; i++) Sim.step(W);
+  ok(e.st.blindU > 0, 'Kage: smoke blinds adjacent enemies');
+  // gale kick pushes the target away
+  W = W0('zephyr', [['grunt', 3, 3]]); u = W.units[0]; const t = W.units.find(x => x.side === 1); const d0 = B.Hex.dist(u, t);
+  Sim.abilities.galekick(W, u);
+  ok(B.Hex.dist(u, t) > d0, `Zephyr: the kick knocks the target back (${d0} -> ${B.Hex.dist(u, t)})`);
+  // phalanx damage reduction
+  W = W0('leonidas', [['brute', 3, 3]]); u = W.units[0];
+  Sim.abilities.phalanx(W, u);
+  ok(u.buffs.some(b => b.s === 'dr' && b.v > 0), 'Leonidas: phalanx gives damage reduction');
+  // demon rage: more damage when hurt
+  W = W0('azgul', [['golem', 3, 3]]); u = W.units[0];
+  ok(u.m.rageDmg >= 1, 'Azgul: missing HP increases damage');
+  // grok thick skull halves stuns
+  ok(Run.heroDef({ relics: [] }, { key: 'grok', lvl: 1, specs: [], items: [], bonus: {} }).m.ccResist === 0.5, 'Grok: crowd control resistance');
+  ok(Object.keys(HEROES).length >= 33, 'at least 33 heroes');
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

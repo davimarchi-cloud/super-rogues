@@ -25,6 +25,23 @@
     bramble: { type: 'golem', body: '#6a5236', trim: '#9fe07a', leaves: '#4f8a2f' },
     echo: H({ body: '#6a3a8a', trim: '#ffcf5a', legs: '#2a1a3a', head: 'hat', hat: '#3a1f55', hair: '#e0b070', weapon: 'lute', cape: '#9a5ac8' }),
     blaze: H({ body: '#8a5a2a', trim: '#e0c07a', legs: '#3a2a1a', head: 'tricorn', hat: '#4a2a14', skin: '#d9a07a', weapon: 'gun', cape: '#5a3a1a' }),
+    // v12 (review #11)
+    hippolyta: H({ skin: '#c89a70', body: '#8a5a2a', trim: '#e8c070', legs: '#6a4a2a', head: 'bald', hair: '#3a2210', weapon: 'spear', cape: '#c98a3a', pauldrons: '#c9a26a' }),
+    deadshot: H({ body: '#4a5a3a', trim: '#8a9a6a', legs: '#2a3a22', head: 'hood', hood: '#3a4a2a', eyes: '#ff5050', weapon: 'rifle', cape: '#34402a' }),
+    vesper: H({ skin: '#ece4ee', body: '#1f1426', trim: '#c0284a', legs: '#140a18', head: 'bald', hair: '#101014', collar: '#7a1030', cape: '#5a0f1f', weapon: 'rapier' }),
+    kage: H({ skin: '#d9b08a', body: '#1e2230', trim: '#c43a3a', legs: '#14161e', bulk: 0.85, head: 'hood', hood: '#1a1e2a', eyes: '#ffffff', weapon: 'daggers' }),
+    rex: { type: 'beast', body: '#a0703a', trim: '#f0dcb0' },
+    vey: H({ body: '#6a4ac8', trim: '#ffcf5a', robe: '#3e2470', head: 'hat', hat: '#2a1a55', hair: '#d0c0ff', weapon: 'orb', orb: '#c9a2ff' }),
+    pip: H({ skin: '#f5f0ea', body: '#e0406a', trim: '#ffe066', legs: '#3a5ac4', head: 'clown', hair: '#ff8a3a', weapon: 'orb', orb: '#fff6e0', diamonds: '#ffe066' }),
+    barley: H({ skin: '#e8b090', body: '#8a6a3a', trim: '#c9a26a', legs: '#4a3a22', bulk: 1.4, head: 'beard', hair: '#b8792a', weapon: 'mug' }),
+    azgul: H({ skin: '#c8321e', body: '#4a120c', trim: '#ffb347', legs: '#2a0a08', bulk: 1.3, head: 'horns', horn: '#241410', wings: '#5a1510', weapon: 'axe', eyes: '#ffe066' }),
+    grok: H({ skin: '#c8906a', body: '#8a6a4a', trim: '#5a4a3a', legs: '#6a5038', bulk: 1.4, head: 'beard', hair: '#3a2a1a', weapon: 'club' }),
+    imhotep: H({ skin: '#d8cca0', body: '#d8cca0', trim: '#e8b84a', legs: '#c8bc90', head: 'mummy', eyes: '#6effc4', weapon: 'none', wraps: true }),
+    leonidas: H({ skin: '#d9a07a', body: '#b8322a', trim: '#d9c36a', legs: '#7a2a22', bulk: 1.25, head: 'helm', plume: '#c43a3a', pauldrons: '#c9a26a', weapon: 'spear', hoplon: true, cape: '#8a1f1a' }),
+    harlequin: H({ skin: '#f5f0ea', body: '#d23a8a', trim: '#1a1a1a', legs: '#2a1a2a', head: 'jester', hat: '#d23a8a', weapon: 'daggers', diamonds: '#1a1a1a' }),
+    sprocket: H({ skin: '#d9a07a', body: '#3a7a5a', trim: '#e8c070', legs: '#2a3a2a', head: 'goggles', hair: '#e8e0c0', weapon: 'flask', orb: '#7ee08e', pack: true }),
+    zephyr: H({ skin: '#d9a07a', body: '#e8e0c8', trim: '#3aa8a8', legs: '#c8c0a8', head: 'bald', weapon: 'none', sash: '#3aa8a8' }),
+    bat: H({ skin: '#3a2a3a', body: '#2a1a2a', trim: '#8a1f3a', legs: '#1a101a', h: 0.5, bulk: 0.7, head: 'ears', weapon: 'none', wings: '#2a1a2a' }),
     // mobs
     grunt: H({ skin: '#6fa04a', body: '#6b4a2a', trim: '#3a2a1a', legs: '#3d2a18', h: 0.85, head: 'ears', weapon: 'club' }),
     archer: H({ skin: '#6fa04a', body: '#5a4a2a', trim: '#8a7a4a', legs: '#3d2a18', h: 0.85, head: 'hood', hood: '#4a3a22', weapon: 'bow', eyes: '#ff5' }),
@@ -116,7 +133,7 @@
     // phi = direction the arm points (screen angle). Blades follow the arm (a swing arc); staves stay upright;
     // the bow is held vertical in front.
     const w = m.weapon, phi = Math.PI / 2 - a;
-    const ang = w === 'bow' ? 0 : w === 'lute' ? -0.5 : (w === 'staff' || w === 'scythe') ? -1.35 + (a - 0.35) * 0.45 : w === 'orb' ? -0.6 : w === 'daggers' ? phi - 0.3 : phi - 0.5;
+    const ang = w === 'bow' ? 0 : w === 'lute' ? -0.5 : (w === 'mug' || w === 'flask') ? -1.2 : w === 'spear' || w === 'rifle' ? phi - 1.35 : (w === 'staff' || w === 'scythe') ? -1.35 + (a - 0.35) * 0.45 : w === 'orb' ? -0.6 : w === 'daggers' ? phi - 0.3 : phi - 0.5;
     c.save(); c.translate(x, y); c.rotate(ang);
     // local frame: +x = along the weapon
     if (w === 'sword' || w === 'rapier') { const L = S * (w === 'rapier' ? 0.62 : 0.55); limb(c, 0, 0, L, 0, S * (w === 'rapier' ? 0.035 : 0.07), '#dfe6ee'); limb(c, -S * 0.02, -S * 0.08, -S * 0.02, S * 0.08, S * 0.05, m.trim); }
@@ -133,6 +150,10 @@
     else if (w === 'daggers') { limb(c, 0, 0, S * 0.3, 0, S * 0.05, '#e8eef5'); }
     else if (w === 'hook') { limb(c, 0, 0, S * 0.3, 0, S * 0.05, '#777'); c.strokeStyle = '#aab'; c.lineWidth = S * 0.06; c.beginPath(); c.arc(S * 0.38, S * 0.08, S * 0.12, -Math.PI * 0.6, Math.PI * 0.9); c.stroke(); }
     else if (w === 'wrench') { limb(c, 0, 0, S * 0.4, 0, S * 0.07, '#9aa0a8'); c.strokeStyle = '#9aa0a8'; c.lineWidth = S * 0.06; c.beginPath(); c.arc(S * 0.45, 0, S * 0.08, 0.6, TAU - 0.6); c.stroke(); }
+    else if (w === 'spear') { limb(c, -S * 0.4, 0, S * 0.7, 0, S * 0.05, '#7a5a32'); poly(c, [[S * 0.68, -S * 0.07], [S * 0.9, 0], [S * 0.68, S * 0.07]], '#c9d2dc'); }
+    else if (w === 'rifle') { limb(c, -S * 0.2, 0, S * 0.75, 0, S * 0.06, '#3a3a40'); limb(c, -S * 0.25, S * 0.02, 0, S * 0.08, S * 0.1, '#6a4a2a'); limb(c, S * 0.1, -S * 0.07, S * 0.3, -S * 0.07, S * 0.05, '#222'); }
+    else if (w === 'mug') { poly(c, [[-S * 0.08, -S * 0.12], [S * 0.1, -S * 0.12], [S * 0.1, S * 0.12], [-S * 0.08, S * 0.12]], '#b8792a'); ball(c, S * 0.01, -S * 0.13, S * 0.08, '#fff6e0'); c.strokeStyle = '#8a5a2a'; c.lineWidth = S * 0.035; c.beginPath(); c.arc(S * 0.12, 0, S * 0.06, -1.3, 1.3); c.stroke(); }
+    else if (w === 'flask') { ball(c, 0, S * 0.04, S * 0.11, m.orb || '#7ee08e'); limb(c, 0, -S * 0.06, 0, -S * 0.17, S * 0.05, '#d9e6f2'); }
     else if (w === 'lute') { c.fillStyle = '#b8793a'; c.beginPath(); c.ellipse(S * 0.05, 0, S * 0.16, S * 0.12, 0, 0, TAU); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1; c.stroke(); limb(c, S * 0.15, 0, S * 0.5, 0, S * 0.05, '#6a4a2a'); ball(c, S * 0.05, 0, S * 0.04, '#3a2210'); }
     else if (w === 'gun') { limb(c, 0, 0, S * 0.32, 0, S * 0.08, '#555a63'); limb(c, 0, 0, -S * 0.02, S * 0.14, S * 0.08, '#6a4a2a'); }
     else if (w === 'scythe') { limb(c, -S * 0.3, 0, S * 0.65, 0, S * 0.05, '#4a3a2a'); c.fillStyle = '#c8d0da'; c.beginPath(); c.moveTo(S * 0.65, 0); c.quadraticCurveTo(S * 0.55, -S * 0.45, S * 0.15, -S * 0.42); c.quadraticCurveTo(S * 0.45, -S * 0.3, S * 0.6, 0); c.fill(); }
@@ -143,6 +164,11 @@
     const eyes = (col) => { ball(c, hx + r * 0.35, hy - r * 0.05, r * 0.14, col || '#222'); ball(c, hx + r * 0.75, hy - r * 0.05, r * 0.12, col || '#222'); };
     if (k === 'skull') { ball(c, hx, hy, r, m.skin === '#e0b48a' ? '#e8e2d0' : '#e8e2d0', OUT); ball(c, hx + r * 0.35, hy - r * 0.05, r * 0.2, '#111'); ball(c, hx + r * 0.75, hy - r * 0.05, r * 0.17, '#111'); if (m.eyes) { ball(c, hx + r * 0.35, hy - r * 0.05, r * 0.08, m.eyes); ball(c, hx + r * 0.75, hy - r * 0.05, r * 0.07, m.eyes); } limb(c, hx + r * 0.3, hy + r * 0.55, hx + r * 0.8, hy + r * 0.5, 1, '#555'); return; }
     if (k === 'boar') { ball(c, hx, hy, r * 1.1, m.skin, OUT); poly(c, [[hx + r * 0.6, hy - r * 0.2], [hx + r * 1.45, hy + r * 0.05], [hx + r * 1.45, hy + r * 0.45], [hx + r * 0.6, hy + r * 0.5]], shade(m.skin, -0.15), OUT); ball(c, hx + r * 1.4, hy + r * 0.25, r * 0.12, '#3a2018'); limb(c, hx + r * 1.0, hy + r * 0.45, hx + r * 1.25, hy - r * 0.05, r * 0.16, '#f2ead0'); poly(c, [[hx - r * 0.2, hy - r * 0.8], [hx - r * 0.55, hy - r * 1.35], [hx - r * 0.05, hy - r * 0.9]], shade(m.skin, -0.2)); eyes('#ffcf5a'); return; }
+    if (k === 'mummy') {
+      ball(c, hx, hy, r, m.skin, OUT);
+      c.strokeStyle = shade(m.skin, -0.3); c.lineWidth = 1.2; for (let i = -2; i <= 2; i++) seg(c, hx - r * 0.95, hy + i * r * 0.35 - r * 0.1, hx + r * 0.95, hy + i * r * 0.35 + r * 0.15);
+      ball(c, hx + r * 0.35, hy - r * 0.1, r * 0.12, m.eyes || '#6effc4'); ball(c, hx + r * 0.72, hy - r * 0.1, r * 0.1, m.eyes || '#6effc4'); return;
+    }
     ball(c, hx, hy, r, m.skin, OUT);
     if (m.hair && k !== 'hood' && k !== 'helm') { c.fillStyle = m.hair; c.beginPath(); c.arc(hx - r * 0.1, hy - r * 0.15, r * 1.02, Math.PI * 0.95, Math.PI * 2.05); c.fill(); }
     eyes(m.eyes && k === 'hood' ? m.eyes : null);
@@ -166,6 +192,12 @@
     else if (k === 'tricorn') { poly(c, [[hx - r * 1.3, hy - r * 0.5], [hx + r * 1.4, hy - r * 0.5], [hx + r * 0.8, hy - r * 1.4], [hx, hy - r * 1.1], [hx - r * 0.8, hy - r * 1.4]], m.hat, OUT); limb(c, hx - r * 1.1, hy - r * 0.55, hx + r * 1.2, hy - r * 0.55, r * 0.15, m.trim); }
     else if (k === 'mask') { c.fillStyle = '#f5f0ea'; c.beginPath(); c.ellipse(hx + r * 0.45, hy, r * 0.62, r * 0.8, 0, 0, TAU); c.fill(); ball(c, hx + r * 0.3, hy - r * 0.15, r * 0.13, '#222'); ball(c, hx + r * 0.75, hy - r * 0.15, r * 0.12, '#222'); c.strokeStyle = '#c2447f'; c.lineWidth = 1.2; c.beginPath(); c.arc(hx + r * 0.5, hy + r * 0.25, r * 0.25, 0.2, Math.PI - 0.2); c.stroke(); }
     else if (k === 'goggles') { limb(c, hx - r * 0.9, hy - r * 0.35, hx + r * 0.9, hy - r * 0.35, r * 0.25, '#3a2a1a'); ball(c, hx + r * 0.35, hy - r * 0.35, r * 0.3, '#9fd8ef', '#5a4a2a'); ball(c, hx + r * 0.85, hy - r * 0.35, r * 0.26, '#9fd8ef', '#5a4a2a'); }
+    else if (k === 'jester') {
+      for (const d of [-1, 1]) { c.fillStyle = d < 0 ? m.hat : m.trim; c.beginPath(); c.moveTo(hx - r * 0.2, hy - r * 0.7); c.quadraticCurveTo(hx + d * r * 1.2, hy - r * 2.0, hx + d * r * 1.5, hy - r * 0.9); c.lineTo(hx + d * r * 0.2, hy - r * 0.6); c.closePath(); c.fill(); c.strokeStyle = INK; c.lineWidth = 1; c.stroke(); ball(c, hx + d * r * 1.5, hy - r * 0.85, r * 0.2, '#ffcf5a'); }
+      c.fillStyle = '#111'; c.beginPath(); c.ellipse(hx + r * 0.52, hy - r * 0.05, r * 0.5, r * 0.18, 0, 0, TAU); c.fill();
+    }
+    else if (k === 'clown') { ball(c, hx + r * 0.95, hy + r * 0.12, r * 0.28, '#e03030'); for (const d of [-1, 1]) ball(c, hx + d * r * 0.95 - r * 0.2, hy - r * 0.35, r * 0.42, m.hair); c.strokeStyle = '#e03030'; c.lineWidth = 1.6; c.beginPath(); c.arc(hx + r * 0.5, hy + r * 0.35, r * 0.3, 0.1, Math.PI - 0.1); c.stroke(); }
+    else if (k === 'beard') { poly(c, [[hx - r * 0.3, hy + r * 0.1], [hx + r * 1.0, hy + r * 0.1], [hx + r * 0.7, hy + r * 1.25], [hx + r * 0.1, hy + r * 1.1]], m.hair); }
     else if (k === 'ears') { poly(c, [[hx - r * 0.6, hy - r * 0.2], [hx - r * 1.6, hy - r * 0.7], [hx - r * 0.7, hy + r * 0.25]], m.skin, OUT); poly(c, [[hx + r * 0.5, hy - r * 0.5], [hx + r * 1.3, hy - r * 1.1], [hx + r * 0.8, hy - r * 0.2]], m.skin, OUT); }
   }
   function humanoid(c, m, S, p) {
@@ -183,6 +215,7 @@
     const bsx = shX - s * 0.12 * bulk, [bhx, bhy] = hand(bsx, shY + s * 0.04, ba, armL);
     limb(c, bsx, shY + s * 0.04, bhx, bhy, armW, shade(m.body, -0.3));
     if (m.weapon === 'daggers' || m.weapon === 'shieldmace') weapon(c, m, bhx, bhy, ba, s * (m.weapon === 'shieldmace' ? 0.9 : 1), p);
+    if (m.hoplon) { ball(c, bhx - s * 0.05, bhy - s * 0.12, s * 0.26, '#b8903a'); ball(c, bhx - s * 0.05, bhy - s * 0.12, s * 0.1, '#e8c070'); }
     if (m.weapon === 'shieldmace') { c.save(); c.translate(bhx, bhy); limb(c, 0, 0, Math.sin(ba + 0.5) * s * 0.3, Math.cos(ba + 0.5) * s * 0.3, s * 0.06, '#6a4a2a'); ball(c, Math.sin(ba + 0.5) * s * 0.34, Math.cos(ba + 0.5) * s * 0.34, s * 0.1, '#9aa0a8', OUT); c.restore(); }
     // legs or robe
     if (m.robe) {
@@ -201,10 +234,14 @@
     c.strokeStyle = shade(m.body, 0.45); c.lineWidth = 1; seg(c, shX - tw + 1.5, shY + 1.5, -bw + 1.5, hipY);
     c.strokeStyle = shade(m.body, -0.45); c.globalAlpha *= 0.6; seg(c, shX + tw * 0.15, shY + s * 0.1, bw * 0.3, hipY - s * 0.02); c.globalAlpha /= 0.6;
     if (m.paint) { limb(c, shX - tw * 0.6, shY + s * 0.12, shX + tw * 0.2, shY + s * 0.3, 2, '#d4483b'); limb(c, shX - tw * 0.4, shY + s * 0.28, shX + tw * 0.4, shY + s * 0.42, 2, '#d4483b'); }
+    if (m.wraps) { c.strokeStyle = shade(m.body, -0.3); c.lineWidth = 1.2; for (let i = 0; i < 4; i++) seg(c, shX - tw, shY + s * (0.08 + i * 0.1), shX + tw, shY + s * (0.14 + i * 0.1)); }
+    if (m.diamonds) { c.fillStyle = m.diamonds; for (const [dx, dy] of [[-0.08, 0.14], [0.08, 0.28], [-0.06, 0.34], [0.07, 0.1]]) { c.beginPath(); c.moveTo(shX + s * dx, shY + s * (dy - 0.06)); c.lineTo(shX + s * (dx + 0.045), shY + s * dy); c.lineTo(shX + s * dx, shY + s * (dy + 0.06)); c.lineTo(shX + s * (dx - 0.045), shY + s * dy); c.fill(); } }
+    if (m.sash) limb(c, shX - tw * 0.8, shY + s * 0.02, bw * 0.9, hipY, s * 0.06, m.sash);
     if (m.bones) for (let i = 0; i < 3; i++) limb(c, shX - tw * 0.7, shY + s * (0.1 + i * 0.1), shX + tw * 0.7, shY + s * (0.1 + i * 0.1), 1.5, '#8a8474');
     limb(c, -bw, hipY + s * 0.02, bw, hipY + s * 0.02, s * 0.05, m.trim);
     if (m.pauldrons) { ball(c, shX - tw * 0.9, shY + s * 0.02, s * 0.1 * bulk, m.pauldrons, OUT); ball(c, shX + tw * 0.9, shY + s * 0.02, s * 0.1 * bulk, m.pauldrons, OUT); }
     // head
+    if (m.collar) poly(c, [[shX - s * 0.2, shY + s * 0.02], [shX - s * 0.26, headY - headR * 0.9], [shX - s * 0.04, headY - headR * 0.3], [shX + s * 0.12, shY]], m.collar);
     headgear(c, m, shX + s * 0.02, headY, headR * (m.head === 'boar' ? 1.1 : 1), p);
     if (m.head !== 'boar' && m.head !== 'skull' && m.head !== 'mask' && m.head !== 'hood' && m.head !== 'helm') { /* mouth hint */ limb(c, shX + headR * 0.4, headY + headR * 0.45, shX + headR * 0.75, headY + headR * 0.42, 1, 'rgba(0,0,0,0.5)'); }
     // front arm + weapon

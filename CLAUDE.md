@@ -25,7 +25,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | Arquivo | O quê |
 |---|---|
 | `js/hex.js` | grade 8x8 pointy-top "odd-r"; linha 0 = topo (inimigo), linhas 4-7 = deploy do jogador |
-| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 18 heróis (habilidade + 4 pares de spec; 6 com escala passiva), 78 itens, 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
+| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 33 heróis (habilidade + 4 pares de spec; 6 com escala passiva), 78 itens, 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
 | `js/sim.js` | motor de combate puro e determinístico (20 ticks/s). Roda no navegador e no Node |
 | `js/run.js` | máquina de estados da run (mapa, lutas, lojas, eventos, XP, itens). JSON puro, salvo no localStorage |
 | `js/models.js` | modelos 2.5D desenhados em código (humanoide, fera, bomba, golem, serpente, espectro, torre) com poses parado/andando/ataque/habilidade/morte; `portrait()` gera os retratos dos menus |
@@ -115,6 +115,13 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v12 (2026-09-28), lote 11 do David** ("many more unique heroes, go wild"): +15 heróis = 33 (Hippolyta amazona
+  lança+veneno, Deadshot sniper, Vesper vampiro, Kage ninja, Rex cão, Vey hipnotizador, Pip palhaço, Barley bebum, Azgul
+  demônio, Grok homem das cavernas, Imhotep múmia, Leonidas hoplita, Harlequin, Sprocket alquimista, Zephyr monge do
+  vento), 120 specs novas, modelos próprios. Mecânicas novas no sim: confusão (`st.confuseU`: ataca os próprios
+  aliados), cegueira (`st.blindU`: ataques erram), empurrão (`push`, com colisão), redução de dano (`buff 'dr'`),
+  fúria por vida perdida (`m.rageDmg`), resistência a controle (`m.ccResist`), truques/frascos aleatórios, morcegos.
+  Matriz com 5456 times: chefe 3 ≈ 62%, chefe 6 ≈ 49%.
 - **v11 (2026-09-28), lote 10 do David** (legibilidade): `fmt()` em ui.js colore termos do jogo (ataque, magia,
   defesa, vida, controle, dano contínuo, crítico, mana, ouro, XP, alcance), deixa números em negrito e durações em
   itálico em toda descrição (heróis, specs, itens, relíquias, eventos, chefes, mobs); tokeniza o texto CRU e escapa
