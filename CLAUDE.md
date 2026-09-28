@@ -115,6 +115,12 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v10 (2026-09-28), lote 9 do David** ("too big for my phone ... without scrolling", batalha mais bonita): tudo compacto;
+  o `telas.mjs` roda em 390x740 e checa que título, início, mapa, loja, deploy, batalha, resultado, evento, nível,
+  Team e Gauntlet cabem sem rolar (`noVScroll`). Batalha: painel no topo (título, relógio, 1×/2×/4×/⏭), faixa do time
+  com retrato + vida + mana embaixo, info só ao tocar. Efeitos só no renderer (o sim continua puro): faíscas por golpe,
+  tremor em crítico/golpe em área/morte de chefe, nome da habilidade ao lançar, alma subindo na morte, rastro nos
+  projéteis, brilho nos raios, números que "saltam", brasas no ar, barra de vida do chefe, vinheta vermelha na morte súbita.
 - **v9 (2026-09-28), lote 8 do David** ("more HD", ícones, "less demo, more final game with an identity"): modelos
   cel-shaded (contorno de tinta, volume com gradiente, luz de borda, brilho), tabuleiro com textura de pedra, relevo e
   vinheta; ícones para os 78 itens e 35 relíquias (lojas, bolsa, espaços, relíquias, fantasmas); identidade "Balance"

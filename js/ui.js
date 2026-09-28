@@ -150,18 +150,35 @@
     const f = run.cur;
     return `<section class="deploy">
       <div class="bhead">${gau ? `⚔ Gauntlet round ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '☠ Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
-      <p class="hint">Drag heroes (or tap one, then tap a hex) inside the blue rows. Tap any unit for details.</p>
+      <p class="hint tight">Drag heroes within the blue rows. Tap a unit for details.</p>
       <div class="boardwrap"><canvas id="board"></canvas></div>
-      <div id="info" class="info">${infoHTML()}</div>
-      <div class="bar"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${gau ? 'Duel!' : 'Fight!'}</button></div>
+      <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
+      <div class="bar sticky"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${gau ? 'Duel!' : 'Fight!'}</button></div>
     </section>`;
   }
   function battleHTML() {
-    return `<section class="deploy"><div class="bhead" id="bhud"></div>
+    return `<section class="deploy battle">
+      <div class="hud"><div id="bhud" class="hud-l"></div>
+        <div class="speed">${[1, 2, 4].map(x => `<button class="${ui.speed === x ? 'on' : ''}" data-act="speed" data-arg="${x}">${x}×</button>`).join('')}<button class="skip" data-act="skip" aria-label="Skip">⏭</button></div></div>
       <div class="boardwrap"><canvas id="board"></canvas></div>
-      <div id="info" class="info">${infoHTML()}</div>
-      <div class="bar">${[1, 2, 4].map(s => `<button class="${ui.speed === s ? 'on' : ''}" data-act="speed" data-arg="${s}">${s}x</button>`).join('')}<button data-act="skip">Skip ⏭</button></div></section>`;
+      <div class="teamstrip" id="tstrip"></div>
+      <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div></section>`;
   }
+  function stripHTML(W) {
+    return W.units.filter(u => u.side === 0 && u.kind === 'hero').map(u => `<div class="ts ${u.dead ? 'dead' : ''}" data-id="${u.id}">${img(u.key, 30, 'por sm')}
+      <div class="tsb"><b>${esc(u.name)}</b><i class="hp"><s style="width:${Math.max(0, 100 * u.hp / u.maxHp)}%"></s></i><i class="mp"><s style="width:${u.maxMana ? Math.min(100, 100 * u.mana / u.maxMana) : 0}%"></s></i></div></div>`).join('');
+  }
+  function updateStrip(W) {
+    const el = $('#tstrip'); if (!el) return;
+    if (!el.firstChild) { el.innerHTML = stripHTML(W); return; }
+    for (const d of el.querySelectorAll('.ts')) {
+      const u = W.byId[d.dataset.id]; if (!u) continue;
+      d.classList.toggle('dead', !!u.dead);
+      d.querySelector('.hp s').style.width = Math.max(0, 100 * u.hp / u.maxHp) + '%';
+      d.querySelector('.mp s').style.width = (u.maxMana ? Math.min(100, 100 * u.mana / u.maxMana) : 0) + '%';
+    }
+  }
+
 
   function eloLine(r) {
     if (r.pending) return '<p class="dim">Updating your Elo…</p>';
@@ -202,7 +219,7 @@
   function stockCard(s, i) {
     const dis = s.sold || run.gold < s.price || (s.kind === 'hero' && run.heroes.length >= Run.teamMax(run));
     let body = '';
-    if (s.kind === 'hero') body = heroCard(s.id);
+    if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><div class="small"><b>${esc(h.abName)}</b>: ${esc(h.abDesc)}</div>`; }
     else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div><div class="tier">${it.tier}</div></div></div><div class="small">${esc(it.desc)}</div>`; }
     else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier">relic</div></div></div><div class="small">${esc(r.desc)}</div>`; }
     return `<div class="card stock ${s.sold ? 'sold' : ''}">${body}<button class="${dis ? '' : 'primary'}" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''}>${s.sold ? 'Sold' : `Buy <span class="price">${s.price}</span>`}</button></div>`;
@@ -212,7 +229,7 @@
     const note = c.kind === 'heroShop' ? `Team ${run.heroes.length}/${Run.teamMax(run)}` : c.kind === 'itemShop' ? `Items go to your bag. Equip them in Team.` : 'Relics affect every hero.';
     return `<section>${trackHTML()}<h2>🛒 ${SHOP_NAME[c.kind]}</h2><p class="hint">${note}</p>
       <div class="grid">${c.stock.map(stockCard).join('') || '<p>Nothing left to sell.</p>'}</div>
-      <div class="bar"><button data-act="reroll" ${run.gold < rc ? 'disabled' : ''}>Reroll · ${rc}g</button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
+      <div class="bar sticky"><button data-act="reroll" ${run.gold < rc ? 'disabled' : ''}>Reroll · ${rc}g</button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
   }
   function eventHTML() {
     const e = EVENT[run.cur.id];
@@ -270,7 +287,7 @@
   function unitAt(W, h) { return h && W ? W.units.find(u => !u.dead && u.c === h.c && u.r === h.r) : null; }
   function onDown(e) {
     const { h } = evHex(e); const W = battle ? battle.W : preview; const u = unitAt(W, h);
-    if (u) { ui.info = u.id; const el = $('#info'); if (el) el.innerHTML = infoHTML(); }
+    if (u) { ui.info = u.id; const el = $('#info'); if (el) { el.innerHTML = infoHTML(); el.classList.remove('empty'); } }
     if (battle || !h) return;
     if (u && u.side === 0 && u.uid) { ui.drag = { uid: u.uid, from: h, key: u.key }; view.canvas.setPointerCapture(e.pointerId); }
   }
@@ -305,10 +322,11 @@
     const hud = $('#bhud');
     if (hud) {
       const secs = Math.floor(b.W.t / Sim.TPS);
-      hud.textContent = b.gau ? `⚔ Gauntlet round ${run.g.round + 1} vs ${run.g.opp.name} · ${secs}s${secs >= CFG.suddenDeath ? ' · SUDDEN DEATH' : ''}` 
-        : `${run.cur.diff === 'boss' ? '☠ Boss' : '⚔ ' + B.DIFF[run.cur.diff].name} · ${secs}s${secs >= CFG.suddenDeath ? ' · SUDDEN DEATH' : ''}`;
+      const title = b.gau ? `⚔ Round ${run.g.round + 1} · ${esc(run.g.opp.name)}` : run.cur.diff === 'boss' ? '☠ Boss' : '⚔ ' + B.DIFF[run.cur.diff].name;
+      const str = `<b>${title}</b><span class="clock ${secs >= CFG.suddenDeath ? 'sd' : ''}">${secs >= CFG.suddenDeath ? 'Sudden death · ' : ''}${secs}s</span>`;
+      if (str !== b.hudStr) { hud.innerHTML = str; b.hudStr = str; }
     }
-    if (ui.info && (b.frame = (b.frame || 0) + 1) % 10 === 0) { const el = $('#info'); if (el) el.innerHTML = infoHTML(); }
+    if ((b.frame = (b.frame || 0) + 1) % 6 === 0) { updateStrip(b.W); if (ui.info) { const el = $('#info'); if (el) { el.innerHTML = infoHTML(); el.classList.remove('empty'); } } }
     if (b.endAt && now >= b.endAt) { endBattle(); return; }
     requestAnimationFrame(loop);
   }

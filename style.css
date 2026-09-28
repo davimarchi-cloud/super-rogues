@@ -333,3 +333,99 @@ main > section { animation: rise .28s ease-out; }
 @media (prefers-reduced-motion: reduce) { main > section { animation: none; } }
 .tbl td.who { display: flex; align-items: center; gap: 6px; }
 .tbl .por.sm { width: 28px; height: 28px; }
+
+/* =====================================================================================================
+   v10 (review #9, David): "everything is way too big for my phone ... use the whole game without scrolling".
+   Compact sizing everywhere; each screen fits a ~390x740 phone viewport; action bars stick to the bottom.
+   ===================================================================================================== */
+html, body { font-size: 14px; }
+#app { min-height: 100dvh; padding-bottom: 8px; }
+#top { padding: 6px 10px; gap: 6px; }
+#top button { min-height: 32px; padding: 4px 9px; font-size: 13px; }
+#top .gold, #top .elo, #top .prog { padding: 2px 8px; font-size: 12px; }
+main section { padding: 2px 10px; }
+h2 { font-size: 18px; margin: 6px 0 6px; } h3 { margin: 8px 0 4px; font-size: 12px; }
+button { min-height: 38px; padding: 6px 10px; font-size: 14px; }
+button.big { min-height: 44px; font-size: 15px; }
+.bar { margin: 8px 0 0; gap: 6px; }
+.bar.sticky { position: sticky; bottom: 0; z-index: 3; padding: 8px 0 6px; background: linear-gradient(180deg, transparent, #0c0d11 30%); }
+.hint { font-size: 12px; margin: 2px 0 6px; } .hint.tight { margin: 0 0 4px; }
+.small { font-size: 12px; }
+.card { padding: 8px; }
+
+/* title */
+.title { padding-top: 6px; }
+.title .crest { width: 60px; height: 60px; } .title .crest .emblem { width: 38px; height: 38px; }
+.title h1.sc { font-size: 36px; letter-spacing: 7px; margin-top: 4px; }
+.title .tag { margin: 0; font-size: 13px; }
+.lineup { margin: 4px 0 0; } .lineup img { width: 72px; height: 72px; } .lineup img.mid { width: 92px; height: 92px; }
+.title .stack { margin: 8px 0; gap: 7px; }
+.live { margin-top: 8px; padding: 10px; font-size: 12px; } .live button { margin-top: 6px; min-height: 38px; }
+
+/* map */
+.track { flex-wrap: nowrap; justify-content: space-between; gap: 2px; margin: 6px 0 2px; }
+.node { width: 24px; height: 24px; font-size: 11px; flex: none; }
+.banners { gap: 10px; margin: 6px 0 4px; }
+.banner { min-height: 188px; padding: 16px 8px 30px; gap: 4px; }
+.banner .emb { font-size: 26px; margin-top: 4px; } .banner .emb-img { width: 56px; height: 56px; }
+.banner .bt { font-size: 13px; } .banner .bd, .banner .ens { font-size: 11px; } .banner .rw { font-size: 12px; }
+.banner::after { inset: 12px 7px 26px; }
+
+/* start */
+.start h2 { margin-bottom: 0; }
+.hbanners { gap: 6px; margin: 6px 0; }
+.hbanner { min-height: 172px; padding: 12px 3px 28px; }
+.hbanner img { max-width: 92px; } .hbanner b { font-size: 12px; } .hbanner i { font-size: 10px; }
+.detail { gap: 4px; } .detail .abil { font-size: 12px; margin: 0; }
+.hcard .abil { font-size: 12px; }
+
+/* shops: always 2 columns, short cards */
+.grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+.stock { padding: 7px; gap: 5px; }
+.stock .srow { gap: 7px; }
+.stock .ico.big, .stock .por.big { width: 40px; height: 40px; }
+.stock .ctitle { font-size: 13px; line-height: 1.15; } .stock .tier { font-size: 10px; }
+.stock .small { font-size: 11px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.stock > button { min-height: 32px; padding: 4px 8px; font-size: 13px; }
+
+/* deploy / battle */
+.deploy { padding: 2px 8px; }
+.bhead { margin: 4px 2px; font-size: 14px; }
+.info { min-height: 0; padding: 6px 8px; margin-top: 6px; font-size: 12px; }
+.info.mini.empty { display: none; }
+.info .hrow .por { width: 30px; height: 30px; }
+.hud { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.hud-l { flex: 1; display: flex; align-items: baseline; gap: 8px; font-family: var(--serif); color: #f3e6c4; min-width: 0; white-space: nowrap; overflow: hidden; }
+.hud-l b { overflow: hidden; text-overflow: ellipsis; }
+.clock { font-size: 12px; color: var(--dim); } .clock.sd { color: #ff6b6b; font-weight: 700; animation: pulse-red 1s ease-in-out infinite; }
+@keyframes pulse-red { 50% { opacity: .5; } }
+.speed { display: flex; gap: 3px; }
+.speed button { min-height: 30px; min-width: 36px; padding: 2px 6px; font-size: 13px; }
+.teamstrip { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 6px; margin-top: 6px; }
+.ts { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-radius: 9px; background: linear-gradient(180deg, #1d2029, #15171e); border: 1px solid #3a3f50; }
+.ts.dead { opacity: .35; filter: grayscale(1); }
+.ts .por.sm { width: 28px; height: 28px; }
+.tsb { flex: 1; min-width: 0; display: grid; gap: 2px; } .tsb b { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tsb i { display: block; height: 5px; background: #000a; border-radius: 3px; overflow: hidden; } .tsb i.mp { height: 3px; }
+.tsb i s { display: block; height: 100%; text-decoration: none; transition: width .15s linear; }
+.tsb .hp s { background: linear-gradient(90deg, #3fae5a, #7ee08e); } .tsb .mp s { background: #5fa8ff; }
+
+/* results, level up, events, gauntlet */
+.result .headline { font-size: 32px; margin: 10px 0 4px; }
+.tbl { font-size: 13px; margin: 4px 0; } .tbl th, .tbl td { padding: 4px; }
+.hrow.big { font-size: 16px; } .hrow.big .por { width: 48px; height: 48px; }
+.opts { gap: 8px; }
+.score { font-size: 48px; }
+.gteam { gap: 6px; } .gh { padding: 4px; } .gh .por { width: 44px; height: 44px; }
+.gintro { margin-top: 8px; }
+
+/* team sheet: fits one screen */
+.sheet { max-height: 100dvh; padding: 0 10px 12px; }
+.shead { padding: 8px 0 6px; font-size: 15px; }
+.equip { gap: 8px; }
+.eqitem { padding: 6px 8px; } .eqitem b { font-size: 12px; } .eqitem span { font-size: 11px; }
+.eqitem .ico { width: 30px; height: 30px; }
+.eqhero { padding: 6px; gap: 4px; } .eqhero .por { width: 32px; height: 32px; }
+.eqhero .stats, .eqhero .small { font-size: 11px; line-height: 1.3; }
+.chip { min-height: 28px; padding: 3px 8px; font-size: 12px; }
+.relic-row { font-size: 12px; } .relic-row .ico { width: 26px; height: 26px; }

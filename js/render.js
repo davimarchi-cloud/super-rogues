@@ -14,7 +14,7 @@
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
     const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { canvas, ctx, size, w, h, top, slab, grit: grit(ctx) };
+    return { canvas, ctx, size, w, h, top, slab, dpr, grit: grit(ctx) };
   }
   // review #8: stone texture for the tiles (made once, deterministic)
   let gritCanvas = null;
@@ -137,7 +137,11 @@
   // ------------------------------------------------------------------ frame
   function draw(v, W, T, o = {}) {
     const { ctx, size } = v;
+    const S = fxState(v), now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+    const dt = Math.min(0.05, S.last ? now - S.last : 0.016); S.last = now;
+    ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
     ctx.clearRect(0, 0, v.w, v.h);
+    if (S.shake > 0.2 && !o.deploy) { ctx.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake); S.shake *= Math.pow(0.02, dt); } else S.shake = 0;
     const bg = ctx.createRadialGradient(v.w / 2, v.h * 0.55, v.w * 0.1, v.w / 2, v.h * 0.55, v.w * 0.8);
     bg.addColorStop(0, '#1d2230'); bg.addColorStop(1, '#0b0d12'); ctx.fillStyle = bg; ctx.fillRect(0, 0, v.w, v.h);
     drawBoard(v, o);
@@ -152,6 +156,9 @@
       ctx.globalAlpha = 1 - k; ctx.strokeStyle = f.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(p.x, p.y, R, R * K, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = (1 - k) * 0.15; ctx.fillStyle = f.color; ctx.fill(); ctx.globalAlpha = 1;
     }
+    if (!o.deploy) spawnFromFx(v, W, T, S);
+    // ambient embers drifting up
+    if (!o.deploy && Math.random() < dt * 6 && S.parts.length < MAXP) S.parts.push({ x: Math.random() * v.w, y: v.h + 4, vx: (Math.random() - 0.5) * 10, vy: -20 - Math.random() * 25, g: 0, life: 4 + Math.random() * 3, t: 0, r: 1 + Math.random() * 1.2, col: Math.random() < 0.5 ? '#ffb347' : '#e8b84a', glow: true });
     const us = W.units.filter(u => !u.dead || W.t - u.deathT < 12).map(u => ({ u, p: unitPos(v, W, u, T) })).sort((a, b) => a.p.y - b.p.y);
     for (const { u, p } of us) drawUnit(v, W, u, p, T, o);
     for (const f of W.fx) {
@@ -164,21 +171,24 @@
         ctx.font = (f.k === 'text' ? 'bold ' + Math.round(size * 0.5) : (f.big ? 'bold ' : '') + Math.round(size * (f.big ? 0.62 : 0.48))) + 'px system-ui,sans-serif';
         ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#000';
         const y = p.y - size * 2.2 - k * size * (f.k === 'text' ? 0.6 : 1.0), x = p.x + (f.k === 'num' ? ((f.t0 * 7) % 11 - 5) * size * 0.05 : 0);
-        ctx.strokeText(f.text, x, y); ctx.fillStyle = f.color; ctx.fillText(f.text, x, y); ctx.globalAlpha = 1;
+        const pop = k < 0.15 ? 1 + (1 - k / 0.15) * (f.big ? 0.8 : 0.35) : 1;
+        ctx.save(); ctx.translate(x, y); ctx.scale(pop, pop); ctx.lineWidth = f.big ? 4 : 3;
+        ctx.strokeText(f.text, 0, 0); ctx.fillStyle = f.color; ctx.fillText(f.text, 0, 0); ctx.restore(); ctx.globalAlpha = 1;
       } else if (f.k === 'proj') {
         const src = W.byId[f.from], a = src ? { x: hexScreen(v, f.fc, f.fr).x, y: hexScreen(v, f.fc, f.fr).y - size * 0.8 * src.size } : hexScreen(v, f.fc, f.fr);
         const tu = f.to && W.byId[f.to] && !W.byId[f.to].dead ? W.byId[f.to] : null, t = tu ? chest(tu) : hexScreen(v, f.tc, f.tr);
         const x = a.x + (t.x - a.x) * k, y = a.y + (t.y - a.y) * k - Math.sin(k * Math.PI) * size * 0.35 * (f.size || 1), r = (f.size || 1) * 3;
-        ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = f.color; ctx.globalAlpha = 0.4; ctx.lineWidth = r; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - (t.x - a.x) * 0.08, y - (t.y - a.y) * 0.08); ctx.stroke(); ctx.globalAlpha = 1;
+        for (let i = 4; i >= 1; i--) { const kk = Math.max(0, k - i * 0.05), tx = a.x + (t.x - a.x) * kk, ty = a.y + (t.y - a.y) * kk - Math.sin(kk * Math.PI) * size * 0.35 * (f.size || 1); ctx.globalAlpha = 0.12 * (5 - i); ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(tx, ty, r * (1 - i * 0.12), 0, Math.PI * 2); ctx.fill(); }
+        ctx.globalAlpha = 0.3; ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, r * 0.6, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.globalAlpha = 0.8; ctx.fill(); ctx.globalAlpha = 1;
       } else if (f.k === 'bolt') {
-        ctx.globalAlpha = 1 - k; ctx.strokeStyle = f.color; ctx.lineWidth = 2.5; ctx.beginPath();
+        ctx.globalAlpha = 1 - k; ctx.strokeStyle = f.color; ctx.lineWidth = 2.5; ctx.shadowColor = f.color; ctx.shadowBlur = 10; ctx.beginPath();
         f.pts.forEach(([c, r], i) => {
           const p = hexScreen(v, c, r); p.y -= size * 0.7;
           if (i === 0) ctx.moveTo(p.x, p.y);
           else { const q = hexScreen(v, f.pts[i - 1][0], f.pts[i - 1][1]); q.y -= size * 0.7; ctx.lineTo((p.x + q.x) / 2 + ((i * 13 + f.t0) % 9 - 4) * 2, (p.y + q.y) / 2 + ((i * 7 + f.t0) % 9 - 4) * 2); ctx.lineTo(p.x, p.y); }
         });
-        ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.stroke(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
       } else if (f.k === 'blink') {
         const p = hexScreen(v, f.c, f.r); ctx.globalAlpha = (1 - k) * 0.6; ctx.fillStyle = f.color;
         ctx.beginPath(); ctx.ellipse(p.x, p.y - size * 0.6, size * 0.45 * (1 + k), size * 0.8 * (1 + k * 0.5), 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
@@ -193,9 +203,89 @@
         ctx.fillStyle = '#ffcf5a'; ctx.fillText(f.text.toUpperCase(), v.w / 2, v.h * 0.4); ctx.globalAlpha = 1;
       }
     }
+    drawParts(ctx, S, o.deploy ? 0 : dt);
+    if (!o.deploy) drawCalls(v, W, T, S, dt);
     const vg = ctx.createRadialGradient(v.w / 2, v.h * 0.5, v.w * 0.35, v.w / 2, v.h * 0.5, v.w * 0.85);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, v.w, v.h);
+    const sd = W.sd > 0 ? Math.min(0.55, 0.25 + W.sd * 0.15) * (0.75 + 0.25 * Math.sin(now * 6)) : 0;
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, sd ? `rgba(120,10,20,${sd})` : 'rgba(0,0,0,0.45)'); ctx.fillStyle = vg; ctx.fillRect(-10, -10, v.w + 20, v.h + 20);
+    if (!o.deploy) bossBar(v, W);
     if (o.dragGhost) { ctx.globalAlpha = 0.65; B.Models.draw(ctx, o.dragGhost.key, o.dragGhost.x, o.dragGhost.y + size * 0.5, size * 1.3, { t: T / 20, face: 1 }); ctx.globalAlpha = 1; }
+  }
+
+  // ------------------------------------------------------------------ battle effects (review #9)
+  // Particles are spawned from the sim's fx events the first time the renderer sees them, so the sim stays pure.
+  const MAXP = 260;
+  function fxState(v) { if (!v.fxs) v.fxs = { parts: [], seen: new WeakSet(), dead: new Set(), calls: [], shake: 0, last: 0, embers: 0 }; return v.fxs; }
+  function burst(S, x, y, n, col, o = {}) {
+    for (let i = 0; i < n && S.parts.length < MAXP; i++) {
+      const a = (o.dir != null ? o.dir : -Math.PI / 2) + (Math.random() - 0.5) * (o.spread != null ? o.spread : Math.PI * 2), sp = (o.speed || 90) * (0.4 + Math.random() * 0.8);
+      S.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: o.g != null ? o.g : 160, life: (o.life || 0.5) * (0.6 + Math.random() * 0.6), t: 0, r: (o.r || 2) * (0.6 + Math.random() * 0.8), col, glow: !!o.glow });
+    }
+  }
+  function spawnFromFx(v, W, T, S) {
+    const size = v.size;
+    for (const f of W.fx) {
+      if (S.seen.has(f) || T < f.t0) continue;
+      S.seen.add(f);
+      const u = f.id ? W.byId[f.id] : null, p = u ? unitPos(v, W, u, T) : f.c != null ? hexScreen(v, f.c, f.r) : null;
+      if (f.k === 'num' && p) {
+        const heal = String(f.text)[0] === '+';
+        if (heal) burst(S, p.x, p.y - size * 0.9, 5, '#8dff9a', { speed: 40, g: -60, life: 0.7, r: 2, spread: 1.2, glow: true });
+        else { burst(S, p.x, p.y - size * 0.8, f.big ? 14 : 5, f.big ? '#ffe066' : '#ffd0a0', { speed: f.big ? 160 : 100, life: 0.35, r: f.big ? 2.6 : 1.8 }); if (f.big) S.shake = Math.max(S.shake, 5); }
+      } else if (f.k === 'ring') {
+        const c = hexScreen(v, f.c, f.r), R = (f.rad * 1.6 + 0.7) * size;
+        for (let i = 0; i < 14 + f.rad * 8 && S.parts.length < MAXP; i++) { const a = Math.random() * Math.PI * 2; burst(S, c.x + Math.cos(a) * R * 0.8, c.y + Math.sin(a) * R * 0.8 * 0.6, 1, f.color, { speed: 60, g: -40, life: 0.6, r: 2.2, spread: 0.6, glow: true }); }
+        if (f.rad >= 1) S.shake = Math.max(S.shake, 2 + f.rad * 1.5);
+      } else if (f.k === 'bolt') { for (const [c, r] of f.pts) { const q = hexScreen(v, c, r); burst(S, q.x, q.y - size * 0.7, 5, f.color, { speed: 120, life: 0.3, r: 1.8, glow: true }); } }
+      else if (f.k === 'blink') { const q = hexScreen(v, f.c, f.r); burst(S, q.x, q.y - size * 0.6, 10, f.color, { speed: 70, g: -30, life: 0.5, r: 2.5 }); }
+      else if (f.k === 'cast' && u) {
+        burst(S, p.x, p.y - size * 0.3, 16, u.color || '#fff', { speed: 70, g: -120, life: 0.8, r: 2.2, spread: 1.4, glow: true });
+        const hd = B.HEROES && B.HEROES[u.key]; if (hd) S.calls.push({ id: u.id, text: hd.abName, t: 0, col: u.color || '#ffe066' });
+      }
+    }
+    for (const u of W.units) if (u.dead && !S.dead.has(u.id) && W.t - u.deathT < 12) {
+      S.dead.add(u.id); const p = unitPos(v, W, u, T);
+      burst(S, p.x, p.y - size * 0.6, u.boss ? 40 : 16, u.side ? '#ff8a8a' : '#9fd8ff', { speed: u.boss ? 180 : 110, life: 0.6, r: 2.4 });
+      S.parts.push({ x: p.x, y: p.y - size * 0.8, vx: 0, vy: -40, g: -10, life: 1.4, t: 0, r: 5, col: '#e8f4ff', glow: true, wisp: true });
+      if (u.boss) S.shake = 10;
+    }
+  }
+  function drawParts(ctx, S, dt) {
+    const keep = [];
+    for (const q of S.parts) {
+      q.t += dt; if (q.t >= q.life) continue;
+      q.vy += q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.wisp) q.x += Math.sin(q.t * 7) * 0.6;
+      const k = 1 - q.t / q.life;
+      ctx.globalAlpha = Math.max(0, k);
+      if (q.glow) { ctx.fillStyle = q.col; ctx.globalAlpha = k * 0.25; ctx.beginPath(); ctx.arc(q.x, q.y, q.r * 3, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = k; }
+      ctx.fillStyle = q.col; ctx.beginPath(); ctx.arc(q.x, q.y, q.r * (q.wisp ? k : 1), 0, Math.PI * 2); ctx.fill();
+      keep.push(q);
+    }
+    ctx.globalAlpha = 1; S.parts = keep;
+  }
+  function drawCalls(v, W, T, S, dt) {
+    const { ctx, size } = v, keep = [];
+    for (const c of S.calls) {
+      c.t += dt; if (c.t > 1.1) continue; keep.push(c);
+      const u = W.byId[c.id]; if (!u) continue;
+      const p = unitPos(v, W, u, T), k = c.t / 1.1, pop = c.t < 0.12 ? 0.7 + c.t / 0.12 * 0.45 : 1.15 - Math.min(0.15, (c.t - 0.12));
+      ctx.save(); ctx.globalAlpha = k < 0.75 ? 1 : (1 - k) / 0.25; ctx.translate(p.x, p.y - size * 2.6 - k * size * 0.4); ctx.scale(pop, pop);
+      ctx.font = 'bold ' + Math.round(size * 0.52) + 'px Georgia,"Times New Roman",serif'; ctx.textAlign = 'center';
+      ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(c.text.toUpperCase(), 0, 0); ctx.fillStyle = c.col; ctx.fillText(c.text.toUpperCase(), 0, 0);
+      ctx.restore();
+    }
+    S.calls = keep;
+  }
+  function bossBar(v, W) {
+    const b = W.units.find(u => u.boss && !u.dead && u.side === 1); if (!b) return;
+    const { ctx } = v, x = 14, w = v.w - 28, y = 8;
+    ctx.fillStyle = '#000a'; ctx.fillRect(x - 2, y - 2, w + 4, 22);
+    const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, '#7a1020'); g.addColorStop(1, '#e0404a');
+    ctx.fillStyle = g; ctx.fillRect(x, y + 12, w * Math.max(0, b.hp / b.maxHp), 6);
+    ctx.strokeStyle = '#e8b84a88'; ctx.lineWidth = 1; ctx.strokeRect(x, y + 12, w, 6);
+    for (const f of [0.25, 0.5, 0.75]) { ctx.fillStyle = '#000a'; ctx.fillRect(x + w * f, y + 12, 1, 6); }
+    ctx.font = 'bold 11px Georgia,serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#f3e6c4'; ctx.fillText(b.name.toUpperCase(), x, y + 9);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#e8b84a'; ctx.fillText(Math.max(0, Math.round(b.hp)) + ' / ' + b.maxHp, x + w, y + 9);
   }
 
   B.Render = { setup, draw, hexAt, hexScreen };

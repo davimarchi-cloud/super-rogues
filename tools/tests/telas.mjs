@@ -41,26 +41,28 @@ const shot = async name => { const r = await send('Page.captureScreenshot', { fo
 const click = sel => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || e.disabled) return false; e.click(); return true; })()`);
 
 await send('Runtime.enable'); await send('Page.enable');
-await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 740, deviceScaleFactor: 2, mobile: true });  // review #9: usable height of a phone browser
 await send('Emulation.setTouchEmulationEnabled', { enabled: true });
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `document.addEventListener('securitypolicyviolation', e => console.error('CSP ' + e.violatedDirective + ' ' + e.blockedURI));` });
 await send('Page.navigate', { url: BASE + '/' });
 await sleep(1200);
 
 const noHScroll = async where => ok(await ev('document.documentElement.scrollWidth <= window.innerWidth + 1'), 'no horizontal scroll: ' + where);
+// review #9 (David): the whole game without scrolling on a phone
+const noVScroll = async where => { const r = await ev(`(() => { const m = document.querySelector('#modal:not([hidden]) .sheet'); return m ? [m.scrollHeight, m.clientHeight] : [document.documentElement.scrollHeight, window.innerHeight]; })()`); ok(r[0] <= r[1] + 2, `fits without scrolling: ${where} (${r[0]}px of ${r[1]}px)`); };
 ok(await ev(`!!document.querySelector('.title h1') && document.title === 'Balance'`), 'title screen renders');
-await shot('01-title'); await noHScroll('title');
+await shot('01-title'); await noHScroll('title'); await noVScroll('title');
 
 // new run, pick 2 heroes
 await click('[data-act=new-run]'); await sleep(200);
 const picks = await ev(`[...document.querySelectorAll('[data-act=start-pick]')].length`);
 ok(picks === 3, 'start offers 3 heroes side by side');
 await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`);
-await shot('02-start'); await noHScroll('start');
+await shot('02-start'); await noHScroll('start'); await noVScroll('start');
 ok(await click('[data-act=start-go]'), 'start run');
 await sleep(200);
 ok(await ev(`document.querySelectorAll('[data-act=choose]').length`) === 2, 'first map step shows 2 options');
-await shot('03-map'); await noHScroll('map');
+await shot('03-map'); await noHScroll('map'); await noVScroll('map');
 
 let fightsSeen = 0, sawSmooth = false, sawShop = false, sawEvent = false, sawLevel = false, sawBoss = 0, steps = 0;
 while (steps++ < 80) {
@@ -70,23 +72,23 @@ while (steps++ < 80) {
     if (await ev(`!!document.querySelector('form[data-form=gauntlet]')`)) { if (REMOTE) break; await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(800); continue; }
     await click('[data-act=to-duel]'); await sleep(150); continue;
   }
-  if (await ev(`!!document.querySelector('[data-act=result-ok]')`)) { if (fightsSeen === 1) await shot('06-result'); await click('[data-act=result-ok]'); await sleep(100); continue; }
+  if (await ev(`!!document.querySelector('[data-act=result-ok]')`)) { if (fightsSeen === 1) { await shot('06-result'); await noVScroll('result'); } await click('[data-act=result-ok]'); await sleep(100); continue; }
   if (st.phase === 'over') break;
-  if (await ev(`!!document.querySelector('[data-act=spec]')`)) { if (!sawLevel) { await shot('07-levelup'); sawLevel = true; } await click('[data-act=spec]'); await sleep(80); continue; }
+  if (await ev(`!!document.querySelector('[data-act=spec]')`)) { if (!sawLevel) { await shot('07-levelup'); await noVScroll('level up'); sawLevel = true; } await click('[data-act=spec]'); await sleep(80); continue; }
   if (st.phase === 'map') {
     // prefer medium fights and shops so the run goes the distance
     await ev(`(() => { const b = [...document.querySelectorAll('[data-act=choose]')]; const pref = b.find(x => /Item Shop|Hero Shop|Medium|Easy/.test(x.textContent)) || b[0]; pref.click(); })()`);
     await sleep(120); continue;
   }
   if (st.phase === 'shop') {
-    if (!sawShop) { await shot('08-shop'); await noHScroll('shop'); sawShop = true; }
+    if (!sawShop) { await shot('08-shop'); await noHScroll('shop'); await noVScroll('shop'); sawShop = true; }
     await ev(`[...document.querySelectorAll('[data-act=buy]')].forEach(b => { if (!b.disabled) b.click(); })`);
     await sleep(80);
     if (!globalThis.__teamShot && await ev(`__bal.run.bag.length > 0`)) {
       globalThis.__teamShot = 1;
       await ev(`document.querySelector('[data-act=team]').click(); document.querySelector('[data-act=bag]').click()`); await sleep(150);
       ok(await ev(`(() => { const c = document.querySelectorAll('.equip .eqcol'); return c.length === 2 && !!c[0].querySelector('.eqitem') && !!c[1].querySelector('.eqhero') && c[0].getBoundingClientRect().left < c[1].getBoundingClientRect().left; })()`), 'equip sheet: items on the left, heroes on the right');
-      await shot('08b-team'); await noHScroll('team sheet'); await click('[data-act=close]'); await sleep(100);
+      await shot('08b-team'); await noHScroll('team sheet'); await noVScroll('team sheet'); await click('[data-act=close]'); await sleep(100);
     }
     // equip everything through the Team sheet
     for (let k = 0; k < 6; k++) {
@@ -96,14 +98,14 @@ while (steps++ < 80) {
     await click('[data-act=leave]'); await sleep(100); continue;
   }
   if (st.phase === 'event') {
-    if (!sawEvent) { await shot('09-event'); sawEvent = true; }
+    if (!sawEvent) { await shot('09-event'); await noVScroll('event'); sawEvent = true; }
     if (!(await click('[data-act=event]:not([disabled])'))) await ev(`document.querySelectorAll('[data-act=event]')[1]?.click()`);
     await sleep(80); await click('[data-act=leave]'); await sleep(80); continue;
   }
   if (st.phase === 'deploy' && !st.battle) {
     fightsSeen++;
     if (fightsSeen === 1) {
-      await shot('04-deploy'); await noHScroll('deploy');
+      await shot('04-deploy'); await noHScroll('deploy'); await noVScroll('deploy');
       // drag a hero to another blue hex with real pointer events
       const moved = await ev(`(async () => {
         const cv = document.querySelector('#board'), h = __bal.run.heroes[0], tgt = { c: h.pos.c === 0 ? 1 : 0, r: 6 };
@@ -121,7 +123,7 @@ while (steps++ < 80) {
         sawSmooth = await ev(`(() => { const b = __bal.battle; if (!b) return false; const W = b.W, T = W.t + b.acc / 50; return W.units.some(u => !u.dead && u.m1t > T && u.m0t < T && (u.fc !== u.c || u.fr !== u.r)); })()`);
         await sleep(60);
       }
-      await sleep(900); await shot('05-battle'); await noHScroll('battle');
+      await sleep(900); await shot('05-battle'); await noHScroll('battle'); await noVScroll('battle');
     }
     await click('[data-act=skip]');
     for (let k = 0; k < 60 && (await ev('!!__bal.battle')); k++) await sleep(100);
@@ -152,7 +154,7 @@ if (!REMOTE) {
   await shot('16-gauntlet-intro');
   await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(900);
   ok(await ev(`__bal.run.g.status === 'match' && document.querySelector('.opp').textContent.includes('Rival')`), 'gauntlet round 1: a card shows the stored rival team');
-  await shot('17-gauntlet-opponent'); await noHScroll('gauntlet card');
+  await shot('17-gauntlet-opponent'); await noHScroll('gauntlet card'); await noVScroll('gauntlet card');
   await click('[data-act=to-duel]'); await sleep(300);
   ok(await ev(`/Rival/.test(document.querySelector('.bhead').textContent) && __bal.run.cur.type === 'gauntlet'`), 'duel deploy screen');
   await shot('18-gauntlet-deploy');
