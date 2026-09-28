@@ -115,6 +115,12 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v7 (2026-09-28), lote 5 do David** ("the gauntlet isn't working"): ele era coroado sem lutar porque não havia
+  time salvo de outro jogador. Agora, enquanto nenhum time de jogador perdeu um duelo, a rodada 1 é contra uma
+  "companhia" aleatória crível (mesmo tamanho, nível e nº de itens do time dele; `pid 'bot'`, `status 'bot'`); depois
+  da 1ª derrota de um jogador, só times reais (primeiro de outros jogadores, depois os próprios mais antigos). Bug
+  achado pelo teste: chamada sem nome trocava o nome do jogador por "Player xxxx". As 2 coroas automáticas do David
+  (Gauntlet vazio) foram zeradas no banco.
 - **v6 (2026-09-28), lotes 3 e 4 do David**: sem corações (perdeu uma luta = fim da run = derrota de Elo contra
   Elo−200). Depois do Onslaught vem o Gauntlet: o time é salvo e duela contra times salvos; a rodada k enfrenta um
   time cujo Gauntlet terminou com k vitórias (ou o mais próximo acima); derrota encerra; se ninguém chegou tão longe,
