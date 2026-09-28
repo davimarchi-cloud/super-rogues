@@ -54,7 +54,7 @@ await shot('01-title'); await noHScroll('title');
 // new run, pick 2 heroes
 await click('[data-act=new-run]'); await sleep(200);
 const picks = await ev(`[...document.querySelectorAll('[data-act=start-pick]')].length`);
-ok(picks === 4, 'start offers 4 heroes');
+ok(picks === 3, 'start offers 3 heroes side by side');
 await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`);
 await shot('02-start'); await noHScroll('start');
 ok(await click('[data-act=start-go]'), 'start run');
@@ -96,9 +96,9 @@ while (steps++ < 80) {
       await shot('04-deploy'); await noHScroll('deploy');
       // drag a hero to another blue hex with real pointer events
       const moved = await ev(`(async () => {
-        const cv = document.querySelector('#board'), r = cv.getBoundingClientRect(), h = __bal.run.heroes[0], size = r.width / (Math.sqrt(3) * 8.5);
-        const a = B.Hex.px(h.pos.c, h.pos.r, size), tgt = { c: h.pos.c === 0 ? 1 : 0, r: 6 }, b = B.Hex.px(tgt.c, tgt.r, size);
-        const fire = (type, p) => cv.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: r.left + p.x, clientY: r.top + p.y, pointerId: 1 }));
+        const cv = document.querySelector('#board'), h = __bal.run.heroes[0], tgt = { c: h.pos.c === 0 ? 1 : 0, r: 6 };
+        const a = __bal.hexScreen(h.pos.c, h.pos.r), b = __bal.hexScreen(tgt.c, tgt.r);
+        const fire = (type, p) => cv.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: p.x, clientY: p.y, pointerId: 1 }));
         fire('pointerdown', a); fire('pointermove', b); fire('pointerup', b);
         return __bal.run.heroes[0].pos.c === tgt.c && __bal.run.heroes[0].pos.r === tgt.r; })()`);
       ok(moved, 'drag a hero to a new hex while deploying');

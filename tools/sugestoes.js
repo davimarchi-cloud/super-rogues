@@ -2,6 +2,7 @@
 //   node tools/sugestoes.js                    pending (new + doing), full text, oldest first
 //   node tools/sugestoes.js todas              last 40, any status
 //   node tools/sugestoes.js lendo 3 4          mark as "doing" (players see "in progress")
+//   node tools/sugestoes.js espera 5 6         hold for the owner's OK (players see "awaiting owner's OK"); vigia ignores it
 //   node tools/sugestoes.js feito 3 "reply"    mark done with a public reply (also stamps lastRun)
 //   node tools/sugestoes.js recusa 4 "reason"  decline with a public reason
 //   node tools/sugestoes.js status             watcher heartbeat, pause flag, last delivery
@@ -13,9 +14,17 @@ const fmt = ms => new Date(Number(ms)).toLocaleString('pt-BR');
   for (const s of SCHEMA) await q(s);
   if (!cmd || cmd === 'todas') {
     const rows = cmd ? await q('select * from suggestions order by id desc limit 40')
-      : await q("select * from suggestions where status in ('new','doing') order by id asc");
+      : await q("select * from suggestions where status in ('new','doing','held') order by id asc");
     if (!rows.length) { console.log(cmd ? 'Nenhuma sugestão.' : 'Nenhuma sugestão pendente.'); return; }
-    for (const r of rows) console.log(`#${r.id} [${r.status}] ${r.name || 'anon'} · ${fmt(r.created)}\n${r.text}${r.reply ? '\n  -> ' + r.reply : ''}\n`);
+    let last = null;
+    for (const r of rows) {
+      const b = Number(r.batch || r.id);
+      if (b !== last) { console.log(`=== lote ${b} · ${r.name || 'anon'} · ${fmt(r.created)}`); last = b; }
+      console.log(`#${r.id} [${r.status}]\n${r.text}${r.reply ? '\n  -> ' + r.reply : ''}\n`);
+    }
+  } else if (cmd === 'espera') {
+    for (const id of args) await q("update suggestions set status='held', updated=$2 where id=$1", [+id, Date.now()]);
+    console.log('esperando o dono:', args.join(', '));
   } else if (cmd === 'lendo') {
     for (const id of args) await q("update suggestions set status='doing', updated=$2 where id=$1", [+id, Date.now()]);
     console.log('em andamento:', args.join(', '));

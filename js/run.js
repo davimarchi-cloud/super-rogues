@@ -17,7 +17,7 @@
   function newRun(seed) {
     const run = { v: 1, seed: seed >>> 0, rs: seed | 0, hearts: C.hearts, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
       step: -1, fightNo: 0, phase: 'start', opts: [], cur: null, pending: [], curse: 0, log: [], won: 0, lost: 0, score: 0, startOffer: [] };
-    run.startOffer = pickN(run, Object.keys(B.HEROES), 4);
+    run.startOffer = pickN(run, Object.keys(B.HEROES), 3);
     return run;
   }
   function addHero(run, key) {

@@ -20,6 +20,8 @@
     wall: 'Shield Wall: shields nearby allies.', curse: 'Curse: damages, silences and slows.', slam: 'Slam: stuns everything adjacent.',
     imps: 'Summons two imps.', cleave: 'Cleave: hits and stuns everything adjacent.', nova: 'Void Nova: stuns everything within 2 hexes.',
   };
+  const por = (key, px = 44, full) => B.Models.portrait(key === 'clone' ? 'mirage' : key, px, !full);
+  const img = (key, px, cls = 'por') => `<img class="${cls}" src="${por(key, px)}" alt="">`;
   const TIER_COLOR = { common: '#b8c0cc', rare: '#5fa8ff', epic: '#c77dff' };
   const NODE_ICON = { F: '⚔', X: '?', B: '☠', S: '🛒', O: '∞' };
   const SHOP_NAME = { heroShop: 'Hero Shop', itemShop: 'Item Shop', relicShop: 'Relic Shop' };
@@ -34,7 +36,7 @@
     }
     const stepN = Math.max(0, run.step);
     h.innerHTML = `<span class="hearts">${'♥'.repeat(Math.max(0, run.hearts))}<i>${'♥'.repeat(Math.max(0, CFG.hearts - run.hearts))}</i></span>
-      <span class="gold">💰 ${run.gold}</span><span class="prog">${stepN < CFG.seq.length - 1 ? 'Stage ' + (stepN + 1) + '/' + CFG.seq.length : 'Onslaught'}</span>
+      <span class="gold">💰 ${run.gold}</span><span class="prog">${stepN < CFG.seq.length - 1 ? 'Day ' + (stepN + 1) + '/' + CFG.seq.length : 'Onslaught'}</span>
       <span class="grow"></span>${battle ? '' : '<button data-act="team">Team</button>'}<button data-act="suggest" class="sugg">💡</button><button data-act="menu">☰</button>`;
   }
 
@@ -57,7 +59,7 @@
   function titleHTML() {
     const has = run && run.phase !== 'over';
     return `<section class="title">
-      <h1>Balance</h1>
+      <h1 class="sc">Balance</h1>
       <p class="tag">Pick heroes. Deploy them on the hex board. Watch them fight.<br>Beat two bosses, then survive the endless Onslaught.</p>
       <div class="stack">
         ${has ? '<button class="primary big" data-act="continue-run">Continue run</button>' : ''}
@@ -73,14 +75,20 @@
   function heroCard(key, extra = '') {
     const h = HEROES[key];
     return `<div class="hcard">
-      <div class="hrow"><span class="disc" style="background:${h.color}">${h.glyph}</span><b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
+      <div class="hrow">${img(key, 48)}<b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
       <div class="small">HP ${h.hp} · ATK ${h.atk} · ARM ${h.armor} · AS ${h.as} · RNG ${h.range}</div>
       <div class="abil"><b>${esc(h.abName)}</b>: ${esc(h.abDesc)}</div>${extra}</div>`;
   }
   function startHTML() {
-    return `<section><h2>Choose 2 starting heroes</h2>
-      <div class="grid">${run.startOffer.map(k => `<button class="card pick ${ui.startPick.includes(k) ? 'on' : ''}" data-act="start-pick" data-arg="${k}">${heroCard(k)}</button>`).join('')}</div>
-      <div class="bar"><button class="primary big" data-act="start-go" ${ui.startPick.length === 2 ? '' : 'disabled'}>Start run (${ui.startPick.length}/2)</button></div></section>`;
+    const f = run.startOffer.includes(ui.focus) ? ui.focus : run.startOffer[0], h = HEROES[f], n = ui.startPick.length;
+    return `<section class="start"><h2 class="sc">Choose your champions</h2><p class="hint center">Pick 2. Tap a banner to read it.</p>
+      <div class="hbanners">${run.startOffer.map(k => { const d = HEROES[k], on = ui.startPick.includes(k);
+        return `<button class="hbanner ${on ? 'on' : ''} ${k === f ? 'focus' : ''}" data-act="start-pick" data-arg="${k}" style="--cloth:${d.color}">
+          <span class="rod"></span><img src="${por(k, 120, true)}" alt=""><b>${esc(d.name)}</b><i>${d.role}</i>${on ? '<span class="chk">✓</span>' : ''}</button>`; }).join('')}</div>
+      <div class="card detail"><div class="hrow">${img(f, 48)}<b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
+        <div class="small">HP ${h.hp} · ATK ${h.atk} · ARM ${h.armor} · MR ${h.mr} · AS ${h.as} · RNG ${h.range}</div>
+        <div class="abil"><b>${esc(h.abName)}</b>: ${esc(h.abDesc)}</div></div>
+      <div class="bar"><button class="primary big" data-act="start-go" ${n === 2 ? '' : 'disabled'}>Begin the journey (${n}/2)</button></div></section>`;
   }
 
   function trackHTML() {
@@ -89,22 +97,26 @@
   function enemyList(f) {
     const cnt = {};
     for (const e of f.enemies) { const k = e.key + (e.elite ? '*' : ''); cnt[k] = (cnt[k] || 0) + 1; }
-    return Object.keys(cnt).map(k => { const key = k.replace('*', ''), m = B.MOBS[key] || B.BOSSES[key]; return `<span class="en ${k.endsWith('*') ? 'elite' : ''}">${m.glyph} ${esc(m.name)}${cnt[k] > 1 ? ' ×' + cnt[k] : ''}${k.endsWith('*') ? ' ★' : ''}</span>`; }).join(' ');
+    return Object.keys(cnt).map(k => { const key = k.replace('*', ''), m = B.MOBS[key] || B.BOSSES[key]; return `<span class="en ${k.endsWith('*') ? 'elite' : ''}">${img(key, 22, 'por sm')}${esc(m.name)}${cnt[k] > 1 ? ' ×' + cnt[k] : ''}${k.endsWith('*') ? ' ★' : ''}</span>`; }).join(' ');
+  }
+  function bannerHTML(i, kind, emblem, title, body, reward) {
+    return `<button class="banner b-${kind}" data-act="choose" data-arg="${i}"><span class="rod"></span><span class="emb">${emblem}</span>
+      <span class="bt">${title}</span><span class="bd">${body}</span>${reward ? `<span class="rw">${reward}</span>` : ''}</button>`;
   }
   function optHTML(o, i) {
     if (o.type === 'fight') {
-      if (o.diff === 'boss') { const b = o.enemies.map(e => B.BOSSES[e.key]).find(Boolean); return `<button class="card opt boss" data-act="choose" data-arg="${i}"><div class="ctitle">☠ BOSS: ${esc(b.name)}</div><div class="small">${esc(b.desc)}</div><div class="ens">${enemyList(o)}</div><div class="reward">+${o.gold} gold</div></button>`; }
-      return `<button class="card opt ${o.diff}" data-act="choose" data-arg="${i}"><div class="ctitle">⚔ ${B.DIFF[o.diff].name} fight</div><div class="ens">${enemyList(o)}</div><div class="reward">+${o.gold} gold${o.enemies.some(e => e.elite) ? ' · ★ elite' : ''}</div></button>`;
+      if (o.diff === 'boss') { const b = o.enemies.map(e => B.BOSSES[e.key]).find(Boolean); return bannerHTML(i, 'boss', img(b.key, 72, 'por emb-img'), esc(b.name), `<span class="small">${esc(b.desc)}</span><span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold'); }
+      return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔⚔' : '⚔', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold' + (o.enemies.some(e => e.elite) ? ' · ★ elite' : ''));
     }
-    if (o.type === 'shop') return `<button class="card opt shop" data-act="choose" data-arg="${i}"><div class="ctitle">🛒 ${SHOP_NAME[o.kind]}${o.final ? ' (last shop)' : ''}</div><div class="small">${SHOP_DESC[o.kind]}</div></button>`;
-    if (o.type === 'event') return `<button class="card opt event" data-act="choose" data-arg="${i}"><div class="ctitle">❓ Event: ${esc(EVENT[o.id].name)}</div><div class="small">${esc(EVENT[o.id].text)}</div></button>`;
-    if (o.type === 'onslaught') return `<button class="card opt boss" data-act="choose" data-arg="${i}"><div class="ctitle">∞ The Onslaught</div><div class="small">Endless waves spawn on the top row every ${CFG.waveEvery}s and keep getting stronger. 1 point per kill. Your run score is your kills.</div></button>`;
+    if (o.type === 'shop') return bannerHTML(i, 'shop', o.kind === 'heroShop' ? '♞' : o.kind === 'itemShop' ? '⚒' : '◆', SHOP_NAME[o.kind] + (o.final ? ' (last)' : ''), `<span class="small">${SHOP_DESC[o.kind]}</span>`);
+    if (o.type === 'event') return bannerHTML(i, 'event', '?', esc(EVENT[o.id].name), `<span class="small">${esc(EVENT[o.id].text)}</span>`);
+    if (o.type === 'onslaught') return bannerHTML(i, 'boss', '∞', 'The Onslaught', `<span class="small">Endless waves spawn on the top row every ${CFG.waveEvery}s and keep getting stronger. 1 point per kill. Your run score is your kills.</span>`);
     return '';
   }
   function mapHTML() {
     const t = CFG.seq[run.step];
     const title = t === 'B' ? 'A boss blocks the way' : t === 'S' ? 'One last shop' : t === 'O' ? 'The final stand' : 'Choose your path';
-    return `<section>${trackHTML()}<h2>${title}</h2><div class="opts">${run.opts.map(optHTML).join('')}</div>
+    return `<section>${trackHTML()}<h2 class="sc">Day ${run.step + 1} · ${title}</h2><div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
       <p class="hint">${run.heroes.length} hero${run.heroes.length > 1 ? 'es' : ''} · ${run.bag.length} item${run.bag.length === 1 ? '' : 's'} in bag${run.bag.length ? ' (<a href="#" data-act="team">equip them</a>)' : ''}</p></section>`;
   }
 
@@ -112,7 +124,7 @@
     const p = run.pending[0], h = run.heroes.find(x => x.uid === p.uid), d = HEROES[h.key];
     const pair = d.specs[p.lvl - 2];
     return `<section><h2>Level up!</h2>
-      <div class="hrow big"><span class="disc" style="background:${d.color}">${d.glyph}</span><b>${esc(d.name)}</b> reached <b>Lv ${p.lvl}</b></div>
+      <div class="hrow big">${img(h.key, 64)}<b>${esc(d.name)}</b> reached <b>Lv ${p.lvl}</b></div>
       <p class="small">+15% HP and attack, +10 ability power, +4 armor and MR${p.lvl >= 3 ? ', <b>+1 item slot</b>' : ''}.</p>
       <h3>Choose a specialization</h3>
       <div class="opts">${pair.map((s, i) => `<button class="card opt" data-act="spec" data-arg="${i}"><div class="ctitle">${esc(s.name)}</div><div class="small">${esc(s.desc)}</div></button>`).join('')}</div></section>`;
@@ -185,7 +197,7 @@
     const u = W.byId[ui.info]; if (!u) return '';
     const hd = HEROES[u.key];
     const abil = hd ? `<b>${esc(hd.abName)}</b>: ${esc(hd.abDesc)}` : u.boss ? esc(B.BOSSES[u.key].desc) : u.abil ? esc(MOB_ABIL[u.abil] || '') : u.fl.has('dive') ? 'Leaps to your back line at the start.' : u.kind === 'summon' ? 'Summoned unit.' : 'No special ability.';
-    return `<div class="hrow"><span class="disc" style="background:${u.side ? '#8c3a3a' : u.color}">${u.glyph}</span><b>${esc(u.name)}</b>${u.kind === 'hero' ? ' Lv ' + u.lvl : ''}${u.elite ? ' <span class="elite">★ elite</span>' : ''}</div>
+    return `<div class="hrow">${img(u.key, 40)}<b>${esc(u.name)}</b>${u.kind === 'hero' ? ' Lv ' + u.lvl : ''}${u.elite ? ' <span class="elite">★ elite</span>' : ''}</div>
       <div class="small">HP ${Math.max(0, Math.round(u.hp))}/${u.maxHp} · ATK ${Math.round(Sim.atkOf(W, u))} · AP ${Math.round(u.ap)} · ARM ${Math.round(u.armor)} · MR ${Math.round(u.mr)} · AS ${Sim.asOf(W, u).toFixed(2)} · RNG ${u.range}${u.crit ? ' · CRIT ' + Math.round(u.crit * 100) + '%' : ''}${u.dodge ? ' · DODGE ' + Math.round(u.dodge * 100) + '%' : ''}</div>
       <div class="small">${abil}</div>`;
   }
@@ -198,16 +210,17 @@
     if (screen !== 'battle') { preview = run.cur && run.cur.type === 'onslaught' ? Run.onslaughtWorld(run, true) : Run.fightWorld(run, true); drawPreview(); }
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', () => { ui.drag = null; drawPreview(); });
   }
-  function drawPreview(extra) { if (view && preview && screen !== 'battle') Render.draw(view, preview, 0, Object.assign({ deploy: true, sel: ui.selUid }, extra || {})); }
+  function drawPreview(extra) { if (view && preview && screen !== 'battle') Render.draw(view, preview, performance.now() / 50, Object.assign({ deploy: true, sel: ui.selUid }, extra || {})); }
+  (function idle() { if (screen !== 'battle' && preview && document.querySelector('#board') && !ui.drag) drawPreview(); requestAnimationFrame(idle); })();
   function evHex(e) { const r = view.canvas.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top; return { x, y, h: Render.hexAt(view, x, y) }; }
   function unitAt(W, h) { return h && W ? W.units.find(u => !u.dead && u.c === h.c && u.r === h.r) : null; }
   function onDown(e) {
     const { h } = evHex(e); const W = battle ? battle.W : preview; const u = unitAt(W, h);
     if (u) { ui.info = u.id; const el = $('#info'); if (el) el.innerHTML = infoHTML(); }
     if (battle || !h) return;
-    if (u && u.side === 0 && u.uid) { ui.drag = { uid: u.uid, from: h, glyph: u.glyph }; view.canvas.setPointerCapture(e.pointerId); }
+    if (u && u.side === 0 && u.uid) { ui.drag = { uid: u.uid, from: h, key: u.key }; view.canvas.setPointerCapture(e.pointerId); }
   }
-  function onMove(e) { if (!ui.drag || battle) return; const { x, y, h } = evHex(e); drawPreview({ drop: h && h.r >= 4 ? h : null, dragGhost: { x, y, glyph: ui.drag.glyph } }); }
+  function onMove(e) { if (!ui.drag || battle) return; const { x, y, h } = evHex(e); drawPreview({ drop: h && h.r >= 4 ? h : null, dragGhost: { x, y, key: ui.drag.key } }); }
   function onUp(e) {
     if (battle) return;
     const { h } = evHex(e); const d = ui.drag; ui.drag = null;
@@ -274,7 +287,7 @@
           : `<button class="chip empty ${ui.selBag >= 0 ? 'hot' : ''}" data-act="equip" data-arg="${h.uid}">${ui.selBag >= 0 ? 'Equip here' : 'empty slot'}</button>`);
       }
       return `<div class="hero">
-        <div class="hrow"><span class="disc" style="background:${d.color}">${d.glyph}</span><b>${esc(d.name)}</b> <span class="role">${d.role}</span> <span class="lv">Lv ${h.lvl}</span>
+        <div class="hrow">${img(h.key, 48)}<b>${esc(d.name)}</b> <span class="role">${d.role}</span> <span class="lv">Lv ${h.lvl}</span>
           <span class="xp">${next ? 'XP ' + h.xp + '/' + next : 'MAX'}</span></div>
         <div class="small">HP ${Math.round(def.hp)} · ATK ${Math.round(def.atk)} · AP ${Math.round(def.ap)} · ARM ${Math.round(def.armor)} · MR ${Math.round(def.mr)} · AS ${def.as.toFixed(2)} · RNG ${def.range}${def.crit ? ' · CRIT ' + Math.round(def.crit * 100) + '%' : ''}</div>
         <div class="small"><b>${esc(d.abName)}</b>: ${esc(d.abDesc)}</div>
@@ -307,14 +320,14 @@
       : '⚪ Reviewer offline right now. Your list waits in the queue and is reviewed when it is back.';
     return `<div class="review ${online && !r.paused ? 'on' : ''}">${main}${r.lastRun ? ` <span class="dim">Last update shipped ${ago(r.lastRun, r.now)}.</span>` : ''}</div>`;
   }
-  const STATUS = { new: 'queued', doing: 'in progress', done: 'done ✓', declined: 'declined' };
+  const STATUS = { new: 'queued', doing: 'in progress', held: "awaiting owner's OK", done: 'done ✓', declined: 'declined' };
   function queueHTML(list) {
     if (!list.length) return '<p class="dim small">Nothing yet. Be the first!</p>';
     const groups = [], by = {};
     for (const s of list) { if (!by[s.batch]) { by[s.batch] = []; groups.push(s.batch); } by[s.batch].push(s); }
     return groups.map(b => {
       const items = by[b].sort((x, y) => x.id - y.id), f = items[0];
-      const st = items.some(x => x.status === 'doing') ? 'doing' : items.some(x => x.status === 'new') ? 'new' : 'done';
+      const st = items.some(x => x.status === 'doing') ? 'doing' : items.some(x => x.status === 'new') ? 'new' : items.some(x => x.status === 'held') ? 'held' : 'done';
       return `<div class="batch"><div class="row"><b>Review #${b}</b><span class="dim small">${esc(f.name || 'anonymous')} · ${new Date(f.created).toLocaleDateString()} · ${items.length} change${items.length > 1 ? 's' : ''}</span><span class="st ${st}">${STATUS[st]}</span></div>
         ${items.map(s => `<div class="sug ${s.status}"><div class="row"><span class="dim small">#${s.id}</span><span class="st">${STATUS[s.status] || esc(s.status)}</span></div><div class="txt">${esc(s.text)}</div>${s.reply ? `<div class="reply">🤖 ${esc(s.reply)}</div>` : ''}</div>`).join('')}</div>`;
     }).join('');
@@ -371,7 +384,7 @@
     openModal('<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="dim">Loading…</p>');
     try {
       const d = await Net.get('scores');
-      const rows = d.top.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.name)}</td><td><b>${s.score}</b></td><td>${s.wave}</td><td>${s.heroes.map(k => HEROES[k] ? HEROES[k].glyph : '').join('')}</td></tr>`).join('');
+      const rows = d.top.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.name)}</td><td><b>${s.score}</b></td><td>${s.wave}</td><td class="team">${s.heroes.filter(k => HEROES[k]).map(k => img(k, 24, 'por sm')).join('')}</td></tr>`).join('');
       if (ui.modal) openModal(`<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="dim small">Onslaught kills.</p>
         ${rows ? `<table class="tbl"><tr><th>#</th><th>Name</th><th>Kills</th><th>Wave</th><th>Team</th></tr>${rows}</table>` : '<p class="dim">No scores yet.</p>'}`);
     } catch (e) { if (ui.modal) openModal(`<div class="shead"><b>🏆 Leaderboard</b><button data-act="close">✕</button></div><p class="err">${esc(e.message)}</p>`); }
@@ -399,7 +412,7 @@
     let cls = '', html = '';
     if (p && p.state === 'waiting') {
       cls = 'wait';
-      const where = p.working ? `Claude is working on your review #${p.batch}<span class="dots"></span>`
+      const where = p.held ? `Review #${p.batch} is waiting for the owner's OK<span class="dots"></span>` : p.working ? `Claude is working on your review #${p.batch}<span class="dots"></span>`
         : p.ahead ? `Review #${p.batch} is queued, ${p.ahead} ahead of yours<span class="dots"></span>`
         : `Review #${p.batch} sent. Waiting for Claude<span class="dots"></span>`;
       html = `⏳ ${where}${p.offline && !p.working ? ' <span class="dim">(reviewer offline, it will start when back)</span>' : ''}<span class="nx">details</span>`;
@@ -427,7 +440,7 @@
           Object.assign(p, { state: 'ready', done: items.filter(i => i.status === 'done').length, declined: items.filter(i => i.status === 'declined').length, readyAt: Date.now() });
           store.set(PEND, p); nt.lastRun = d.review.lastRun;
         } else {
-          Object.assign(p, { ahead: d.ahead, working: items.some(i => i.status === 'doing'), offline: !(d.review.seen && d.review.now - d.review.seen < 3 * 60e3) });
+          Object.assign(p, { ahead: d.ahead, working: items.some(i => i.status === 'doing'), held: !items.some(i => i.status === 'doing' || i.status === 'new') && items.some(i => i.status === 'held'), offline: !(d.review.seen && d.review.now - d.review.seen < 3 * 60e3) });
           store.set(PEND, p);
         }
         if (nt.lastRun == null) nt.lastRun = d.review.lastRun;
@@ -466,7 +479,7 @@
     'continue-run': () => { screen = 'run'; render(); },
     menu: () => { if (battle) return; screen = 'title'; closeModal(); render(); },
     howto: () => openModal(HOWTO),
-    'start-pick': k => { const i = ui.startPick.indexOf(k); if (i >= 0) ui.startPick.splice(i, 1); else if (ui.startPick.length < 2) ui.startPick.push(k); render(); },
+    'start-pick': k => { const i = ui.startPick.indexOf(k); ui.focus = k; if (i >= 0) ui.startPick.splice(i, 1); else if (ui.startPick.length < 2) ui.startPick.push(k); render(); },
     'start-go': () => { if (ui.startPick.length !== 2) return; Run.pickStart(run, ui.startPick); save(); render(); },
     choose: i => { Run.choose(run, +i); ui.info = null; save(); render(); window.scrollTo(0, 0); },
     spec: i => { Run.chooseSpec(run, +i); save(); render(); },
@@ -524,5 +537,5 @@
   render();
   bootNotice();
   // test hook (headless Chrome tests drive the game through this)
-  window.__bal = { get run() { return run; }, get battle() { return battle; }, ACT, render, skipBattle, poll };
+  window.__bal = { get run() { return run; }, get battle() { return battle; }, ACT, render, skipBattle, poll, hexScreen: (c, r) => { const b = view.canvas.getBoundingClientRect(), p = Render.hexScreen(view, c, r); return { x: b.left + p.x, y: b.top + p.y }; } };
 })();

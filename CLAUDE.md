@@ -10,6 +10,12 @@ implemento, testo, publico e respondo sozinho. **Aprovação 100% automática** 
 consigam ter autonomia nas mudanças de forma 100% aprovada", "não preciso dar ok em todas as alterações"). Ele NÃO
 revisa nada antes: a página da pessoa espera e avisa "Your changes are ready! Press F5" quando está no ar.
 
+**Quem pode mudar sem perguntar (dono, 2026-09-28, 3ª regra, vale sobre a de cima):** "Manda bala em tudo que ele
+pedir, se outra pessoa pedir aí você me avise". "Ele" = **David** (nome no envio; o lote 1 foi dele). Envio do David:
+fazer tudo direto. Envio de QUALQUER outro nome: `node tools/sugestoes.js espera <ids>` (a pessoa vê "awaiting
+owner's OK", o vigia ignora), avisar o dono (PushNotification + mensagem com o que foi pedido) e só fazer depois que
+ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo algo muito fora do estilo dele, perguntar.
+
 - No ar: ver `tools/publicacoes.log` (última linha) e o domínio de produção do projeto `balance` na Vercel.
 - Texto do jogo em **inglês** (o briefing veio em inglês e o público é externo). Conversa com o dono em português.
 - Demo: arte é placeholder (disco colorido + emoji), UI simples, mas tudo funciona. Largura, depois balanceamento.
@@ -22,7 +28,8 @@ revisa nada antes: a página da pessoa espera e avisa "Your changes are ready! P
 | `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós), 12 heróis (habilidade + 4 pares de spec), 58 itens, 24 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
 | `js/sim.js` | motor de combate puro e determinístico (20 ticks/s). Roda no navegador e no Node |
 | `js/run.js` | máquina de estados da run (mapa, lutas, lojas, eventos, XP, itens). JSON puro, salvo no localStorage |
-| `js/render.js` | canvas: tabuleiro, unidades, barras, efeitos. Interpola posição entre hexes |
+| `js/models.js` | modelos 2.5D desenhados em código (humanoide, fera, bomba, golem, serpente, espectro, torre) com poses parado/andando/ataque/habilidade/morte; `portrait()` gera os retratos dos menus |
+| `js/render.js` | canvas 2.5D: tabuleiro achatado (K=0.6) com espessura, unidades pelos modelos, barras, efeitos. Interpola posição entre hexes |
 | `js/ui.js` | telas DOM + loop da batalha. Sem handler inline (CSP): todo botão tem `data-act` |
 | `js/net.js` | cliente JSON de `/api` |
 | `api/suggest.js` | GET fila pública (agrupada por envio) + status do revisor; POST `{items: [...até 10], name}` = 1 envio (lote). Limite por IP: 3 envios/10 min, 12 envios e 40 mudanças/dia; fila máx 300 |
@@ -31,7 +38,7 @@ revisa nada antes: a página da pessoa espera e avisa "Your changes are ready! P
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma` |
 | `tools/sim-run.js`, `tools/boss-matrix.js` | robô joga runs inteiras / todos os 220 times de 3 contra os 2 chefes |
-| `tools/tests/` | `motor.js` (203), `api.js` (19), `telas.mjs` (Chrome de verdade, run inteira no tamanho de celular) |
+| `tools/tests/` | `motor.js` (203), `api.js` (22), `telas.mjs` (Chrome de verdade, run inteira no tamanho de celular), `galeria.mjs` (foto de todos os modelos em 4 poses) |
 
 ## Regras do jogo que vieram do briefing (ponto de partida: os jogadores podem mudar qualquer uma)
 
@@ -106,6 +113,10 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v4 (2026-09-28), lote 1 do David**: unidades 2.5D com modelo e animação próprios (parado, andar, ataque, habilidade,
+  morte) no lugar dos emojis; retratos nos menus; escolhas do dia viraram estandartes de pano com textura gasta (SVG de
+  ruído em CSS, sem imagem externa); início com 3 heróis lado a lado estilo Dark Souls (escolhe 2 de 3; antes 2 de 4);
+  "Stage" virou "Day". Status `held` (espera o ok do dono) para envio de quem não é o David.
 - **v3 (2026-09-28)**: barra no topo que acompanha a revisão de quem enviou (na fila / Claude trabalhando / "ready,
   press F5") e mostra o que entrou depois do F5; aviso "game was just updated" para os outros; aprovação 100%
   automática. Testes: api 22, Chrome 31 (o `dev-server` tem `/__dev/resolve` e `/__dev/ship` para simular a minha parte).
