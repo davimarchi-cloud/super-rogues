@@ -12,6 +12,7 @@ const OUT = path.join(AQUI, '.saida') + path.sep;
 fs.mkdirSync(OUT, { recursive: true });
 const PORT = 3791, CDP = 9431;
 const BASE = process.argv[2] || `http://localhost:${PORT}`;
+const REMOTE = !!process.argv[2]; // against the live site: play, but never write to the public queue/leaderboard
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0, oks = 0;
 const ok = (c, msg) => { if (c) oks++; else fails++; console.log((c ? 'OK   ' : 'FAIL ') + msg); };
@@ -125,7 +126,7 @@ ok(sawShop, 'visited a shop');
 const fin = await ev(`({ phase: __bal.run.phase, result: __bal.run.result, score: __bal.run.score, fightNo: __bal.run.fightNo })`);
 ok(fin.phase === 'over', `run reached the end (${fin.result}, fight ${fin.fightNo}, score ${fin.score})`);
 await shot('11-over'); await noHScroll('over');
-if (fin.result === 'onslaught') {
+if (fin.result === 'onslaught' && !REMOTE) {
   ok(sawBoss === 2, 'fought both bosses');
   await ev(`(() => { const f = document.querySelector('form[data-form=score]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`);
   await sleep(700);
@@ -134,6 +135,8 @@ if (fin.result === 'onslaught') {
 }
 
 // suggestion box
+if (REMOTE) { await click('[data-act=suggest]'); await sleep(1500); ok(await ev(`!!document.querySelector('.review') && !!document.querySelector('form[data-form=suggest]')`), 'live suggestion box loads with review status'); await shot('12-suggest-live'); await click('[data-act=close]'); }
+else {
 await click('[data-act=suggest]'); await sleep(500);
 await ev(`(() => { const f = document.querySelector('form[data-form=suggest]'); f.text.value = 'Please add a hero that <b>reflects</b> spells'; f.name.value = 'Tester'; f.querySelector('button').click(); })()`);
 await sleep(700);
@@ -143,6 +146,7 @@ await sleep(700);
 ok(await ev(`document.querySelector('.review').textContent.includes('ON') && document.querySelector('.review').textContent.includes('every 1 min')`), 'owner turns on review: 1 h, every 1 min');
 await shot('12-suggest'); await noHScroll('suggest sheet');
 await click('[data-act=close]');
+}
 
 ok(errors.length === 0, 'no JS errors / CSP violations' + (errors.length ? ': ' + errors.slice(0, 5).join(' || ') : ''));
 console.log(`telas: ${oks} ok, ${fails} fail (screens in ${OUT})`);
