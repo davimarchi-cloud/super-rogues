@@ -3,6 +3,7 @@
 # Usage (Claude Code, Bash run_in_background): bash tools/vigia.sh
 cd "$(dirname "$0")/.."
 for i in $(seq 1 50); do
+  node --check tools/vigia.js || { echo "ERRO vigia: vigia.js não compila"; exit 1; }
   node tools/vigia.js && exit 0
   echo "$(date -Iseconds) vigia caiu (tentativa $i), reiniciando" >> tools/vigia.log
   sleep 10

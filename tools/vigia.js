@@ -9,8 +9,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const EVERY = 20e3;
 // network hiccups must never kill the watcher silently (seen 2026-09-28: exit 1 with no output) -> log and go on
 const LOG = path.join(__dirname, 'vigia.log');
-const log = m => { try { fs.appendFileSync(LOG, new Date().toISOString() + ' ' + m + '
-'); } catch (_) {} };
+const log = m => { try { fs.appendFileSync(LOG, new Date().toISOString() + ' ' + m + '\n'); } catch (_) {} };
 process.on('unhandledRejection', e => log('unhandledRejection ' + (e && e.stack || e)));
 process.on('uncaughtException', e => log('uncaughtException ' + (e && e.stack || e)));
 (async () => {
