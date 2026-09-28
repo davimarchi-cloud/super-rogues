@@ -75,7 +75,7 @@ Decisão do dono (2026-09-28, 2ª mensagem): **nada de janela de tempo**. A pess
 (fica no navegador dela; pode apagar item) e, quando terminar ("se ela tiver 5 mudanças ela anota todas e depois
 clica"), aperta **Send for review**. O envio inteiro vira um lote (`batch`) e a revisão começa na hora.
 
-1. `node tools/vigia.js` fica rodando em segundo plano na sessão do Claude Code (Bash `run_in_background`). A cada
+1. `bash tools/vigia.sh` (reinicia o `vigia.js` se ele cair; erros em `tools/vigia.log`) fica rodando em segundo plano na sessão do Claude Code (Bash `run_in_background`). A cada
    20 s grava um "visto" (o jogo mostra "Reviewer online") e **sai** imprimindo `SUGESTOES n em k envio(s)` quando há
    item `new`. Parado = zero token. `node tools/sugestoes.js pausa` faz ele ignorar a fila (spam, dono pediu); `retoma` volta.
 2. Quando ele sair: `node tools/sugestoes.js` (lista agrupada por lote, texto completo). Marcar `lendo <ids>` (o jogo
@@ -91,7 +91,7 @@ clica"), aperta **Send for review**. O envio inteiro vira um lote (`batch`) e a 
    (que consulta `GET /api/suggest?batch=N` a cada 8 s) vira o botão verde "Your changes are ready! Press F5". Se
    eu marcar antes do deploy, a pessoa dá F5 e vê a versão velha. **Nunca deixar item em `doing`**: a página dela fica
    esperando para sempre. Os outros jogadores com a página aberta veem "The game was just updated" (via `lastRun`).
-8. Religar `node tools/vigia.js` em segundo plano. Relatar ao dono em 1-3 linhas o que entrou (sem pedir ok).
+8. Religar `bash tools/vigia.sh` em segundo plano. Relatar ao dono em 1-3 linhas o que entrou (sem pedir ok).
    Se o deploy for barrado pelo modo automático, deixar pronto, NÃO marcar feito, e avisar o dono.
    Se chegaram vários lotes, processar em ordem (o mais antigo primeiro).
 
