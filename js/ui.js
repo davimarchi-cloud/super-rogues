@@ -302,10 +302,26 @@
     const t = run.cur && run.cur.type;
     return t === 'gauntlet' ? Run.gauntletWorld(run, preview) : Run.fightWorld(run, preview);
   }
+  // review #13 (David: "randomly adjusted to 75% of my screen ... adapt to the screen size and device"):
+  // the board takes the width AND the height left on screen, on phones (portrait/landscape), tablets and desktops.
+  const BOARD_RATIO = 0.703; // board height / width (render.js setup: 10.35 * size + 4 over 14.72 * size)
+  function layoutClasses() {
+    const vw = window.innerWidth, vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.body.classList.toggle('landscape', vw > vh * 1.25 && vh < 600);
+    document.body.classList.toggle('wide', vw >= 760 && !document.body.classList.contains('landscape'));
+  }
+  function boardWidth(wrap) {
+    const vw = window.innerWidth, vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const land = document.body.classList.contains('landscape');
+    const reserved = land ? 64 : screen === 'battle' ? 175 : 215;
+    const byHeight = Math.max(200, (vh - reserved - 4) / BOARD_RATIO);
+    const maxW = land ? vw * 0.62 : 1000;
+    return Math.floor(Math.min(wrap.clientWidth || vw - 16, byHeight, maxW));
+  }
   function mountBoard() {
     const cv = $('#board'); if (!cv) return;
     const wrap = cv.parentElement;
-    view = Render.setup(cv, Math.min(wrap.clientWidth || 360, 560));
+    view = Render.setup(cv, boardWidth(wrap));
     if (screen !== 'battle') { preview = worldFor(true); drawPreview(); }
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', () => { ui.drag = null; drawPreview(); });
   }
@@ -646,11 +662,22 @@
     } catch (err) { toast(err.message); if (btn) btn.disabled = false; }
   });
   let rz = 0;
-  window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if ($('#board')) { const cv = $('#board'); view = Render.setup(cv, Math.min(cv.parentElement.clientWidth || 360, 560)); drawPreview(); } }, 150); });
+  function onResize() {
+    clearTimeout(rz);
+    rz = setTimeout(() => {
+      const was = document.body.className; layoutClasses();
+      if (!battle && was !== document.body.className && !ui.modal) { render(); return; }
+      const cv = $('#board'); if (cv) { view = Render.setup(cv, boardWidth(cv.parentElement)); drawPreview(); }
+    }, 120);
+  }
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', onResize);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize);
 
   // ------------------------------------------------------------------ boot
   run = Run.migrate(run);
   screen = 'title';
+  layoutClasses();
   render();
   bootNotice();
   // test hook (headless Chrome tests drive the game through this)

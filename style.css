@@ -459,3 +459,49 @@ button.big { min-height: 44px; font-size: 15px; }
 .lineup img { width: 76px; height: 99px; border-radius: 8px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #e8b84a33, 0 10px 20px #000c; margin: 0 -8px; filter: brightness(.8); }
 .lineup img.mid { width: 96px; height: 125px; filter: none; z-index: 1; }
 .banner .emb-img { border-radius: 50%; }
+
+/* =====================================================================================================
+   v14 (review #13, David): adapt to every screen and device. Nothing may be wider than the screen (a wider element
+   makes phone browsers zoom the whole page out), inputs use 16px so iPhones do not zoom in, phones in landscape put
+   the board beside its panel, tablets and desktops get a wider layout and a bigger board.
+   ===================================================================================================== */
+html, body { overflow-x: hidden; max-width: 100%; }
+img { max-width: 100%; }
+input, select, textarea { font-size: 16px; }
+.boardwrap { max-width: 100%; overflow: hidden; }
+
+/* phones in landscape: board left, everything else on the right */
+body.landscape #top { padding: 3px 10px; } body.landscape #top button { min-height: 28px; }
+body.landscape .deploy { display: grid; grid-template-columns: auto minmax(170px, 1fr); column-gap: 10px; align-items: start; }
+body.landscape .deploy > .boardwrap { grid-column: 1; grid-row: 1 / span 8; }
+body.landscape .deploy > :not(.boardwrap) { grid-column: 2; }
+body.landscape .deploy .bar.sticky { position: static; background: none; }
+body.landscape .teamstrip { grid-template-columns: 1fr; }
+body.landscape .title .lineup, body.landscape .title .crest { display: none; }
+body.landscape .banners { grid-template-columns: repeat(2, minmax(0, 260px)); justify-content: center; }
+body.landscape .banner { min-height: 150px; }
+body.landscape .hbanners { max-width: 520px; margin: 4px auto; } body.landscape .hbanner { min-height: 150px; } body.landscape .hbanner img { max-width: 64px; }
+body.landscape .grid { grid-template-columns: repeat(3, 1fr); }
+
+/* tablets and desktops */
+body.wide { font-size: 15px; }
+body.wide #app { max-width: 1180px; }
+body.wide main section { padding: 4px 18px; }
+body.wide .title { max-width: 560px; margin: 0 auto; }
+body.wide .title .lineup img { width: 110px; height: 143px; } body.wide .title .lineup img.mid { width: 138px; height: 180px; }
+body.wide .track { max-width: 760px; margin: 10px auto 4px; justify-content: center; gap: 6px; }
+body.wide .node { width: 32px; height: 32px; font-size: 14px; }
+body.wide h2 { text-align: center; font-size: 22px; }
+body.wide .banners { max-width: 760px; margin: 12px auto; gap: 18px; }
+body.wide .banners.one { max-width: 380px; }
+body.wide .banner { min-height: 290px; } body.wide .banner .bt { font-size: 16px; } body.wide .banner .bd, body.wide .banner .ens { font-size: 13px; }
+body.wide .hbanners { max-width: 720px; margin: 10px auto; gap: 14px; } body.wide .hbanner { min-height: 260px; } body.wide .hbanner img { max-width: 150px; }
+body.wide .detail, body.wide .start .bar, body.wide .opts, body.wide .result { max-width: 720px; margin-left: auto; margin-right: auto; }
+body.wide .grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; max-width: 1100px; margin: 0 auto; }
+body.wide .stock .small { -webkit-line-clamp: 4; font-size: 13px; } body.wide .stock .ctitle { font-size: 15px; }
+body.wide .bar { max-width: 1100px; margin-left: auto; margin-right: auto; }
+body.wide .deploy { max-width: 1040px; margin: 0 auto; }
+body.wide .teamstrip { grid-template-columns: repeat(auto-fit, minmax(160px, 220px)); justify-content: center; }
+body.wide .hud, body.wide .bhead, body.wide .hint.tight { max-width: 1000px; margin-left: auto; margin-right: auto; }
+body.wide #modal { align-items: center; } body.wide .sheet { max-width: 860px; border-radius: 16px; }
+body.wide .gteam { grid-template-columns: repeat(auto-fit, minmax(120px, 160px)); justify-content: center; }

@@ -40,7 +40,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma` |
 | `tools/sim-run.js`, `tools/boss-matrix.js` | robô joga runs inteiras / todos os 220 times de 3 contra os 2 chefes |
-| `tools/tests/` | `motor.js` (203), `api.js` (22), `telas.mjs` (Chrome de verdade, run inteira no tamanho de celular), `galeria.mjs` (foto de todos os modelos em 4 poses) |
+| `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
 
 ## Regras do jogo que vieram do briefing (ponto de partida: os jogadores podem mudar qualquer uma)
 
@@ -116,6 +116,13 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v14 (2026-09-28), lote 13 do David** ("randomly adjusted to 75% of my screen", adaptar a tela/aparelho): causas
+  tratadas: elemento mais largo que a tela faz o celular reduzir a página (agora `overflow-x: hidden` e tudo cabe),
+  campo com fonte < 16px faz o iPhone dar zoom (inputs 16px), e no computador o jogo era uma coluna de 600px.
+  `layoutClasses()` põe `body.landscape` (celular deitado: tabuleiro à esquerda, painel à direita) ou `body.wide`
+  (tablet/computador: até 1180px, lojas em grade, tabuleiro até 1000px); o tabuleiro é dimensionado pela largura E pela
+  altura (`boardWidth`); refaz no resize, na rotação e no visualViewport. `tools/tests/dispositivos.mjs` joga em
+  360x640, 390x740, 740x360, 820x1180 e 1440x900 (está no run-all).
 - **v13 (2026-09-28), lote 12 do David** ("stickman", pediu splash art HD fora da luta e modelo alinhado na luta): o
   humanoide ganhou volume (braço/antebraço, coxa/canela com articulação, mãos, botas, tronco com ombros e cintura,
   pescoço, olhos com íris e brilho, sobrancelhas, boca). `js/splash.js` pinta a splash de cada unidade e TODO retrato
