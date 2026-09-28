@@ -9,6 +9,13 @@ const HEADERS = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://localhost');
   for (const h of HEADERS) res.setHeader(h.key, h.value);
+  // dev-only: play Claude's part in tests (mark a batch reviewed and "ship" it). Never deployed: not under api/.
+  if (u.pathname === '/__dev/resolve') {
+    const M = global.__BAL_MEMDATA, b = +u.searchParams.get('batch'), now = Date.now();
+    if (M) { M.sug.filter(s => !b || s.batch === b).forEach((s, i) => { s.status = i === 0 && u.searchParams.has('decline1') ? 'declined' : 'done'; s.reply = 'Done in test'; s.updated = now; }); M.kv.lastRun = String(now); }
+    res.setHeader('Content-Type', 'application/json'); return res.end('{"ok":true}');
+  }
+  if (u.pathname === '/__dev/ship') { if (global.__BAL_MEMDATA) global.__BAL_MEMDATA.kv.lastRun = String(Date.now()); return res.end('{"ok":true}'); }
   if (u.pathname.startsWith('/api/')) {
     const name = u.pathname.slice(5).replace(/[^a-z]/g, '');
     const f = path.join(ROOT, 'api', name + '.js');

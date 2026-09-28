@@ -1,6 +1,8 @@
 // Suggestion box. A player writes one or more changes (up to 10), then presses "Send for review": that POST is one
 // batch, and the watcher on the owner's PC (tools/vigia.js) wakes Claude right away to review it.
-// GET: public queue + reviewer status. POST {items: [text...], name}. ({text} alone also works = batch of 1.)
+// GET: public queue + reviewer status. GET ?batch=N: that batch's items + how many reviews are ahead of it (the page
+// polls this while "waiting for my review"). GET ?lite=1: reviewer status only (lastRun = "an update just shipped").
+// POST {items: [text...], name}. ({text} alone also works = batch of 1.)
 const { send, body, sameOrigin, ipHash, clean } = require('./_http');
 const getStore = require('./_store');
 const MAX_ITEMS = 10;
@@ -14,6 +16,13 @@ module.exports = async (req, res) => {
   const st = getStore();
   try {
     if (req.method === 'GET') {
+      const qs = new URL(req.url || '/', 'http://x').searchParams;
+      if (qs.has('lite')) return send(res, 200, { review: await status(st) });
+      const batch = Math.floor(Number(qs.get('batch')) || 0);
+      if (batch > 0) {
+        const [items, ahead, review] = await Promise.all([st.getBatch(batch), st.countAhead(batch), status(st)]);
+        return send(res, 200, { batch, items, ahead, review });
+      }
       const [list, review] = await Promise.all([st.listSuggestions(120), status(st)]);
       return send(res, 200, { list, review });
     }

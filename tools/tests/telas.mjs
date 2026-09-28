@@ -155,6 +155,22 @@ if (REMOTE) {
   ok(await ev(`document.querySelectorAll('#drafts li').length === 0`), 'list is cleared after sending');
   await shot('13-suggest-sent');
   await click('[data-act=close]');
+
+  // the page waits for that review, then says "ready, press F5"; after F5 it shows what shipped
+  const batch = await ev(`JSON.parse(localStorage.getItem('balance.pending')).batch`);
+  ok(await ev(`(() => { const n = document.querySelector('#notice'); return !n.hidden && n.className === 'wait' && n.textContent.includes('#' + ${batch}); })()`), 'top bar follows the review while it waits');
+  await shot('14-notice-waiting');
+  await ev(`fetch('/__dev/resolve?batch=${batch}')`); await ev(`__bal.poll()`); await sleep(300);
+  ok(await ev(`(() => { const n = document.querySelector('#notice'); return n.className === 'ready' && /ready/.test(n.textContent) && /F5/.test(n.textContent); })()`), 'when Claude finishes: "Your changes are ready! Press F5"');
+  await shot('15-notice-ready');
+  await click('#notice'); await sleep(1800);
+  ok(await ev(`(() => { const n = document.querySelector('#notice'); return !n.hidden && n.textContent.includes('is live: 2 applied'); })()`), 'after reloading, the bar says what went live');
+  ok(await ev(`__bal.run && __bal.run.phase === 'over'`), 'the run survives the reload');
+  await ev(`document.querySelector('#notice [data-act=notice-x]').click()`);
+  ok(await ev(`document.querySelector('#notice').hidden && !localStorage.getItem('balance.pending')`), 'the bar can be dismissed');
+  // somebody else's update ships while this page is open
+  await ev(`__bal.poll()`); await sleep(200); await ev(`fetch('/__dev/ship')`); await sleep(50); await ev(`__bal.poll()`); await sleep(300);
+  ok(await ev(`/just updated/.test(document.querySelector('#notice').textContent)`), 'other players get "the game was just updated"');
 }
 
 ok(errors.length === 0, 'no JS errors / CSP violations' + (errors.length ? ': ' + errors.slice(0, 5).join(' || ') : ''));

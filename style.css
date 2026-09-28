@@ -24,7 +24,8 @@ input, select, textarea { background: var(--panel); border: 1px solid var(--line
 textarea { resize: vertical; }
 
 /* header */
-#top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #12141aee; border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+#stick { position: sticky; top: 0; z-index: 5; }
+#top { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #12141aee; border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
 #top button { min-height: 36px; padding: 6px 10px; }
 #top .logo { font-size: 18px; letter-spacing: .5px; color: var(--gold); }
 .hearts { color: #ff5d73; letter-spacing: 1px; } .hearts i { color: #4a3340; font-style: normal; }
@@ -128,3 +129,16 @@ main section { padding: 4px 14px; }
 .batch .sug { margin: 6px 0 0; }
 .st.doing { background: #4a3f1f; color: var(--gold); } .st.new { background: var(--panel2); } .st.done { background: #1f4a2c; color: var(--green); }
 .batch .st, .sug .st { margin-left: auto; font-size: 12px; padding: 1px 8px; border-radius: 999px; }
+
+/* review notice: follows the player's own review, then says "ready, press F5" */
+#notice { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; border-radius: 0; border: 0; border-bottom: 1px solid var(--line);
+  padding: 8px 14px; text-align: left; font-size: 14px; background: #1f2433; color: var(--text); }
+#notice[hidden] { display: none; }
+#notice .nx { margin-left: auto; opacity: .7; padding: 0 4px; }
+#notice.wait { background: #2a2616; }
+#notice.ready { background: #1f5a33; color: #fff; font-weight: 700; animation: pulse 1.6s ease-in-out infinite; }
+#notice.info { background: #1d2b45; }
+#notice .dots::after { content: ''; animation: dots 1.4s steps(4) infinite; }
+@keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+@keyframes pulse { 50% { background: #2a7a45; } }
+@media (prefers-reduced-motion: reduce) { #notice.ready, #notice .dots::after { animation: none; } }

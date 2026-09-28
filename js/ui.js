@@ -333,7 +333,7 @@
   function suggestShell() {
     return `<div class="shead"><b>💡 Suggest changes</b><button data-act="close">✕</button></div>
       <div id="sugStatus"></div>
-      <p class="small">Write each change and tap <b>Add</b>. Got 5 ideas? Add all 5, then tap <b>Send for review</b>: Claude reviews the whole list right away and ships what fits.</p>
+      <p class="small">Write each change and tap <b>Add</b>. Got 5 ideas? Add all 5, then tap <b>Send for review</b>. Claude reviews the whole list and ships it. A bar at the top of the page tells you when it is ready: press F5 and play the new version.</p>
       <form data-form="draft" class="stack">
         <textarea name="text" maxlength="1500" rows="3" placeholder="A bug, a rebalance, a new hero, item or relic, a UI change, a full restructure... One change per note. Any language is fine."></textarea>
         <button>+ Add to my list</button>
@@ -363,7 +363,7 @@
     try {
       const r = await Net.post('suggest', { items, name });
       store.set('balance.drafts', []); if (ta) ta.value = '';
-      renderDrafts(); toast(`Sent! Review #${r.batch} (${items.length} change${items.length > 1 ? 's' : ''}) is in the queue.`); loadQueue();
+      renderDrafts(); toast(`Sent! Review #${r.batch} (${items.length} change${items.length > 1 ? 's' : ''}) is in the queue.`); trackBatch(r.batch); loadQueue();
     } catch (e) { toast(e.message); }
     btn.disabled = false;
   }
@@ -385,6 +385,80 @@
       <li>Win fights for gold. Spend it in hero, item and relic shops. Losing costs a heart ♥. Lose all 3 and the run ends. Heroes always heal after a fight.</li>
       <li>After the second boss and a last shop comes the Onslaught: endless waves from the top row every ${CFG.waveEvery}s. Each kill is 1 point.</li>
     </ol>`;
+
+
+  // ------------------------------------------------------------------ review notice (top bar)
+  // After "Send for review" the page follows that batch: queued -> Claude working -> READY ("press F5"). Claude marks
+  // items done only AFTER the update is deployed, so "all items answered" means the new version is already live.
+  // Everyone else gets a softer "the game was just updated" when a new update ships while the page is open.
+  const PEND = 'balance.pending';
+  const nt = { lastRun: null, latest: 0, update: false, timer: 0 };
+  function renderNotice() {
+    const el = $('#notice'); if (!el) return;
+    const p = store.get(PEND, null);
+    let cls = '', html = '';
+    if (p && p.state === 'waiting') {
+      cls = 'wait';
+      const where = p.working ? `Claude is working on your review #${p.batch}<span class="dots"></span>`
+        : p.ahead ? `Review #${p.batch} is queued, ${p.ahead} ahead of yours<span class="dots"></span>`
+        : `Review #${p.batch} sent. Waiting for Claude<span class="dots"></span>`;
+      html = `⏳ ${where}${p.offline && !p.working ? ' <span class="dim">(reviewer offline, it will start when back)</span>' : ''}<span class="nx">details</span>`;
+    } else if (p && p.state === 'ready' && p.done > 0) {
+      cls = 'ready'; html = `✅ Your changes are ready! Press F5 (or tap here) to see them.`;
+    } else if (p && (p.state === 'shown' || (p.state === 'ready' && !p.done))) {
+      cls = 'info';
+      html = p.done ? `✅ Review #${p.batch} is live: ${p.done} applied${p.declined ? ', ' + p.declined + ' declined' : ''}. Tap to read the replies.`
+        : `Review #${p.batch} is done: nothing shipped (${p.declined} declined). Tap to read why.`;
+      html += '<span class="nx" data-act="notice-x" aria-label="Dismiss">✕</span>';
+    } else if (nt.update) {
+      cls = 'info'; html = '🔄 The game was just updated. Press F5 (or tap here) to get the new version.<span class="nx" data-act="notice-x" aria-label="Dismiss">✕</span>';
+    }
+    el.className = cls; el.innerHTML = html; el.hidden = !html;
+  }
+  function trackBatch(batch) { store.set(PEND, { batch, state: 'waiting', sentAt: Date.now() }); nt.update = false; renderNotice(); schedulePoll(1500); }
+  async function poll() {
+    const p = store.get(PEND, null);
+    try {
+      if (p && p.state === 'waiting') {
+        const d = await Net.get('suggest?batch=' + p.batch);
+        const items = d.items || [];
+        if (!items.length) { store.del(PEND); }
+        else if (items.every(i => i.status === 'done' || i.status === 'declined')) {
+          Object.assign(p, { state: 'ready', done: items.filter(i => i.status === 'done').length, declined: items.filter(i => i.status === 'declined').length, readyAt: Date.now() });
+          store.set(PEND, p); nt.lastRun = d.review.lastRun;
+        } else {
+          Object.assign(p, { ahead: d.ahead, working: items.some(i => i.status === 'doing'), offline: !(d.review.seen && d.review.now - d.review.seen < 3 * 60e3) });
+          store.set(PEND, p);
+        }
+        if (nt.lastRun == null) nt.lastRun = d.review.lastRun;
+        nt.latest = d.review.lastRun;
+      } else {
+        const d = await Net.get('suggest?lite=1');
+        nt.latest = d.review.lastRun;
+        if (nt.lastRun == null) nt.lastRun = d.review.lastRun;
+        else if (d.review.lastRun > nt.lastRun) nt.update = true;
+      }
+    } catch (_) { /* offline: try again later */ }
+    renderNotice(); schedulePoll();
+  }
+  function schedulePoll(ms) {
+    clearTimeout(nt.timer);
+    const p = store.get(PEND, null);
+    nt.timer = setTimeout(() => { if (document.hidden) schedulePoll(); else poll(); }, ms || (p && p.state === 'waiting' ? 8000 : 45000));
+  }
+  function bootNotice() {
+    const p = store.get(PEND, null);
+    // loaded after the review was ready = the player already pressed F5: show what shipped, once
+    if (p && p.state === 'ready') { p.state = 'shown'; store.set(PEND, p); }
+    renderNotice(); poll();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) schedulePoll(500); });
+  }
+  $('#notice').addEventListener('click', e => {
+    if (e.target.closest('[data-act=notice-x]')) { e.stopPropagation(); const p = store.get(PEND, null); if (p && p.state !== 'waiting') store.del(PEND); nt.update = false; nt.lastRun = Math.max(nt.lastRun || 0, nt.latest); renderNotice(); return; }
+    const p = store.get(PEND, null);
+    if ((p && p.state === 'ready' && p.done > 0) || (!p && nt.update)) { location.reload(); return; }
+    openSuggest();
+  });
 
   // ------------------------------------------------------------------ actions
   const ACT = {
@@ -419,6 +493,7 @@
   function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = run.cur && run.cur.type === 'onslaught' ? Run.onslaughtWorld(run, true) : Run.fightWorld(run, true); drawPreview(); } }
 
   document.addEventListener('click', e => {
+    if (e.target.closest('#notice')) return;
     const el = e.target.closest('[data-act]'); if (!el || el.disabled) return;
     e.preventDefault(); const f = ACT[el.dataset.act]; if (f) f(el.dataset.arg, el);
   });
@@ -447,6 +522,7 @@
   if (run && run.v !== 1) run = null;
   screen = 'title';
   render();
+  bootNotice();
   // test hook (headless Chrome tests drive the game through this)
-  window.__bal = { get run() { return run; }, get battle() { return battle; }, ACT, render, skipBattle };
+  window.__bal = { get run() { return run; }, get battle() { return battle; }, ACT, render, skipBattle, poll };
 })();
