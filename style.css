@@ -203,3 +203,18 @@ main section { padding: 4px 14px; }
 .hbanner .chk { position: absolute; bottom: 14px; color: var(--gold); font-size: 18px; font-weight: 800; }
 .detail { margin-top: 4px; display: grid; gap: 6px; }
 .st.held { background: #3a2f4a; color: #d9b3ff; } .sug.held .st { background: #3a2f4a; color: #d9b3ff; }
+
+/* team sheet (review #2): items left, heroes right */
+.equip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 10px; align-items: start; }
+.eqcol { display: grid; gap: 8px; min-width: 0; }
+.eqcol h3 { margin: 4px 0 0; }
+.eqitem { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-left: 4px solid var(--tier); min-height: 0; }
+.eqitem b { color: var(--tier); font-size: 14px; } .eqitem span { font-size: 12px; color: var(--dim); }
+.eqitem.on { background: #3a3320; outline: 2px solid var(--gold); }
+.eqhero { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; display: grid; gap: 6px; min-width: 0; }
+.eqhero.target { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 14px #ffcf5a33; cursor: pointer; }
+.eqhero.full { opacity: .55; }
+.eqhero .tap { font-size: 12px; color: var(--gold); font-weight: 700; }
+.eqhero .stats { color: #cfd6e6; word-break: break-word; }
+.eqhero .spec { color: var(--gold); }
+.xpbar { height: 4px; width: 90px; background: #0008; border-radius: 2px; margin-top: 3px; } .xpbar i { display: block; height: 100%; background: #5fa8ff; border-radius: 2px; }

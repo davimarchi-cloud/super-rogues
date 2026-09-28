@@ -130,5 +130,22 @@ for (const r of RELICS) {
   ok(d3.hp > d1.hp && d3.atk > d1.atk, 'levels raise stats');
 }
 
+// v5: passive scaling actually grows during a fight
+{
+  const grew = (key, fn, secs = 12, diff = 'hard', n = 4) => {
+    const run = Run.newRun(88); Run.pickStart(run, [key, 'bastion']);
+    run.cur = Run.makeFight(run, diff, n);
+    const W = Run.fightWorld(run), u = W.units.find(x => x.key === key), before = fn(W, u);
+    for (let i = 0; i < secs * 20 && !W.over; i++) Sim.step(W);
+    return fn(W, u) > before;
+  };
+  ok(grew('thorne', (W, u) => Sim.atkOf(W, u)), 'Thorne: attack grows per hit');
+  ok(grew('seraph', (W, u) => Sim.armorOf(W, u)), 'Seraph: armor grows every second');
+  ok(grew('bramble', (W, u) => u.maxHp), 'Bramble: max HP grows every second');
+  ok(grew('nyx', (W, u) => Sim.atkOf(W, u), 25, 'easy', 1), 'Nyx: attack grows when enemies die nearby');
+  ok(grew('blaze', (W, u) => u.crit, 25), 'Blaze: crit chance grows on crits');
+  ok(grew('echo', (W, u) => W.units.filter(a => a.side === 0).reduce((t, a) => t + Sim.asOf(W, a), 0)), 'Echo: allies attack faster over time');
+  ok(CFG.maxTeam === 3, 'team size is 3');
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

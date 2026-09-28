@@ -41,6 +41,7 @@
       shield: 0, shieldU: 0, st: {}, buffs: [], dots: [], busy: W.t, nextAtk: W.t, tgt: 0, atkN: 0, focus: 0, titan: 0,
       once: {}, xpT: 0, dead: false, anim: null, alpha: def.alpha || 1, size: def.size || 1, explode: def.explode || 0,
       tStun: def.tStun || 0, moved: false, hitT: -99, castT: -99, wave: def.wave || 0, scale: def.scale || 1,
+      bAtk: 0, bAtkPct: 0, bArm: 0, bAsPct: 0, sc: {}, eclipse: 0,
     };
     u.mana = Math.min(u.maxMana, (def.m0 || 0) + (m.manaStart || 0));
     const sh = (m.shieldStart || 0) + (m.shieldStartPct || 0) * u.maxHp;
@@ -66,6 +67,7 @@
       }
     }
     if (W.fl.frostsigil) for (const u of W.units) if (u.side === 1) slow(W, u, 0.4, 4);
+    if (W.fl.warhorn) for (const u of W.units) if (u.side === 0) buff(u, 'asPct', 0.3, sec(5), W);
     if (W.mode === 'onslaught') W.nextWave = W.t + 1;
   }
 
@@ -95,12 +97,13 @@
   // ------------------------------------------------------------------ stats with buffs
   function buff(u, s, v, dur, W) { u.buffs.push({ s, v, until: dur >= 1e9 ? 1e12 : (W ? W.t : 0) + dur }); }
   function bsum(W, u, s) { let x = 0; for (const b of u.buffs) if (b.s === s && b.until > W.t) x += b.v; return x; }
-  const atkOf = (W, u) => Math.max(1, u.atk * (1 + bsum(W, u, 'atkPct')) + u.titan * 3);
-  const armorOf = (W, u) => u.armor + bsum(W, u, 'armor') + u.titan * 3;
+  const atkOf = (W, u) => Math.max(1, u.atk * (1 + bsum(W, u, 'atkPct') + u.bAtkPct) + u.titan * 3 + u.bAtk);
+  const armorOf = (W, u) => u.armor + bsum(W, u, 'armor') + u.titan * 3 + u.bArm;
+  const mrOf = (W, u) => u.mr + u.bArm;
   const lsOf = (W, u) => u.ls + bsum(W, u, 'ls');
   const apF = u => u.ap / 100;
   function asOf(W, u) {
-    let a = u.as * (1 + bsum(W, u, 'asPct') + u.focus * (u.ab.focus || 0));
+    let a = u.as * (1 + bsum(W, u, 'asPct') + u.bAsPct + u.focus * (u.ab.focus || 0));
     if (u.st.slowU > W.t) a *= 1 - u.st.slowP * 0.5;
     return Math.min(3.5, Math.max(0.2, a));
   }
@@ -144,7 +147,10 @@
     if (tgt.st.invuln > W.t) { if (!o.dot) fxText(W, tgt, 'IMMUNE', '#fff'); return 0; }
     if (o.atk && tgt.dodge > 0 && W.rng() < tgt.dodge) { fxText(W, tgt, 'miss', '#ccc'); return 0; }
     let dmg = raw, crit = false;
-    if (src && (o.atk || o.canCrit) && (o.forceCrit || W.rng() < src.crit)) { dmg *= src.critDmg; crit = true; }
+    if (src && (o.atk || o.canCrit) && (o.forceCrit || W.rng() < src.crit)) {
+      dmg *= src.critDmg; crit = true;
+      if (src.m.critStack && (src.sc.cs || 0) < src.m.critStackCap) { const g = Math.min(src.m.critStack, src.m.critStackCap - (src.sc.cs || 0)); src.sc.cs = (src.sc.cs || 0) + g; src.crit += g; }
+    }
     let amp = 1 + W.sd;
     if (src) {
       amp += bsum(W, src, 'dmgAmp');
@@ -157,7 +163,7 @@
     if (tgt.st.shatterU > W.t) amp += tgt.st.shatterP;
     dmg *= amp;
     if (type === 'phys') { const arm = Math.max(0, armorOf(W, tgt) * (1 - Math.min(0.9, (src ? src.m.armorPen || 0 : 0) + (o.pen || 0)))); dmg *= 100 / (100 + arm); }
-    else if (type === 'magic') dmg *= 100 / (100 + Math.max(0, tgt.mr));
+    else if (type === 'magic') dmg *= 100 / (100 + Math.max(0, mrOf(W, tgt)));
     dmg = Math.max(1, Math.round(dmg));
     let abs = 0;
     if (tgt.shield > 0 && tgt.shieldU > W.t) { abs = Math.min(tgt.shield, dmg); tgt.shield -= abs; dmg -= abs; }
@@ -177,6 +183,7 @@
     if (tgt.fl.has('laststand') && !tgt.once.ls && tgt.hp > 0 && tgt.hp < tgt.maxHp * 0.3) {
       tgt.once.ls = 1; tgt.st.invuln = W.t + sec(2); fxText(W, tgt, 'LAST STAND', '#ffd23f'); A.bulwark(W, tgt);
     }
+    if (tgt.m.stasis && !tgt.once.stasis && tgt.hp > 0 && tgt.hp < tgt.maxHp * 0.4) { tgt.once.stasis = 1; tgt.st.invuln = W.t + sec(2); fxText(W, tgt, 'STASIS', '#ffe066'); }
     if (tgt.hp <= 0) die(W, tgt, src);
     return total;
   }
@@ -194,6 +201,7 @@
     if (u.fl.has('phaseshift') && !u.once.phase) {
       u.once.phase = 1; u.hp = 1; heal(W, u, u.maxHp * 0.3, true); u.st.untarg = W.t + sec(2); fxText(W, u, 'PHASE SHIFT', '#ff6fb5'); return;
     }
+    if (u.fl.has('undying') && !u.once.undying) { u.once.undying = 1; u.hp = 1; u.st.invuln = W.t + sec(2); fxText(W, u, 'UNDYING', '#f44'); return; }
     if (u.m.revive && !u.once.revive) { u.once.revive = 1; u.hp = Math.round(u.maxHp * u.m.revive); u.dots = []; fxText(W, u, 'REVIVE', '#ffe066'); return; }
     if (u.side === 0 && u.kind === 'hero' && W.fl.feather && !W.once.feather) { W.once.feather = 1; u.hp = Math.round(u.maxHp * 0.3); u.dots = []; fxText(W, u, 'PHOENIX', '#ff7a3d'); return; }
     u.dead = true; u.hp = 0; u.deathT = W.t; u.anim = null;
@@ -208,7 +216,9 @@
       if (v.dead) continue;
       if (v.fl.has('gravepact') && v.side !== u.side && Hx.dist(v, u) <= 3) v.mana = Math.min(v.maxMana, v.mana + 15);
       if (v.fl.has('soulharvest')) heal(W, v, v.maxHp * 0.05);
+      if (v.m.killAtk && v.side !== u.side && Hx.dist(v, u) <= 3 && (v.sc.ka || 0) < v.m.killAtkCap) { const g = Math.min(v.m.killAtk, v.m.killAtkCap - (v.sc.ka || 0)); v.sc.ka = (v.sc.ka || 0) + g; v.bAtk += g; }
     }
+    if (u.side === 0 && u.kind === 'hero' && W.fl.lastbreath) { fxRing(W, u.c, u.r, 1, '#ff7a3d', 12); for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) deal(W, u, e, 3 * atkOf(W, u), 'magic', {}); }
     if (u.side === 0 && u.kind === 'hero') {
       if (W.fl.vengeance) for (const a of allies(W, u)) if (a.kind === 'hero') { buff(a, 'atkPct', 0.2, 1e9); fxText(W, a, 'VENGEANCE', '#f66'); }
       const lum = allies(W, u).find(a => a.fl.has('resurrect') && !a.once.res);
@@ -301,7 +311,14 @@
     const atk = atkOf(W, u);
     const dealt = deal(W, u, tgt, atk * mult, 'phys', { atk: true });
     u.atkN++;
-    if (!u.dead) { u.mana = Math.min(u.maxMana, u.mana + 10 + (u.m.manaOnHit || 0)); if (u.ab.focus) u.focus = Math.min(u.ab.focusCap || 15, u.focus + 1); if (u.m.titan) u.titan = Math.min(20, u.titan + 0.5); }
+    if (!u.dead) {
+      u.mana = Math.min(u.maxMana, u.mana + 10 + (u.m.manaOnHit || 0)); if (u.ab.focus) u.focus = Math.min(u.ab.focusCap || 15, u.focus + 1); if (u.m.titan) u.titan = Math.min(20, u.titan + 0.5);
+      if (u.m.stackAtk && (u.sc.sa || 0) < u.m.stackAtkCap) { u.sc.sa = (u.sc.sa || 0) + 1; u.bAtk += u.m.stackAtk; }
+      if (u.m.stackAs && (u.sc.ss || 0) < u.m.stackAsCap) { u.sc.ss = (u.sc.ss || 0) + 1; u.bAsPct += u.m.stackAs; }
+      if (u.m.apPerAtk) u.ap += u.m.apPerAtk;
+    }
+    if (u.eclipse > 0 && alive(tgt)) { u.eclipse--; const x = deal(W, u, tgt, atk * u.ab.bonus, 'magic', { ability: true }); heal(W, u, x * u.ab.heal); }
+    if (u.m.reap && alive(tgt) && !tgt.boss && tgt.hp < tgt.maxHp * u.m.reap) { fxText(W, tgt, 'REAPED', '#aaa'); deal(W, u, tgt, tgt.hp + tgt.shield + 1, 'true', {}); }
     if (dealt <= 0) return;
     const m = u.m;
     if (m.burnOnHit) dot(W, tgt, 'burn', m.burnOnHit * atk, 3, u);
@@ -548,6 +565,47 @@
       m: { burnOnHit: ab.burn || 0, splash: ab.mortar ? 0.5 : 0 }, size: 0.85 }, n || u);
     return true;
   };
+  // --- v5 heroes (review #2)
+  A.whirl = (W, u) => {
+    const ab = u.ab, es = enemies(W, u).filter(e => Hx.dist(e, u) <= ab.radius); if (!es.length) return false;
+    fxRing(W, u.c, u.r, ab.radius, '#d4483b', 10); let tot = 0;
+    for (const e of es) tot += deal(W, u, e, ab.dmg * atkOf(W, u), 'phys', { ability: true, canCrit: true });
+    heal(W, u, tot * ab.heal, true); return true;
+  };
+  A.consecrate = (W, u) => {
+    const ab = u.ab;
+    W.zones.push({ c: u.c, r: u.r, rad: ab.radius, until: W.t + sec(ab.dur), dps: ab.dps * atkOf(W, u) * apF(u), heal: ab.heal, side: u.side, src: u.id, color: '#f0d27a' });
+    if (ab.shield) shield(W, u, u.maxHp * ab.shield, 4);
+    fxRing(W, u.c, u.r, ab.radius, '#f0d27a', 14); return true;
+  };
+  A.eclipse = (W, u) => { u.eclipse = u.ab.hits; fxText(W, u, 'ECLIPSE', '#35c6d6'); u.nextAtk = Math.min(u.nextAtk, W.t + 2); return true; };
+  A.entangle = (W, u) => {
+    const ab = u.ab, es = enemies(W, u).filter(e => Hx.dist(e, u) <= ab.radius); if (!es.length) return false;
+    fxRing(W, u.c, u.r, ab.radius, '#6a9a3a', 14);
+    for (const e of es) { deal(W, u, e, ab.dmg * atkOf(W, u) * apF(u), 'magic', { ability: true }); cc(W, e, 'root', ab.root); }
+    if (ab.shield) shield(W, u, u.maxHp * ab.shield, 4);
+    return true;
+  };
+  A.anthem = (W, u) => {
+    const ab = u.ab;
+    for (const a of allies(W, u)) if (Hx.dist(a, u) <= ab.radius) { heal(W, a, a.maxHp * ab.heal * apF(u), true); buff(a, 'atkPct', ab.atk, sec(4), W); }
+    for (const e of enemies(W, u)) { if (ab.slow && Hx.dist(e, u) <= 2) slow(W, e, ab.slow, 2); if (ab.stun && Hx.dist(e, u) <= 1) cc(W, e, 'stun', ab.stun); }
+    fxRing(W, u.c, u.r, ab.radius, '#c77dff', 12); return true;
+  };
+  A.fan = (W, u) => {
+    const ab = u.ab, t = pickTarget(W, u); if (!t || Hx.dist(u, t) > u.range + 1) return false;
+    for (let i = 0; i < ab.shots; i++) {
+      const tt = W.t + 2 + i * 2;
+      fx(W, { k: 'proj', from: u.id, fc: u.c, fr: u.r, to: t.id, tc: t.c, tr: t.r, color: '#ffd28a', t0: tt - 2, t1: tt });
+      at(W, tt, () => {
+        if (!alive(t)) return;
+        deal(W, u, t, ab.dmg * atkOf(W, u), 'phys', { ability: true, canCrit: true, pen: ab.pen });
+        if (ab.splash) for (const e of enemies(W, u)) if (e !== t && Hx.dist(e, t) <= 1) deal(W, u, e, ab.splash * ab.dmg * atkOf(W, u), 'phys', {});
+        if (ab.ricochet) { const o = enemies(W, u).filter(e => e !== t).sort((a, b) => Hx.dist(a, t) - Hx.dist(b, t))[0]; if (o) deal(W, u, o, ab.ricochet * ab.dmg * atkOf(W, u), 'phys', {}); }
+      });
+    }
+    u.busy = W.t + 2 * ab.shots + 2; return true;
+  };
   // --- mob & boss abilities
   A.smash = (W, u) => { const t = pickTarget(W, u); if (!t || Hx.dist(u, t) > 1) return false; deal(W, u, t, 2.5 * atkOf(W, u), 'phys', { ability: true }); cc(W, t, 'stun', 0.8); fxRing(W, t.c, t.r, 0, '#f96', 8); return true; };
   A.mend = (W, u) => { const t = allies(W, u).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (!t || t.hp >= t.maxHp) return false; heal(W, t, t.maxHp * 0.25, true); fxRing(W, t.c, t.r, 0, '#6f6', 8); return true; };
@@ -610,6 +668,16 @@
     }
     if (W.t % TPS === 0) {
       if (m.apPerSec) u.ap += m.apPerSec;
+      const grow = (key, per, cap, fn) => { if (per && (u.sc[key] || 0) < cap) { const g = Math.min(per, cap - (u.sc[key] || 0)); u.sc[key] = (u.sc[key] || 0) + g; fn(g); } };
+      grow('ra', m.rampAtk, m.rampAtkCap || 0, g => { u.bAtk += g; });
+      grow('rp', m.rampAtkPct, m.rampAtkPctCap || 0, g => { u.bAtkPct += g; });
+      grow('rr', m.rampArmor, m.rampArmorCap || 0, g => { u.bArm += g; });
+      grow('rh', m.rampHpPct, m.rampHpPctCap || 0, g => { const add = Math.round((u.hp0 || u.maxHp) * g); u.hp0 = u.hp0 || u.maxHp; u.maxHp += add; u.hp += add; });
+      if (u.fl.has('crescendo') && W.t % sec(4) === 0 && (u.sc.cr || 0) < (u.fl.has('tempo') ? 15 : 10)) {
+        u.sc.cr = (u.sc.cr || 0) + 1;
+        for (const a of allies(W, u)) { buff(a, 'asPct', 0.03, 1e9); if (u.fl.has('symphony')) a.armor += 2; }
+        fxRing(W, u.c, u.r, 0, '#c77dff', 8);
+      }
       if (u.fl.has('thunderstorm') && W.t % sec(3) === 0) { const es = enemies(W, u); if (es.length) { const e = es[Math.floor(W.rng() * es.length)]; fx(W, { k: 'bolt', pts: [[e.c, e.r - 2], [e.c, e.r]], color: '#fff6a0', t1: W.t + 6 }); deal(W, u, e, atkOf(W, u) * apF(u), 'magic', { ability: true }); } }
     }
     if (u.kind === 'hero' && u.side === 0) u.xpT++;
@@ -654,7 +722,7 @@
     }
     if (W.zones.length && W.t % 10 === 0) {
       W.zones = W.zones.filter(z => z.until > W.t);
-      for (const z of W.zones) for (const e of W.units) if (!e.dead && e.side !== z.side && Hx.dist(e, z) <= z.rad) deal(W, W.byId[z.src] || null, e, z.dps * 0.5, 'magic', { dot: true });
+      for (const z of W.zones) for (const e of W.units) if (!e.dead && Hx.dist(e, z) <= z.rad) { if (e.side !== z.side) deal(W, W.byId[z.src] || null, e, z.dps * 0.5, 'magic', { dot: true }); else if (z.heal) heal(W, e, e.maxHp * z.heal * 0.5); }
     }
     const list = W.units.filter(u => !u.dead);
     for (const u of list) if (!u.dead) periodic(W, u);
@@ -677,6 +745,6 @@
     return { x: a.x + (b.x - a.x) * p, y: a.y + (b.y - a.y) * p };
   }
 
-  B.Sim = { TPS, sec, create, step, run, spawn, posAt, mobScaleDef, applyElite, rngOf, atkOf, asOf, abilities: A };
+  B.Sim = { TPS, sec, create, step, run, spawn, posAt, mobScaleDef, applyElite, rngOf, atkOf, asOf, armorOf, mrOf, abilities: A };
   if (typeof module !== 'undefined') module.exports = B.Sim;
 })(typeof window !== 'undefined' ? window : globalThis);

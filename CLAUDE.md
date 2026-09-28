@@ -25,7 +25,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | Arquivo | O quê |
 |---|---|
 | `js/hex.js` | grade 8x8 pointy-top "odd-r"; linha 0 = topo (inimigo), linhas 4-7 = deploy do jogador |
-| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós), 12 heróis (habilidade + 4 pares de spec), 58 itens, 24 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
+| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 18 heróis (habilidade + 4 pares de spec; 6 com escala passiva), 78 itens, 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
 | `js/sim.js` | motor de combate puro e determinístico (20 ticks/s). Roda no navegador e no Node |
 | `js/run.js` | máquina de estados da run (mapa, lutas, lojas, eventos, XP, itens). JSON puro, salvo no localStorage |
 | `js/models.js` | modelos 2.5D desenhados em código (humanoide, fera, bomba, golem, serpente, espectro, torre) com poses parado/andando/ataque/habilidade/morte; `portrait()` gera os retratos dos menus |
@@ -63,7 +63,8 @@ e depois a cada 10 s; morte súbita aos 45 s de luta normal (dano sobe 15%/s) e 
 - Rodar local: `node tools/dev-server.js` → http://localhost:3790 (banco em memória).
 - **Antes de publicar: `node tools/tests/run-all.js`** (tudo, inclui o Chrome) ou `--quick` (sem Chrome).
 - Mexeu em número (HP, dano, XP, escala, preço)? Rodar `node tools/boss-matrix.js 4` e `node tools/sim-run.js 60 3 1`.
-  Referência de 2026-09-28: chefe 3 ≈ 52% / chefe 6 ≈ 45% na matriz; robô ≈ 35-40% nos chefes (o robô é burro).
+  Referência v5 (2026-09-28, 18 heróis, time de 3, nível mais lento): matriz chefe 3 ≈ 74% (669/816 times) / chefe 6 ≈ 57%
+  (600/816); robô ≈ 30% / 20% nos chefes (o robô é burro: specs aleatórias, posição automática).
 - Publicar: `bash tools/deploy.sh` (1ª tentativa às vezes dá "Not authorized": repetir). Anota em `tools/publicacoes.log`.
 - Git próprio na pasta (sem remote). Commitar DENTRO desta pasta, nunca na raiz do mazyos.
 - Segredos: `.env.local` (DATABASE_URL; ADMIN_KEY hoje só serve de sal do hash de IP) veio de `vercel env pull .env.local --scope pokerush --global-config C:/Users/davi_/.vercel-pokerush`. Nunca imprimir, commitar ou publicar.
@@ -114,6 +115,12 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v5 (2026-09-28), lote 2 do David**: time máximo 3 (Crest dá 4); +6 heróis com escala passiva (Thorne ataque por
+  golpe, Seraph armadura por segundo, Nyx ataque por morte perto, Bramble vida por segundo, Echo velocidade do time,
+  Blaze crítico por crítico) e 3 specs antigas que passaram a escalar (Iron Hide, Thick Hide, Quick Cast); +20 itens
+  e +11 relíquias (várias de escala); nível ~20% mais lento (30/85/180/330); chefes mais fracos para compensar; menu
+  de equipar com itens à esquerda e heróis à direita. Mods novos no sim: `stackAtk/stackAs/rampAtk/rampAtkPct/
+  rampArmor/rampHpPct/killAtk/critStack/apPerAtk/reap/stasis/manaMaxPct` (cada um com `...Cap`).
 - **v4 (2026-09-28), lote 1 do David**: unidades 2.5D com modelo e animação próprios (parado, andar, ataque, habilidade,
   morte) no lugar dos emojis; retratos nos menus; escolhas do dia viraram estandartes de pano com textura gasta (SVG de
   ruído em CSS, sem imagem externa); início com 3 heróis lado a lado estilo Dark Souls (escolhe 2 de 3; antes 2 de 4);

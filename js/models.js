@@ -19,6 +19,12 @@
     grimhook: H({ body: '#2f7f73', trim: '#e0c07a', legs: '#1f3b37', bulk: 1.2, head: 'tricorn', hat: '#1b2a28', skin: '#c89a7a', weapon: 'hook', cape: '#173c37' }),
     mirage: H({ body: '#c2447f', trim: '#ffd1e8', legs: '#4a1d33', bulk: 0.85, head: 'mask', hair: '#2a1020', weapon: 'rapier', cape: '#7a2450' }),
     rook: H({ body: '#b8792a', trim: '#6e6e6e', legs: '#4a3520', bulk: 1.05, head: 'goggles', hair: '#5a3a1a', weapon: 'wrench', pack: true }),
+    thorne: H({ skin: '#d9a07a', body: '#7a2a22', trim: '#c9a26a', legs: '#3a1f18', bulk: 1.3, head: 'bald', hair: '#d4483b', weapon: 'axe', pauldrons: '#5a3a2a', paint: true }),
+    seraph: H({ body: '#f2e4b8', trim: '#ffcf5a', legs: '#b8a878', bulk: 1.2, head: 'helm', plume: '#ffcf5a', pauldrons: '#fff3c8', weapon: 'sword', wings: '#fffaf0' }),
+    nyx: H({ skin: '#9ab', body: '#1a2a36', trim: '#35c6d6', legs: '#101820', bulk: 0.9, head: 'hood', hood: '#0f1c26', eyes: '#35c6d6', weapon: 'sword', cape: '#123a44' }),
+    bramble: { type: 'golem', body: '#6a5236', trim: '#9fe07a', leaves: '#4f8a2f' },
+    echo: H({ body: '#6a3a8a', trim: '#ffcf5a', legs: '#2a1a3a', head: 'hat', hat: '#3a1f55', hair: '#e0b070', weapon: 'lute', cape: '#9a5ac8' }),
+    blaze: H({ body: '#8a5a2a', trim: '#e0c07a', legs: '#3a2a1a', head: 'tricorn', hat: '#4a2a14', skin: '#d9a07a', weapon: 'gun', cape: '#5a3a1a' }),
     // mobs
     grunt: H({ skin: '#6fa04a', body: '#6b4a2a', trim: '#3a2a1a', legs: '#3d2a18', h: 0.85, head: 'ears', weapon: 'club' }),
     archer: H({ skin: '#6fa04a', body: '#5a4a2a', trim: '#8a7a4a', legs: '#3d2a18', h: 0.85, head: 'hood', hood: '#4a3a22', weapon: 'bow', eyes: '#ff5' }),
@@ -79,7 +85,7 @@
     // phi = direction the arm points (screen angle). Blades follow the arm (a swing arc); staves stay upright;
     // the bow is held vertical in front.
     const w = m.weapon, phi = Math.PI / 2 - a;
-    const ang = w === 'bow' ? 0 : (w === 'staff' || w === 'scythe') ? -1.35 + (a - 0.35) * 0.45 : w === 'orb' ? -0.6 : w === 'daggers' ? phi - 0.3 : phi - 0.5;
+    const ang = w === 'bow' ? 0 : w === 'lute' ? -0.5 : (w === 'staff' || w === 'scythe') ? -1.35 + (a - 0.35) * 0.45 : w === 'orb' ? -0.6 : w === 'daggers' ? phi - 0.3 : phi - 0.5;
     c.save(); c.translate(x, y); c.rotate(ang);
     // local frame: +x = along the weapon
     if (w === 'sword' || w === 'rapier') { const L = S * (w === 'rapier' ? 0.62 : 0.55); limb(c, 0, 0, L, 0, S * (w === 'rapier' ? 0.035 : 0.07), '#dfe6ee'); limb(c, -S * 0.02, -S * 0.08, -S * 0.02, S * 0.08, S * 0.05, m.trim); }
@@ -96,6 +102,8 @@
     else if (w === 'daggers') { limb(c, 0, 0, S * 0.3, 0, S * 0.05, '#e8eef5'); }
     else if (w === 'hook') { limb(c, 0, 0, S * 0.3, 0, S * 0.05, '#777'); c.strokeStyle = '#aab'; c.lineWidth = S * 0.06; c.beginPath(); c.arc(S * 0.38, S * 0.08, S * 0.12, -Math.PI * 0.6, Math.PI * 0.9); c.stroke(); }
     else if (w === 'wrench') { limb(c, 0, 0, S * 0.4, 0, S * 0.07, '#9aa0a8'); c.strokeStyle = '#9aa0a8'; c.lineWidth = S * 0.06; c.beginPath(); c.arc(S * 0.45, 0, S * 0.08, 0.6, TAU - 0.6); c.stroke(); }
+    else if (w === 'lute') { c.fillStyle = '#b8793a'; c.beginPath(); c.ellipse(S * 0.05, 0, S * 0.16, S * 0.12, 0, 0, TAU); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1; c.stroke(); limb(c, S * 0.15, 0, S * 0.5, 0, S * 0.05, '#6a4a2a'); ball(c, S * 0.05, 0, S * 0.04, '#3a2210'); }
+    else if (w === 'gun') { limb(c, 0, 0, S * 0.32, 0, S * 0.08, '#555a63'); limb(c, 0, 0, -S * 0.02, S * 0.14, S * 0.08, '#6a4a2a'); }
     else if (w === 'scythe') { limb(c, -S * 0.3, 0, S * 0.65, 0, S * 0.05, '#4a3a2a'); c.fillStyle = '#c8d0da'; c.beginPath(); c.moveTo(S * 0.65, 0); c.quadraticCurveTo(S * 0.55, -S * 0.45, S * 0.15, -S * 0.42); c.quadraticCurveTo(S * 0.45, -S * 0.3, S * 0.6, 0); c.fill(); }
     c.restore();
   }
@@ -159,6 +167,7 @@
     const tw = s * 0.2 * bulk, bw = s * 0.15 * bulk;
     const g = c.createLinearGradient(-tw, 0, tw, 0); g.addColorStop(0, shade(m.body, 0.25)); g.addColorStop(1, shade(m.body, -0.35));
     c.fillStyle = g; c.beginPath(); c.moveTo(shX - tw, shY); c.lineTo(shX + tw, shY); c.lineTo(bw, hipY + s * 0.04); c.lineTo(-bw, hipY + s * 0.04); c.closePath(); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1.2; c.stroke();
+    if (m.paint) { limb(c, shX - tw * 0.6, shY + s * 0.12, shX + tw * 0.2, shY + s * 0.3, 2, '#d4483b'); limb(c, shX - tw * 0.4, shY + s * 0.28, shX + tw * 0.4, shY + s * 0.42, 2, '#d4483b'); }
     if (m.bones) for (let i = 0; i < 3; i++) limb(c, shX - tw * 0.7, shY + s * (0.1 + i * 0.1), shX + tw * 0.7, shY + s * (0.1 + i * 0.1), 1.5, '#8a8474');
     limb(c, -bw, hipY + s * 0.02, bw, hipY + s * 0.02, s * 0.05, m.trim);
     if (m.pauldrons) { ball(c, shX - tw * 0.9, shY + s * 0.02, s * 0.1 * bulk, m.pauldrons, OUT); ball(c, shX + tw * 0.9, shY + s * 0.02, s * 0.1 * bulk, m.pauldrons, OUT); }
@@ -213,6 +222,7 @@
     rock(s * 0.05, -s * 1.05 - bob, s * 0.16, s * 0.14, shade(m.body, 0.15));
     ball(c, s * 0.1, -s * 1.08 - bob, s * 0.035, m.trim); ball(c, s * 0.18, -s * 1.08 - bob, s * 0.03, m.trim);
     rock(-s * 0.45, -s * 0.55 - bob + slam * 0.6, s * 0.14, s * 0.2, shade(m.body, -0.2)); rock(s * 0.48, -s * 0.5 - bob + slam, s * 0.15, s * 0.2, shade(m.body, 0.05));
+    if (m.leaves) for (const [x, y, r] of [[-0.3, -0.95, 0.16], [0.25, -0.98, 0.14], [0, -1.28, 0.18], [-0.45, -0.7, 0.1], [0.5, -0.66, 0.1]]) ball(c, s * x, s * y - bob, s * r, m.leaves, OUT);
   }
   function serpent(c, m, S, p) {
     const s = S * 0.9, strike = p.atk != null ? Math.sin(p.atk * Math.PI) : 0, sway = Math.sin(p.t * 3 + (p.walk || 0) * 8) * s * 0.06;

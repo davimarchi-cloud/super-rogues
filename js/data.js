@@ -5,10 +5,10 @@
 
   // ---------------------------------------------------------------- economy / pacing
   B.CFG = {
-    startGold: 10, hearts: 3, maxTeam: 5, heroCost: 7, reroll: 2,
+    startGold: 10, hearts: 3, maxTeam: 3, heroCost: 7, reroll: 2,
     itemCost: { common: 3, rare: 5, epic: 8 }, relicCost: 8,
     gold: { easy: 6, medium: 9, hard: 13, boss: 16 },
-    xpLevels: [0, 0, 25, 70, 150, 280], // cumulative XP to reach level N (index = level); 1 XP per second alive
+    xpLevels: [0, 0, 30, 85, 180, 330], // cumulative XP to reach level N (index = level); 1 XP per second alive
     maxLevel: 5, baseSlots: 1,          // item slots: 1 at Lv1-2, +1 at Lv3, Lv4, Lv5
     fightScale: [1, 0.9, 1.1, 1.3, 1.5, 1.75, 2], // by fight number (1..6)
     suddenDeath: 45, fightCap: 150,     // seconds
@@ -27,7 +27,7 @@
       abil: 'bulwark', abName: 'Bulwark', abDesc: 'Gains a shield of 30% max HP and taunts enemies within 2 hexes for 2.5s.',
       ab: { shield: 0.3, radius: 2, taunt: 2.5, allyShield: 0, burst: 0, stun: 0 },
       specs: [
-        [{ id: 'bas2a', name: 'Iron Hide', desc: '+25 armor, +15 magic resist.', mods: { armor: 25, mr: 15 } },
+        [{ id: 'bas2a', name: 'Iron Hide', desc: '+15 armor and MR, then +1 more every second in combat (up to +25).', mods: { armor: 15, mr: 15, rampArmor: 1, rampArmorCap: 25 } },
          { id: 'bas2b', name: 'Spiked Plates', desc: 'Reflects 30% of damage taken back to melee attackers.', mods: { thorns: 0.3 } }],
         [{ id: 'bas3a', name: 'Rallying Cry', desc: 'Bulwark also shields allies within 2 hexes for half the amount.', ab: { allyShield: 0.5 } },
          { id: 'bas3b', name: 'Wide Taunt', desc: 'Taunt radius +1 and lasts 1s longer.', ab: { radius: 1, taunt: 1 } }],
@@ -56,7 +56,7 @@
       ab: { dmg: 2.4, radius: 1, burn: 0.35, twin: 0, stun: 0, patch: 0 },
       specs: [
         [{ id: 'pyr2a', name: 'Kindling', desc: 'Burn damage doubled.', ab: { burn: 0.35 } },
-         { id: 'pyr2b', name: 'Quick Cast', desc: '-20 max mana.', mods: { manaMax: -20 } }],
+         { id: 'pyr2b', name: 'Quick Cast', desc: '-20 max mana, and +3 ability power per attack.', mods: { manaMax: -20, apPerAtk: 3 } }],
         [{ id: 'pyr3a', name: 'Big Bang', desc: 'Fireball radius +1.', ab: { radius: 1 } },
          { id: 'pyr3b', name: 'Twin Flame', desc: 'A second fireball hits another group for 50%.', ab: { twin: 0.5 } }],
         [{ id: 'pyr4a', name: 'Scorched Earth', desc: 'Leaves burning ground for 3s.', ab: { patch: 3 } },
@@ -84,7 +84,7 @@
       ab: { dmg: 1.5, stun: 1, lsBuff: 0.3, frenzy: 0, sunder: 0, reach: 4 },
       specs: [
         [{ id: 'bra2a', name: 'Bloodthirst', desc: '+15% lifesteal.', mods: { ls: 0.15 } },
-         { id: 'bra2b', name: 'Thick Hide', desc: '+250 max HP.', mods: { hp: 250 } }],
+         { id: 'bra2b', name: 'Thick Hide', desc: '+150 max HP, then +1% max HP every second in combat (up to +25%).', mods: { hp: 150, rampHpPct: 0.01, rampHpPctCap: 0.25 } }],
         [{ id: 'bra3a', name: 'Stampede', desc: 'Charge stun +0.7s and reach +2.', ab: { stun: 0.7, reach: 2 } },
          { id: 'bra3b', name: 'Frenzy', desc: '+40% attack speed for 4s after charging.', ab: { frenzy: 0.4 } }],
         [{ id: 'bra4a', name: 'Rampage', desc: 'Kills refund 50% mana.', fl: ['rampage'] },
@@ -190,6 +190,97 @@
         [{ id: 'roo5a', name: 'Mech Suit', desc: '+50% max HP, +30% attack, attacks cleave 40%.', mods: { hpPct: 0.5, atkPct: 0.3, splash: 0.4 } },
          { id: 'roo5b', name: 'Factory', desc: 'Starts each fight with a turret already built.', fl: ['factory'] }],
       ] }),
+    // ---- v5 (review #2): heroes whose power grows during the fight (passive scaling, from the start or on upgrade)
+    thorne: H({ name: 'Thorne', glyph: '🪓', role: 'Berserker', color: '#d4483b',
+      hp: 780, atk: 52, armor: 25, mr: 20, as: 0.8, range: 1, ms: 2.5, mana: 70, m0: 20,
+      mods: { stackAtk: 2, stackAtkCap: 25 },
+      abil: 'whirl', abName: 'Bloodlust', abDesc: 'Passive: +2 attack per hit (stacks 25x). Active: spins, hitting every adjacent enemy for 180% and healing 15% of the damage.',
+      ab: { dmg: 1.8, heal: 0.15, radius: 1 },
+      specs: [
+        [{ id: 'thr2a', name: 'Scarred Hide', desc: '+150 max HP and +20 armor.', mods: { hp: 150, armor: 20 } },
+         { id: 'thr2b', name: 'Unending Rage', desc: 'Bloodlust stacks 15 more times.', mods: { stackAtkCap: 15 } }],
+        [{ id: 'thr3a', name: 'Wide Swing', desc: 'The spin reaches 2 hexes.', ab: { radius: 1 } },
+         { id: 'thr3b', name: 'Red Thirst', desc: 'The spin heals 20% more of its damage.', ab: { heal: 0.2 } }],
+        [{ id: 'thr4a', name: 'Savage', desc: '+15% crit chance and +40% crit damage.', mods: { crit: 0.15, critDmg: 0.4 } },
+         { id: 'thr4b', name: 'Momentum', desc: 'Each Bloodlust stack also gives +1% attack speed.', mods: { stackAs: 0.01, stackAsCap: 40 } }],
+        [{ id: 'thr5a', name: 'Undying Rage', desc: 'Once per fight, lethal damage leaves Thorne at 1 HP and invulnerable for 2s.', fl: ['undying'] },
+         { id: 'thr5b', name: 'Titan Swing', desc: 'The spin deals double damage.', ab: { dmg: 1.8 } }],
+      ] }),
+    seraph: H({ name: 'Seraph', glyph: '😇', role: 'Paladin', color: '#f0d27a',
+      hp: 860, atk: 44, armor: 35, mr: 30, as: 0.7, range: 1, ms: 2, mana: 80, m0: 30,
+      mods: { rampArmor: 2, rampArmorCap: 40 },
+      abil: 'consecrate', abName: 'Consecrate', abDesc: 'Passive: +2 armor and MR every second (up to +40). Active: blesses the ground around her for 4s: enemies burn, allies heal.',
+      ab: { radius: 1, dur: 4, dps: 0.6, heal: 0.03, shield: 0 },
+      specs: [
+        [{ id: 'ser2a', name: 'Holy Plate', desc: '+20 armor.', mods: { armor: 20 } },
+         { id: 'ser2b', name: 'Zealot', desc: '+15 attack.', mods: { atk: 15 } }],
+        [{ id: 'ser3a', name: 'Sanctified Ground', desc: 'Consecrate radius +1.', ab: { radius: 1 } },
+         { id: 'ser3b', name: 'Mending Light', desc: 'Consecrate heals twice as much.', ab: { heal: 0.03 } }],
+        [{ id: 'ser4a', name: 'Divine Shield', desc: 'Casting shields Seraph for 25% max HP.', ab: { shield: 0.25 } },
+         { id: 'ser4b', name: 'Judgement', desc: 'Consecrate burns twice as hard.', ab: { dps: 0.6 } }],
+        [{ id: 'ser5a', name: 'Martyr', desc: 'Allies within 2 hexes gain +20 armor and MR.', mods: { aura: [{ r: 2, stat: 'armor', val: 20 }, { r: 2, stat: 'mr', val: 20 }] } },
+         { id: 'ser5b', name: 'Ascension', desc: 'Her armor and MR keep growing up to +80.', mods: { rampArmorCap: 40 } }],
+      ] }),
+    nyx: H({ name: 'Nyx', glyph: '🌑', role: 'Hexblade', color: '#35c6d6',
+      hp: 600, atk: 58, armor: 20, mr: 25, as: 0.9, range: 1, ms: 3, mana: 60, m0: 20,
+      mods: { killAtk: 8, killAtkCap: 80 },
+      abil: 'eclipse', abName: 'Eclipse', abDesc: 'Passive: +8 attack whenever an enemy dies within 3 hexes (up to +80). Active: her next 3 attacks deal +100% magic damage and heal her for 20% of it.',
+      ab: { hits: 3, bonus: 1, heal: 0.2 },
+      specs: [
+        [{ id: 'nyx2a', name: 'Hunger', desc: 'Each nearby death gives +4 more attack.', mods: { killAtk: 4 } },
+         { id: 'nyx2b', name: 'Shade Walk', desc: '+1 move speed and +10% dodge.', mods: { ms: 1, dodge: 0.1 } }],
+        [{ id: 'nyx3a', name: 'Long Night', desc: 'Eclipse empowers 2 more attacks.', ab: { hits: 2 } },
+         { id: 'nyx3b', name: 'Umbral Leech', desc: 'Eclipse heals 20% more.', ab: { heal: 0.2 } }],
+        [{ id: 'nyx4a', name: 'Harvester', desc: 'Kills refund 50% mana.', fl: ['rampage'] },
+         { id: 'nyx4b', name: 'Dusk Blade', desc: '+20% crit chance.', mods: { crit: 0.2 } }],
+        [{ id: 'nyx5a', name: 'Endless Night', desc: 'Her kill stacks can reach +160 attack.', mods: { killAtkCap: 80 } },
+         { id: 'nyx5b', name: 'Void Burst', desc: 'Eclipse attacks deal +200% instead.', ab: { bonus: 1 } }],
+      ] }),
+    bramble: H({ name: 'Bramble', glyph: '🌳', role: 'Warden', color: '#6a9a3a',
+      hp: 1000, atk: 42, armor: 35, mr: 25, as: 0.6, range: 1, ms: 1.8, mana: 90, m0: 30,
+      mods: { rampHpPct: 0.01, rampHpPctCap: 0.4 },
+      abil: 'entangle', abName: 'Entangle', abDesc: 'Passive: +1% max HP every second (up to +40%). Active: roots every enemy within 2 hexes for 2s and deals 100% magic damage.',
+      ab: { radius: 2, root: 2, dmg: 1, shield: 0 },
+      specs: [
+        [{ id: 'brm2a', name: 'Thornbark', desc: 'Reflects 25% of melee damage taken.', mods: { thorns: 0.25 } },
+         { id: 'brm2b', name: 'Moss Cover', desc: 'Regenerates 1% max HP per second.', mods: { regen: 0.01 } }],
+        [{ id: 'brm3a', name: 'Wide Roots', desc: 'Entangle radius +1.', ab: { radius: 1 } },
+         { id: 'brm3b', name: 'Strangle', desc: 'Roots last 1s longer.', ab: { root: 1 } }],
+        [{ id: 'brm4a', name: 'Barkskin', desc: 'Casting shields Bramble for 30% max HP.', ab: { shield: 0.3 } },
+         { id: 'brm4b', name: 'Toxic Thorns', desc: 'Entangle deals double damage.', ab: { dmg: 1 } }],
+        [{ id: 'brm5a', name: 'Ancient', desc: 'Max HP keeps growing up to +80%.', mods: { rampHpPctCap: 0.4 } },
+         { id: 'brm5b', name: 'Grove Guardian', desc: 'Adjacent allies gain +15 armor.', mods: { aura: [{ r: 1, stat: 'armor', val: 15 }] } }],
+      ] }),
+    echo: H({ name: 'Echo', glyph: '🎻', role: 'Bard', color: '#c77dff',
+      hp: 560, atk: 34, armor: 18, mr: 30, as: 0.75, range: 3, ms: 2, mana: 70, m0: 30,
+      fl: ['crescendo'],
+      abil: 'anthem', abName: 'Anthem', abDesc: 'Passive: every 4s all allies gain +3% attack speed (stacks 10x). Active: allies within 2 hexes heal 12% and gain +25% attack for 4s.',
+      ab: { radius: 2, heal: 0.12, atk: 0.25, slow: 0, stun: 0 },
+      specs: [
+        [{ id: 'ech2a', name: 'Encore', desc: '-15 max mana.', mods: { manaMax: -15 } },
+         { id: 'ech2b', name: 'Harmony', desc: 'Anthem heals 8% more.', ab: { heal: 0.08 } }],
+        [{ id: 'ech3a', name: 'Power Chord', desc: 'Anthem gives +15% more attack.', ab: { atk: 0.15 } },
+         { id: 'ech3b', name: 'Big Stage', desc: 'Anthem radius +1.', ab: { radius: 1 } }],
+        [{ id: 'ech4a', name: 'Tempo', desc: 'Crescendo stacks 5 more times.', fl: ['tempo'] },
+         { id: 'ech4b', name: 'Lullaby', desc: 'Anthem slows enemies within 2 hexes by 40% for 2s.', ab: { slow: 0.4 } }],
+        [{ id: 'ech5a', name: 'Symphony', desc: 'Each Crescendo stack also gives +2 armor.', fl: ['symphony'] },
+         { id: 'ech5b', name: 'Showstopper', desc: 'Anthem stuns adjacent enemies for 1s.', ab: { stun: 1 } }],
+      ] }),
+    blaze: H({ name: 'Blaze', glyph: '🔫', role: 'Gunslinger', color: '#e08a3a',
+      hp: 540, atk: 50, armor: 15, mr: 15, as: 0.95, range: 3, ms: 2.5, mana: 60, m0: 10, crit: 0.1,
+      mods: { critStack: 0.02, critStackCap: 0.3 },
+      abil: 'fan', abName: 'Fan the Hammer', abDesc: 'Passive: every crit gives +2% crit chance (up to +30%). Active: fires 6 quick shots at the target, 70% attack each.',
+      ab: { shots: 6, dmg: 0.7, ricochet: 0, splash: 0, pen: 0 },
+      specs: [
+        [{ id: 'blz2a', name: 'Quickdraw', desc: '+20% attack speed.', mods: { asPct: 0.2 } },
+         { id: 'blz2b', name: 'Hollow Points', desc: '+10 attack.', mods: { atk: 10 } }],
+        [{ id: 'blz3a', name: 'Extra Mag', desc: 'Fan the Hammer fires 3 more shots.', ab: { shots: 3 } },
+         { id: 'blz3b', name: 'Ricochet', desc: 'Each shot also hits another enemy for 50%.', ab: { ricochet: 0.5 } }],
+        [{ id: 'blz4a', name: 'Deadeye', desc: 'Crit stacks go up to +50%.', mods: { critStackCap: 0.2 } },
+         { id: 'blz4b', name: 'Explosive Rounds', desc: 'Shots splash 30% to adjacent enemies.', ab: { splash: 0.3 } }],
+        [{ id: 'blz5a', name: 'High Noon', desc: 'Shots deal 50% more and ignore 30% armor.', ab: { dmg: 0.35, pen: 0.3 } },
+         { id: 'blz5b', name: 'Gunslinger', desc: '+1 range and +40% crit damage.', mods: { range: 1, critDmg: 0.4 } }],
+      ] }),
   };
   for (const k in B.HEROES) B.HEROES[k].key = k;
 
@@ -257,6 +348,27 @@
     I('archangel', "Archangel's Staff", 'epic', { ap: 25, apPerSec: 3 }, '+25 AP, +3 AP every second in combat'),
     I('lastwhisper', 'Last Whisper', 'epic', { armorPen: 0.4, atk: 10 }, 'Ignore 40% armor, +10 attack'),
     I('dragonclaw', 'Dragon Claw', 'epic', { mr: 60, regen: 0.015 }, '+60 MR, 1.5% regen per second'),
+    // ---- v5 (review #2): 20 more, several that grow during the fight
+    I('knuckles', 'Spiked Knuckles', 'common', { atk: 6, stackAtk: 1, stackAtkCap: 15 }, '+6 attack, +1 attack per hit (15x)'),
+    I('warpaint', 'War Paint', 'common', { rampAtk: 1, rampAtkCap: 20 }, '+1 attack every second in combat (up to +20)'),
+    I('bandana', 'Bandana', 'common', { asPct: 0.15, dodge: 0.05 }, '+15% attack speed, +5% dodge'),
+    I('oakshield', 'Oak Shield', 'common', { armor: 15, hp: 100 }, '+15 armor, +100 HP'),
+    I('candle', 'Candle of Insight', 'common', { ap: 12, manaStart: 10 }, '+12 AP, +10 starting mana'),
+    I('jerky', 'Trail Jerky', 'common', { hp: 120, regen: 0.005 }, '+120 HP, 0.5% regen per second'),
+    I('whistle', 'Hunting Whistle', 'common', { ms: 1, asPct: 0.08 }, '+1 move speed, +8% attack speed'),
+    I('berserkeraxe', 'Berserker Axe', 'rare', { stackAs: 0.03, stackAsCap: 15 }, '+3% attack speed per hit (15x)'),
+    I('stoneheart', 'Stoneheart', 'rare', { rampArmor: 2, rampArmorCap: 30 }, '+2 armor and MR every second (up to +30)'),
+    I('soulbinder', 'Soulbinder', 'rare', { killAtk: 5, killAtkCap: 40 }, '+5 attack when an enemy dies within 3 hexes (up to +40)'),
+    I('frenzyblade', 'Frenzied Blade', 'rare', { atk: 10, stackAs: 0.04, stackAsCap: 12 }, '+10 attack, +4% attack speed per hit (12x)'),
+    I('manaweave', 'Manaweave Robe', 'rare', { mr: 20, manaRegen: 3 }, '+20 MR, +3 mana per second'),
+    I('lightningrod', 'Lightning Rod', 'rare', { asPct: 0.2, chainEvery: 4, chainTargets: 2, chainDmg: 0.5 }, '+20% attack speed, every 4th attack chains'),
+    I('lifeline', 'Lifeline Amulet', 'rare', { hp: 250, shieldStartPct: 0.25 }, '+250 HP, starts fights with a 25% shield'),
+    I('crackedlens', 'Cracked Lens', 'rare', { crit: 0.2, critStack: 0.02, critStackCap: 0.2 }, '+20% crit, each crit +2% crit (up to +20%)'),
+    I('colossus', 'Colossus Heart', 'epic', { rampHpPct: 0.015, rampHpPctCap: 0.6 }, '+1.5% max HP every second (up to +60%)'),
+    I('eclipsecrown', 'Eclipse Crown', 'epic', { ap: 40, apPerAtk: 2 }, '+40 AP, +2 AP per attack'),
+    I('reaper', "Reaper's Toll", 'epic', { atk: 15, reap: 0.12 }, '+15 attack, hits execute enemies below 12% HP (not bosses)'),
+    I('mirrorshield', 'Mirror Shield', 'epic', { mr: 30, thorns: 0.35 }, '+30 MR, reflects 35% of melee damage'),
+    I('hourglass', 'Stasis Hourglass', 'epic', { ap: 20, armor: 20, stasis: 1 }, 'Once per fight at 40% HP: invulnerable for 2s'),
   ];
   B.ITEM = {}; for (const it of B.ITEMS) B.ITEM[it.id] = it;
 
@@ -276,7 +388,7 @@
     R('wits', 'Sharpened Wits', 'All heroes +20 ability power.', { mods: { ap: 20 } }),
     R('clover', 'Four-Leaf Clover', 'All heroes +10% crit chance.', { mods: { crit: 0.1 } }),
     R('backpack', 'Adventurer’s Pack', 'Every hero gets +1 item slot.', { mods: { itemSlots: 1 } }),
-    R('crest', "Hero's Crest", 'Team size limit +1.', { fl: 'crest' }),
+    R('crest', "Hero's Crest", 'Team size limit +1 (4 heroes).', { fl: 'crest' }),
     R('vengeance', 'Vengeful Spirit', 'When a hero dies, the others gain +20% attack.', { fl: 'vengeance' }),
     R('frostsigil', 'Frost Sigil', 'Enemies start every fight slowed by 40% for 4s.', { fl: 'frostsigil' }),
     R('thunder', 'Thunder Totem', 'Every 4s lightning strikes a random enemy.', { fl: 'thunder' }),
@@ -287,6 +399,18 @@
     R('onslaught', 'Onslaught Banner', 'Heroes deal +30% damage in the Onslaught.', { fl: 'onslaught' }),
     R('wind', 'Swift Wind', 'All heroes +1 move speed.', { mods: { ms: 1 } }),
     R('mark', "Hunter's Mark", '+25% damage to elites and bosses.', { mods: { eliteDmg: 0.25 } }),
+    // ---- v5 (review #2)
+    R('ember', 'Ember Heart', "Heroes' attacks burn for 10% attack per second.", { mods: { burnOnHit: 0.1 } }),
+    R('warhorn', 'War Horn', 'Heroes start fights with +30% attack speed for 5s.', { fl: 'warhorn' }),
+    R('ironwill', 'Iron Will', 'Each hero ignores the first crowd control of every fight.', { mods: { cleanseOnce: 1 } }),
+    R('seed', 'Seed of Growth', 'Heroes gain +1% attack every second in combat (up to +30%).', { mods: { rampAtkPct: 0.01, rampAtkPctCap: 0.3 } }),
+    R('bounty', 'Bounty Board', '+1 gold per enemy killed in a won fight (up to +6).', { fl: 'bounty' }),
+    R('bloodpact', 'Blood Pact', 'Heroes +20% attack, -10% max HP.', { mods: { atkPct: 0.2, hpPct: -0.1 } }),
+    R('lastbreath', 'Last Breath', 'A hero that dies explodes for 300% attack in 1 hex.', { fl: 'lastbreath' }),
+    R('whetset', 'Whetstone Set', 'All heroes +8 attack.', { mods: { atk: 8 } }),
+    R('battery', 'Arcane Battery', 'Abilities need 15% less mana.', { mods: { manaMaxPct: -0.15 } }),
+    R('treasure', 'Treasure Map', 'Item shops stock 2 more items.', { fl: 'treasure' }),
+    R('rally', 'Rally Banner', 'Each hero gives +10 armor to adjacent allies.', { mods: { aura: [{ r: 1, stat: 'armor', val: 10 }] } }),
   ];
   B.RELIC = {}; for (const r of B.RELICS) B.RELIC[r.id] = r;
 
@@ -310,9 +434,9 @@
   };
   for (const k in B.MOBS) B.MOBS[k].key = k;
   B.BOSSES = {
-    gorewarden: { key: 'gorewarden', name: 'Gorewarden', glyph: '👹', boss: 1, hp: 2400, atk: 50, armor: 40, mr: 30, as: 0.65, range: 1, ms: 1.8, mana: 55, abil: 'cleave',
+    gorewarden: { key: 'gorewarden', name: 'Gorewarden', glyph: '👹', boss: 1, hp: 1800, atk: 45, armor: 40, mr: 30, as: 0.65, range: 1, ms: 1.8, mana: 55, abil: 'cleave',
       desc: 'Cleaves everything around it. Calls the horde at half health and enrages at 25%.', escort: ['grunt', 'grunt', 'archer'] },
-    hollowking: { key: 'hollowking', name: 'The Hollow King', glyph: '👑', boss: 2, hp: 2700, atk: 52, armor: 45, mr: 45, as: 0.7, range: 2, ms: 2, mana: 60, abil: 'nova',
+    hollowking: { key: 'hollowking', name: 'The Hollow King', glyph: '👑', boss: 2, hp: 2250, atk: 48, armor: 45, mr: 45, as: 0.7, range: 2, ms: 2, mana: 60, abil: 'nova',
       desc: 'Void Nova stuns everything near it. Rends the weakest hero from afar. Splits its court at 66% and 33%.', escort: ['hexer', 'archer'] },
   };
   B.ELITES = [

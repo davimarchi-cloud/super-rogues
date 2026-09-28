@@ -78,9 +78,15 @@ while (steps++ < 80) {
     if (!sawShop) { await shot('08-shop'); await noHScroll('shop'); sawShop = true; }
     await ev(`[...document.querySelectorAll('[data-act=buy]')].forEach(b => { if (!b.disabled) b.click(); })`);
     await sleep(80);
+    if (!globalThis.__teamShot && await ev(`__bal.run.bag.length > 0`)) {
+      globalThis.__teamShot = 1;
+      await ev(`document.querySelector('[data-act=team]').click(); document.querySelector('[data-act=bag]').click()`); await sleep(150);
+      ok(await ev(`(() => { const c = document.querySelectorAll('.equip .eqcol'); return c.length === 2 && !!c[0].querySelector('.eqitem') && !!c[1].querySelector('.eqhero') && c[0].getBoundingClientRect().left < c[1].getBoundingClientRect().left; })()`), 'equip sheet: items on the left, heroes on the right');
+      await shot('08b-team'); await noHScroll('team sheet'); await click('[data-act=close]'); await sleep(100);
+    }
     // equip everything through the Team sheet
     for (let k = 0; k < 6; k++) {
-      const did = await ev(`(() => { if (!__bal.run.bag.length) return false; document.querySelector('[data-act=team]').click(); const bag = document.querySelector('[data-act=bag]'); if (!bag) return false; bag.click(); const slot = document.querySelector('[data-act=equip]'); if (!slot) { document.querySelector('[data-act=close]').click(); return false; } slot.click(); document.querySelector('[data-act=close]').click(); return true; })()`);
+      const did = await ev(`(() => { if (!__bal.run.bag.length) return false; document.querySelector('[data-act=team]').click(); const bag = document.querySelector('[data-act=bag]'); if (!bag) return false; bag.click(); const slot = document.querySelector('.eqhero.target'); if (!slot) { document.querySelector('[data-act=close]').click(); return false; } slot.click(); document.querySelector('[data-act=close]').click(); return true; })()`);
       if (!did) break;
     }
     await click('[data-act=leave]'); await sleep(100); continue;

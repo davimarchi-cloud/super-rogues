@@ -39,6 +39,7 @@
   function specOf(key, id) { for (const pair of B.HEROES[key].specs) for (const s of pair) if (s.id === id) return s; return null; }
   function heroMods(run, h) {
     const m = {};
+    addMods(m, B.HEROES[h.key].mods);
     for (const id of h.specs) addMods(m, (specOf(h.key, id) || {}).mods);
     for (const id of h.items) addMods(m, (B.ITEM[id] || {}).mods);
     for (const id of run.relics) addMods(m, (B.RELIC[id] || {}).mods);
@@ -48,7 +49,7 @@
   function slots(run, h) { return C.baseSlots + Math.max(0, h.lvl - 2) + (run.relics.includes('backpack') ? 1 : 0); }
   function heroDef(run, h) {
     const b = B.HEROES[h.key], m = heroMods(run, h), L = h.lvl - 1, all = m.allPct || 0;
-    const ab = Object.assign({}, b.ab), fl = [];
+    const ab = Object.assign({}, b.ab), fl = (b.fl || []).slice();
     for (const id of h.specs) {
       const s = specOf(h.key, id); if (!s) continue;
       for (const k in (s.ab || {})) ab[k] = (ab[k] || 0) + s.ab[k];
@@ -63,7 +64,7 @@
       mr: (b.mr + 4 * L + (m.mr || 0)) * (1 + all),
       as: b.as * Math.max(0.3, 1 + (m.asPct || 0)), range: Math.max(1, b.range + (m.range || 0)), ms: b.ms + (m.ms || 0),
       crit: (b.crit || 0) + (m.crit || 0), critDmg: 1.5 + (m.critDmg || 0), ls: (b.ls || 0) + (m.ls || 0),
-      dodge: (b.dodge || 0) + (m.dodge || 0), mana: Math.max(20, b.mana + (m.manaMax || 0)), m0: b.m0,
+      dodge: (b.dodge || 0) + (m.dodge || 0), mana: Math.max(20, Math.round((b.mana + (m.manaMax || 0)) * (1 + (m.manaMaxPct || 0)))), m0: b.m0,
       abil: b.abil, ab, fl, m,
     };
   }
@@ -160,7 +161,7 @@
       gainXp(run, h, u.xpT / B.Sim.TPS);
       res.xp.push({ uid: h.uid, name: B.HEROES[h.key].name, gained: h.xp - xp0, from: before, to: h.lvl });
     }
-    if (win) { res.gold = goldAfterWin(run, f.gold); run.gold += res.gold; run.won++; }
+    if (win) { res.gold = goldAfterWin(run, f.gold) + (run.relics.includes('bounty') ? Math.min(6, W.kills) : 0); run.gold += res.gold; run.won++; }
     else { run.hearts--; res.gold = 2; run.gold += 2; run.lost++; }
     run.log.push((win ? 'Won ' : 'Lost ') + (f.diff === 'boss' ? 'boss' : f.diff) + ' fight ' + f.fightNo);
     run.cur = null;
@@ -214,7 +215,7 @@
       const have = new Set(run.heroes.map(h => h.key));
       return pickN(run, Object.keys(B.HEROES).filter(k => !have.has(k)), 3).map(k => ({ kind: 'hero', id: k, price: Math.max(1, C.heroCost - seal(run)) }));
     }
-    if (kind === 'itemShop') return Array.from({ length: 5 }, () => { const id = randomItem(run); return { kind: 'item', id, price: Math.max(1, C.itemCost[B.ITEM[id].tier] - seal(run)) }; });
+    if (kind === 'itemShop') return Array.from({ length: run.relics.includes('treasure') ? 7 : 5 }, () => { const id = randomItem(run); return { kind: 'item', id, price: Math.max(1, C.itemCost[B.ITEM[id].tier] - seal(run)) }; });
     return pickN(run, B.RELICS.filter(r => !run.relics.includes(r.id)).map(r => r.id), 3).map(id => ({ kind: 'relic', id, price: Math.max(1, C.relicCost - seal(run)) }));
   }
   function makeShop(run, kind) { return { type: 'shop', kind, stock: stockFor(run, kind), rerolls: 0 }; }

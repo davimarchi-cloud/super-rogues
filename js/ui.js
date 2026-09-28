@@ -275,33 +275,37 @@
   function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.modal = null; clearInterval(ui.sugTimer); }
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2200); }
 
+  // Team sheet (review #2): items on the LEFT, heroes on the RIGHT. Tap an item, then tap a hero to equip it.
   function teamHTML() {
+    const selId = ui.selBag >= 0 ? run.bag[ui.selBag] : null, sel = selId ? ITEM[selId] : null;
+    const items = run.bag.map((id, i) => { const it = ITEM[id]; return `<button class="eqitem ${ui.selBag === i ? 'on' : ''}" style="--tier:${TIER_COLOR[it.tier]}" data-act="bag" data-arg="${i}">
+      <b>${esc(it.name)}</b><span>${esc(it.desc)}</span></button>`; }).join('');
     const heroes = run.heroes.map(h => {
-      const d = HEROES[h.key], def = Run.heroDef(run, h), sl = Run.slots(run, h);
-      const next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null;
+      const d = HEROES[h.key], def = Run.heroDef(run, h), sl = Run.slots(run, h), full = h.items.length >= sl;
+      const next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null, prev = CFG.xpLevels[h.lvl] || 0;
       const specs = h.specs.map(id => Run.specOf(h.key, id)).filter(Boolean);
       const slots = [];
       for (let i = 0; i < sl; i++) {
         const id = h.items[i];
         slots.push(id ? `<button class="chip" style="border-color:${TIER_COLOR[ITEM[id].tier]}" data-act="unequip" data-arg="${h.uid}:${i}" title="${esc(ITEM[id].desc)}">${esc(ITEM[id].name)} ✕</button>`
-          : `<button class="chip empty ${ui.selBag >= 0 ? 'hot' : ''}" data-act="equip" data-arg="${h.uid}">${ui.selBag >= 0 ? 'Equip here' : 'empty slot'}</button>`);
+          : `<span class="chip empty">empty</span>`);
       }
-      return `<div class="hero">
-        <div class="hrow">${img(h.key, 48)}<b>${esc(d.name)}</b> <span class="role">${d.role}</span> <span class="lv">Lv ${h.lvl}</span>
-          <span class="xp">${next ? 'XP ' + h.xp + '/' + next : 'MAX'}</span></div>
-        <div class="small">HP ${Math.round(def.hp)} · ATK ${Math.round(def.atk)} · AP ${Math.round(def.ap)} · ARM ${Math.round(def.armor)} · MR ${Math.round(def.mr)} · AS ${def.as.toFixed(2)} · RNG ${def.range}${def.crit ? ' · CRIT ' + Math.round(def.crit * 100) + '%' : ''}</div>
-        <div class="small"><b>${esc(d.abName)}</b>: ${esc(d.abDesc)}</div>
-        ${specs.length ? `<div class="small specs">${specs.map(s => `<span title="${esc(s.desc)}">★ ${esc(s.name)}</span>`).join(' ')}</div>` : ''}
+      const target = sel && !full;
+      return `<div class="eqhero ${target ? 'target' : ''} ${sel && full ? 'full' : ''}" ${sel ? `data-act="equip" data-arg="${h.uid}"` : ''}>
+        <div class="hrow">${img(h.key, 40)}<div><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span><div class="xpbar"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></div></div></div>
+        ${target ? '<div class="tap">Tap to equip here</div>' : sel && full ? '<div class="tap dim">No free slot</div>' : ''}
         <div class="slots">${slots.join('')}</div>
-        ${h.lvl < 3 ? '<div class="dim small">More item slots at Lv 3, 4 and 5.</div>' : ''}
+        <div class="small stats">HP ${Math.round(def.hp)} · ATK ${Math.round(def.atk)} · AP ${Math.round(def.ap)} · ARM ${Math.round(def.armor)} · MR ${Math.round(def.mr)} · AS ${def.as.toFixed(2)} · RNG ${def.range}${def.crit ? ' · CRIT ' + Math.round(def.crit * 100) + '%' : ''}</div>
+        <div class="small"><b>${esc(d.abName)}</b>${specs.length ? ' · ' + specs.map(sp => `<span class="spec" title="${esc(sp.desc)}">★ ${esc(sp.name)}</span>`).join(' ') : ''}</div>
+        ${h.lvl < 3 ? '<div class="dim small">More slots at Lv 3, 4, 5.</div>' : ''}
       </div>`;
     }).join('');
-    const bag = run.bag.map((id, i) => `<button class="chip ${ui.selBag === i ? 'on' : ''}" style="border-color:${TIER_COLOR[ITEM[id].tier]}" data-act="bag" data-arg="${i}">${esc(ITEM[id].name)}</button>`).join('');
-    const sel = ui.selBag >= 0 && run.bag[ui.selBag] ? ITEM[run.bag[ui.selBag]] : null;
-    return `<div class="shead"><b>Team</b><button data-act="close">✕</button></div>
-      ${heroes}
-      <h3>Bag</h3>${bag ? `<div class="slots">${bag}</div>` : '<p class="dim small">Empty. Buy items in the Item Shop.</p>'}
-      ${sel ? `<div class="card"><b style="color:${TIER_COLOR[sel.tier]}">${esc(sel.name)}</b> <span class="small">${esc(sel.desc)}</span><div class="row"><span class="dim small">Tap "Equip here" on a hero.</span><button data-act="sell">Sell · +${Run.sellValue(sel.id)}g</button></div></div>` : ''}
+    return `<div class="shead"><b>Team & items</b><button data-act="close">✕</button></div>
+      <p class="hint">${sel ? `<b>${esc(sel.name)}</b> selected: tap a hero on the right. <a href="#" data-act="sell">Sell for ${Run.sellValue(sel.id)}g</a>` : 'Tap an item on the left, then tap a hero on the right.'}</p>
+      <div class="equip">
+        <div class="eqcol"><h3>Items (${run.bag.length})</h3>${items || '<p class="dim small">Bag is empty. Buy items in the Item Shop.</p>'}</div>
+        <div class="eqcol"><h3>Heroes (${run.heroes.length}/${Run.teamMax(run)})</h3>${heroes}</div>
+      </div>
       <h3>Relics</h3>${run.relics.length ? run.relics.map(id => `<div class="small">◆ <b>${esc(RELIC[id].name)}</b>: ${esc(RELIC[id].desc)}</div>`).join('') : '<p class="dim small">None yet.</p>'}`;
   }
 
