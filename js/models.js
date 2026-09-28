@@ -161,7 +161,17 @@
   }
   function headgear(c, m, hx, hy, r, p) {
     const k = m.head;
-    const eyes = (col) => { ball(c, hx + r * 0.35, hy - r * 0.05, r * 0.14, col || '#222'); ball(c, hx + r * 0.75, hy - r * 0.05, r * 0.12, col || '#222'); };
+    const eyes = (col) => {
+      if (r < 5 || col) { ball(c, hx + r * 0.35, hy - r * 0.05, r * 0.14, col || '#222'); ball(c, hx + r * 0.75, hy - r * 0.05, r * 0.12, col || '#222'); return; }
+      for (const [ex, er] of [[0.33, 0.2], [0.76, 0.17]]) {
+        c.fillStyle = '#f7f3ea'; c.beginPath(); c.ellipse(hx + r * ex, hy - r * 0.04, r * er, r * er * 0.8, 0, 0, TAU); c.fill(); c.strokeStyle = INK; c.lineWidth = 0.8; c.stroke();
+        c.fillStyle = m.iris || '#3a2a1a'; c.beginPath(); c.arc(hx + r * (ex + 0.05), hy - r * 0.02, r * er * 0.62, 0, TAU); c.fill();
+        c.fillStyle = '#fff'; c.beginPath(); c.arc(hx + r * (ex + 0.02), hy - r * 0.08, r * er * 0.22, 0, TAU); c.fill();
+      }
+      c.strokeStyle = shade(m.hair || '#3a2a1a', -0.2); c.lineWidth = Math.max(1, r * 0.1); c.lineCap = 'round';
+      seg(c, hx + r * 0.16, hy - r * 0.33, hx + r * 0.48, hy - r * 0.38); seg(c, hx + r * 0.64, hy - r * 0.37, hx + r * 0.92, hy - r * 0.3);
+      c.strokeStyle = shade(m.skin, -0.35); c.lineWidth = Math.max(1, r * 0.08); seg(c, hx + r * 0.62, hy + r * 0.1, hx + r * 0.66, hy + r * 0.3);
+    };
     if (k === 'skull') { ball(c, hx, hy, r, m.skin === '#e0b48a' ? '#e8e2d0' : '#e8e2d0', OUT); ball(c, hx + r * 0.35, hy - r * 0.05, r * 0.2, '#111'); ball(c, hx + r * 0.75, hy - r * 0.05, r * 0.17, '#111'); if (m.eyes) { ball(c, hx + r * 0.35, hy - r * 0.05, r * 0.08, m.eyes); ball(c, hx + r * 0.75, hy - r * 0.05, r * 0.07, m.eyes); } limb(c, hx + r * 0.3, hy + r * 0.55, hx + r * 0.8, hy + r * 0.5, 1, '#555'); return; }
     if (k === 'boar') { ball(c, hx, hy, r * 1.1, m.skin, OUT); poly(c, [[hx + r * 0.6, hy - r * 0.2], [hx + r * 1.45, hy + r * 0.05], [hx + r * 1.45, hy + r * 0.45], [hx + r * 0.6, hy + r * 0.5]], shade(m.skin, -0.15), OUT); ball(c, hx + r * 1.4, hy + r * 0.25, r * 0.12, '#3a2018'); limb(c, hx + r * 1.0, hy + r * 0.45, hx + r * 1.25, hy - r * 0.05, r * 0.16, '#f2ead0'); poly(c, [[hx - r * 0.2, hy - r * 0.8], [hx - r * 0.55, hy - r * 1.35], [hx - r * 0.05, hy - r * 0.9]], shade(m.skin, -0.2)); eyes('#ffcf5a'); return; }
     if (k === 'mummy') {
@@ -172,6 +182,7 @@
     ball(c, hx, hy, r, m.skin, OUT);
     if (m.hair && k !== 'hood' && k !== 'helm') { c.fillStyle = m.hair; c.beginPath(); c.arc(hx - r * 0.1, hy - r * 0.15, r * 1.02, Math.PI * 0.95, Math.PI * 2.05); c.fill(); }
     eyes(m.eyes && k === 'hood' ? m.eyes : null);
+    if (k !== 'hood' && k !== 'helm' && k !== 'mask' && r >= 5) { c.strokeStyle = shade(m.skin, -0.45); c.lineWidth = Math.max(1, r * 0.08); seg(c, hx + r * 0.42, hy + r * 0.5, hx + r * 0.78, hy + r * 0.46); }
     if (k === 'helm') {
       c.fillStyle = m.pauldrons || shade(m.body, 0.25); c.beginPath(); c.arc(hx, hy, r * 1.12, Math.PI * 0.9, Math.PI * 2.1); c.lineTo(hx + r * 1.1, hy + r * 0.7); c.lineTo(hx - r * 1.05, hy + r * 0.7); c.closePath(); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1; c.stroke();
       limb(c, hx + r * 0.1, hy, hx + r * 1.05, hy, r * 0.2, '#111');
@@ -200,58 +211,107 @@
     else if (k === 'beard') { poly(c, [[hx - r * 0.3, hy + r * 0.1], [hx + r * 1.0, hy + r * 0.1], [hx + r * 0.7, hy + r * 1.25], [hx + r * 0.1, hy + r * 1.1]], m.hair); }
     else if (k === 'ears') { poly(c, [[hx - r * 0.6, hy - r * 0.2], [hx - r * 1.6, hy - r * 0.7], [hx - r * 0.7, hy + r * 0.25]], m.skin, OUT); poly(c, [[hx + r * 0.5, hy - r * 0.5], [hx + r * 1.3, hy - r * 1.1], [hx + r * 0.8, hy - r * 0.2]], m.skin, OUT); }
   }
+  // ---- review #12 (David: "generic stickman"): limbs with volume and joints, shaped torso, neck, faces with eyes.
+  // tapered segment: a filled, outlined, shaded quad with round caps (upper arm, forearm, thigh, shin)
+  function tlimb(c, x1, y1, x2, y2, w1, w2, col) {
+    const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    c.beginPath();
+    c.moveTo(x1 + nx * w1 / 2, y1 + ny * w1 / 2); c.lineTo(x2 + nx * w2 / 2, y2 + ny * w2 / 2);
+    c.arc(x2, y2, w2 / 2, Math.atan2(ny, nx), Math.atan2(ny, nx) + Math.PI);
+    c.lineTo(x1 - nx * w1 / 2, y1 - ny * w1 / 2);
+    c.arc(x1, y1, w1 / 2, Math.atan2(-ny, -nx), Math.atan2(-ny, -nx) + Math.PI);
+    c.closePath();
+    const g = c.createLinearGradient(x1 - nx * w1 / 2, y1 - ny * w1 / 2, x1 + nx * w1 / 2, y1 + ny * w1 / 2);
+    g.addColorStop(0, shade(col, 0.3)); g.addColorStop(0.45, col); g.addColorStop(1, shade(col, -0.35));
+    c.fillStyle = g; c.fill(); c.strokeStyle = INK; c.lineWidth = 1.2; c.stroke();
+  }
+  // two-bone arm/leg: joint pushed sideways by `bend` (fraction of length); returns end point
+  function joint(x1, y1, x2, y2, bend) {
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
+    return [mx - dy / L * bend * L, my + dx / L * bend * L];
+  }
+  function arm(c, sx, sy, a, L, w, sleeve, skin, bend) {
+    const hx = sx + Math.sin(a) * L, hy = sy + Math.cos(a) * L, [ex, ey] = joint(sx, sy, hx, hy, bend);
+    tlimb(c, sx, sy, ex, ey, w, w * 0.85, sleeve);
+    tlimb(c, ex, ey, hx, hy, w * 0.82, w * 0.66, shade(sleeve, -0.08));
+    return [hx, hy];
+  }
+  function leg(c, x, y, a, L, w, col, boot, bend) {
+    const fx = x + Math.sin(a) * L, fy = y + Math.cos(a) * L, [kx, ky] = joint(x, y, fx, fy, bend);
+    tlimb(c, x, y, kx, ky, w, w * 0.8, col);
+    tlimb(c, kx, ky, fx, fy - w * 0.2, w * 0.78, w * 0.62, shade(col, -0.1));
+    poly(c, [[fx - w * 0.45, fy - w * 0.55], [fx + w * 0.35, fy - w * 0.55], [fx + w * 0.95, fy - w * 0.05], [fx + w * 0.9, fy + w * 0.12], [fx - w * 0.45, fy + w * 0.12]], boot);
+  }
   function humanoid(c, m, S, p) {
-    const s = S * m.h, bulk = m.bulk;
+    const s = S * m.h, bulk = m.bulk, det = !!p.detail;
     const bob = p.walk != null ? Math.abs(Math.sin(p.walk * TAU)) * s * 0.05 : Math.sin(p.t * 2.2) * s * 0.015;
-    const hipY = -s * 0.55 - bob, shY = -s * 1.0 - bob, headR = s * 0.2, headY = shY - headR * 1.15;
+    const hipY = -s * 0.55 - bob, shY = -s * 1.0 - bob, headR = s * 0.19, headY = shY - headR * 1.3;
     const lean = p.walk != null ? 0.06 * s : 0, shX = lean;
-    const [fa, ba] = armAngles(m, p), armL = s * 0.42, armW = s * 0.11 * Math.sqrt(bulk);
+    const [fa, ba] = armAngles(m, p), armL = s * 0.44, armW = s * 0.12 * Math.sqrt(bulk);
+    const boot = m.boot || shade(m.legs, -0.45), sleeve = m.body, bareArms = !!m.bare;
     // wings / cape (behind)
-    if (m.wings) { const f = Math.sin(p.t * 12) * 0.4; c.fillStyle = m.wings; for (const d of [-1, 1]) { c.beginPath(); c.moveTo(shX - s * 0.05, shY + s * 0.1); c.quadraticCurveTo(shX - s * 0.6, shY - s * (0.5 + d * 0.1 + f * 0.3), shX - s * 0.75, shY + s * 0.15); c.quadraticCurveTo(shX - s * 0.4, shY + s * 0.05, shX - s * 0.05, shY + s * 0.25); c.fill(); } }
-    if (m.cape) { const sw = Math.sin(p.t * 2 + (p.walk || 0) * 6) * s * 0.06; poly(c, [[shX - s * 0.15 * bulk, shY], [shX + s * 0.05, shY], [-s * 0.08 + sw, hipY + s * 0.35], [-s * 0.4 * bulk + sw, hipY + s * 0.3]], m.cape, OUT); }
+    if (m.wings) { const f = Math.sin(p.t * 12) * 0.4; for (const d of [-1, 1]) { c.beginPath(); c.moveTo(shX - s * 0.05, shY + s * 0.1); c.quadraticCurveTo(shX - s * 0.6, shY - s * (0.5 + d * 0.1 + f * 0.3), shX - s * 0.75, shY + s * 0.15); c.quadraticCurveTo(shX - s * 0.4, shY + s * 0.05, shX - s * 0.05, shY + s * 0.25); c.fillStyle = m.wings; c.fill(); c.strokeStyle = INK; c.lineWidth = 1.2; c.stroke(); } }
+    if (m.cape) { const sw = Math.sin(p.t * 2 + (p.walk || 0) * 6) * s * 0.06; poly(c, [[shX - s * 0.17 * bulk, shY - s * 0.02], [shX + s * 0.06, shY - s * 0.02], [-s * 0.06 + sw, hipY + s * 0.4], [-s * 0.26 * bulk + sw, hipY + s * 0.46], [-s * 0.44 * bulk + sw, hipY + s * 0.34]], m.cape); }
     if (m.quiver) { poly(c, [[shX - s * 0.25, shY - s * 0.1], [shX - s * 0.12, shY - s * 0.15], [shX - s * 0.05, hipY], [shX - s * 0.18, hipY + s * 0.02]], '#6a4a2a'); for (let i = 0; i < 3; i++) limb(c, shX - s * (0.22 - i * 0.04), shY - s * 0.12, shX - s * (0.27 - i * 0.04), shY - s * 0.3, 1.5, '#e8e2d0'); }
-    if (m.pack) { poly(c, [[shX - s * 0.42, shY + s * 0.02], [shX - s * 0.12, shY], [shX - s * 0.12, hipY], [shX - s * 0.42, hipY]], '#6e6e6e', OUT); ball(c, shX - s * 0.27, shY + s * 0.18, s * 0.06, '#ffcf5a'); }
+    if (m.pack) { poly(c, [[shX - s * 0.42, shY + s * 0.02], [shX - s * 0.12, shY], [shX - s * 0.12, hipY], [shX - s * 0.42, hipY]], '#6e6e6e'); ball(c, shX - s * 0.27, shY + s * 0.18, s * 0.06, '#ffcf5a'); }
     // back arm
-    const bsx = shX - s * 0.12 * bulk, [bhx, bhy] = hand(bsx, shY + s * 0.04, ba, armL);
-    limb(c, bsx, shY + s * 0.04, bhx, bhy, armW, shade(m.body, -0.3));
+    const bsx = shX - s * 0.13 * bulk, bsy = shY + s * 0.05;
+    const [bhx, bhy] = arm(c, bsx, bsy, ba, armL, armW * 0.95, shade(bareArms ? m.skin : sleeve, -0.25), m.skin, -0.12);
+    ball(c, bhx, bhy, armW * 0.5, shade(m.skin, -0.15));
     if (m.weapon === 'daggers' || m.weapon === 'shieldmace') weapon(c, m, bhx, bhy, ba, s * (m.weapon === 'shieldmace' ? 0.9 : 1), p);
     if (m.hoplon) { ball(c, bhx - s * 0.05, bhy - s * 0.12, s * 0.26, '#b8903a'); ball(c, bhx - s * 0.05, bhy - s * 0.12, s * 0.1, '#e8c070'); }
-    if (m.weapon === 'shieldmace') { c.save(); c.translate(bhx, bhy); limb(c, 0, 0, Math.sin(ba + 0.5) * s * 0.3, Math.cos(ba + 0.5) * s * 0.3, s * 0.06, '#6a4a2a'); ball(c, Math.sin(ba + 0.5) * s * 0.34, Math.cos(ba + 0.5) * s * 0.34, s * 0.1, '#9aa0a8', OUT); c.restore(); }
+    if (m.weapon === 'shieldmace') { c.save(); c.translate(bhx, bhy); limb(c, 0, 0, Math.sin(ba + 0.5) * s * 0.3, Math.cos(ba + 0.5) * s * 0.3, s * 0.06, '#6a4a2a'); ball(c, Math.sin(ba + 0.5) * s * 0.34, Math.cos(ba + 0.5) * s * 0.34, s * 0.1, '#9aa0a8'); c.restore(); }
     // legs or robe
     if (m.robe) {
       const sw = p.walk != null ? Math.sin(p.walk * TAU) * s * 0.06 : 0;
-      poly(c, [[-s * 0.17 * bulk, hipY - s * 0.08], [s * 0.19 * bulk, hipY - s * 0.08], [s * 0.3 + sw, 0], [-s * 0.3 + sw, 0]], m.robe, OUT);
-      limb(c, -s * 0.28 + sw, -s * 0.02, s * 0.28 + sw, -s * 0.02, s * 0.05, m.trim);
+      poly(c, [[-s * 0.17 * bulk, hipY - s * 0.08], [s * 0.19 * bulk, hipY - s * 0.08], [s * 0.24 + sw, -s * 0.2], [s * 0.32 + sw, 0], [-s * 0.32 + sw, 0], [-s * 0.24 + sw, -s * 0.2]], m.robe);
+      if (det) { c.strokeStyle = shade(m.robe, -0.35); c.lineWidth = 1; for (const x of [-0.12, 0.02, 0.15]) seg(c, s * x * bulk, hipY, s * x * 1.4 + sw, -s * 0.04); }
+      limb(c, -s * 0.3 + sw, -s * 0.03, s * 0.3 + sw, -s * 0.03, s * 0.05, m.trim);
+      poly(c, [[-s * 0.2 + sw, -s * 0.04], [-s * 0.02 + sw, -s * 0.04], [s * 0.02 + sw, 0], [-s * 0.2 + sw, 0]], boot);
     } else {
-      const la = p.walk != null ? Math.sin(p.walk * TAU) * 0.55 : 0, legL = -hipY, legW = s * 0.13 * Math.sqrt(bulk);
-      limb(c, -s * 0.06, hipY, -s * 0.06 + Math.sin(-la) * legL, hipY + Math.cos(la) * legL, legW, shade(m.legs, -0.25));
-      limb(c, s * 0.06, hipY, s * 0.06 + Math.sin(la) * legL, hipY + Math.cos(la) * legL, legW, m.legs);
+      const la = p.walk != null ? Math.sin(p.walk * TAU) * 0.55 : 0.06, legL = -hipY, legW = s * 0.14 * Math.sqrt(bulk);
+      leg(c, -s * 0.06, hipY, -la, legL, legW, shade(m.legs, -0.22), shade(boot, -0.2), la > 0 ? 0.06 : 0.12);
+      leg(c, s * 0.06, hipY, la, legL, legW, m.legs, boot, la < 0 ? 0.06 : 0.12);
     }
-    // torso with fake light from the upper left
-    const tw = s * 0.2 * bulk, bw = s * 0.15 * bulk;
-    const g = c.createLinearGradient(-tw, 0, tw, 0); g.addColorStop(0, shade(m.body, 0.25)); g.addColorStop(1, shade(m.body, -0.35));
-    c.fillStyle = g; c.beginPath(); c.moveTo(shX - tw, shY); c.lineTo(shX + tw, shY); c.lineTo(bw, hipY + s * 0.04); c.lineTo(-bw, hipY + s * 0.04); c.closePath(); c.fill(); c.strokeStyle = INK; c.lineWidth = 1.5; c.stroke();
-    c.strokeStyle = shade(m.body, 0.45); c.lineWidth = 1; seg(c, shX - tw + 1.5, shY + 1.5, -bw + 1.5, hipY);
-    c.strokeStyle = shade(m.body, -0.45); c.globalAlpha *= 0.6; seg(c, shX + tw * 0.15, shY + s * 0.1, bw * 0.3, hipY - s * 0.02); c.globalAlpha /= 0.6;
+    // torso: shoulders, chest, waist, hips
+    const tw = s * 0.22 * bulk, ww = s * 0.15 * bulk, bw = s * 0.17 * bulk, wy = hipY - s * 0.14;
+    c.beginPath();
+    c.moveTo(shX - tw, shY + s * 0.05);
+    c.quadraticCurveTo(shX - tw * 0.9, shY - s * 0.04, shX - tw * 0.4, shY - s * 0.03);
+    c.lineTo(shX + tw * 0.4, shY - s * 0.03);
+    c.quadraticCurveTo(shX + tw * 0.9, shY - s * 0.04, shX + tw, shY + s * 0.05);
+    c.quadraticCurveTo(shX + tw * 0.9, shY + s * 0.22, ww, wy);
+    c.lineTo(bw, hipY + s * 0.05); c.lineTo(-bw, hipY + s * 0.05); c.lineTo(-ww, wy);
+    c.quadraticCurveTo(shX - tw * 0.9, shY + s * 0.22, shX - tw, shY + s * 0.05);
+    c.closePath();
+    const g = c.createLinearGradient(shX - tw, shY, shX + tw, hipY); g.addColorStop(0, shade(m.body, 0.3)); g.addColorStop(0.5, m.body); g.addColorStop(1, shade(m.body, -0.4));
+    c.fillStyle = g; c.fill(); c.strokeStyle = INK; c.lineWidth = 1.5; c.stroke();
+    c.strokeStyle = shade(m.body, 0.5); c.lineWidth = 1; c.beginPath(); c.moveTo(shX - tw + 2, shY + s * 0.07); c.quadraticCurveTo(shX - tw * 0.85, shY + s * 0.22, -ww + 2, wy); c.stroke();
+    // chest line and folds (more of them in splash detail)
+    c.strokeStyle = shade(m.body, -0.45); c.globalAlpha *= 0.7; seg(c, shX + tw * 0.05, shY + s * 0.04, shX + tw * 0.02, wy); c.globalAlpha /= 0.7;
+    if (det) { c.strokeStyle = shade(m.body, -0.3); c.lineWidth = 1; for (const k of [0.12, 0.22]) seg(c, shX - tw * 0.6, shY + s * k, shX + tw * 0.5, shY + s * (k + 0.03)); ball(c, shX - tw * 0.55, shY + s * 0.12, s * 0.018, m.trim); ball(c, shX + tw * 0.55, shY + s * 0.12, s * 0.018, m.trim); }
     if (m.paint) { limb(c, shX - tw * 0.6, shY + s * 0.12, shX + tw * 0.2, shY + s * 0.3, 2, '#d4483b'); limb(c, shX - tw * 0.4, shY + s * 0.28, shX + tw * 0.4, shY + s * 0.42, 2, '#d4483b'); }
     if (m.wraps) { c.strokeStyle = shade(m.body, -0.3); c.lineWidth = 1.2; for (let i = 0; i < 4; i++) seg(c, shX - tw, shY + s * (0.08 + i * 0.1), shX + tw, shY + s * (0.14 + i * 0.1)); }
     if (m.diamonds) { c.fillStyle = m.diamonds; for (const [dx, dy] of [[-0.08, 0.14], [0.08, 0.28], [-0.06, 0.34], [0.07, 0.1]]) { c.beginPath(); c.moveTo(shX + s * dx, shY + s * (dy - 0.06)); c.lineTo(shX + s * (dx + 0.045), shY + s * dy); c.lineTo(shX + s * dx, shY + s * (dy + 0.06)); c.lineTo(shX + s * (dx - 0.045), shY + s * dy); c.fill(); } }
     if (m.sash) limb(c, shX - tw * 0.8, shY + s * 0.02, bw * 0.9, hipY, s * 0.06, m.sash);
     if (m.bones) for (let i = 0; i < 3; i++) limb(c, shX - tw * 0.7, shY + s * (0.1 + i * 0.1), shX + tw * 0.7, shY + s * (0.1 + i * 0.1), 1.5, '#8a8474');
-    limb(c, -bw, hipY + s * 0.02, bw, hipY + s * 0.02, s * 0.05, m.trim);
-    if (m.pauldrons) { ball(c, shX - tw * 0.9, shY + s * 0.02, s * 0.1 * bulk, m.pauldrons, OUT); ball(c, shX + tw * 0.9, shY + s * 0.02, s * 0.1 * bulk, m.pauldrons, OUT); }
-    // head
+    // belt with buckle
+    limb(c, -bw, hipY + s * 0.02, bw, hipY + s * 0.02, s * 0.055, m.trim);
+    poly(c, [[-s * 0.035, hipY - s * 0.01], [s * 0.035, hipY - s * 0.01], [s * 0.035, hipY + s * 0.05], [-s * 0.035, hipY + s * 0.05]], shade(m.trim, 0.3));
+    if (m.pauldrons) { ball(c, shX - tw * 0.92, shY + s * 0.04, s * 0.11 * bulk, m.pauldrons); ball(c, shX + tw * 0.92, shY + s * 0.04, s * 0.11 * bulk, m.pauldrons); }
+    // neck + head
+    tlimb(c, shX + s * 0.01, shY + s * 0.01, shX + s * 0.02, headY + headR * 0.7, s * 0.09, s * 0.08, shade(m.skin, -0.15));
     if (m.collar) poly(c, [[shX - s * 0.2, shY + s * 0.02], [shX - s * 0.26, headY - headR * 0.9], [shX - s * 0.04, headY - headR * 0.3], [shX + s * 0.12, shY]], m.collar);
     headgear(c, m, shX + s * 0.02, headY, headR * (m.head === 'boar' ? 1.1 : 1), p);
-    if (m.head !== 'boar' && m.head !== 'skull' && m.head !== 'mask' && m.head !== 'hood' && m.head !== 'helm') { /* mouth hint */ limb(c, shX + headR * 0.4, headY + headR * 0.45, shX + headR * 0.75, headY + headR * 0.42, 1, 'rgba(0,0,0,0.5)'); }
     // front arm + weapon
-    const fsx = shX + s * 0.12 * bulk, [fhx, fhy] = hand(fsx, shY + s * 0.04, fa, armL);
-    if (m.weapon === 'tower') { poly(c, [[shX + s * 0.12, shY - s * 0.15], [shX + s * 0.42, shY - s * 0.15], [shX + s * 0.42, hipY + s * 0.3], [shX + s * 0.27, hipY + s * 0.42], [shX + s * 0.12, hipY + s * 0.3]], '#7a808a', OUT); limb(c, shX + s * 0.27, shY - s * 0.1, shX + s * 0.27, hipY + s * 0.35, s * 0.04, m.trim); }
-    if (m.weapon === 'shieldmace') { const k = p.atk != null ? 0 : 0; poly(c, [[shX + s * 0.18 + k, shY - s * 0.08], [shX + s * 0.46, shY - s * 0.08], [shX + s * 0.46, hipY + s * 0.15], [shX + s * 0.32, hipY + s * 0.32], [shX + s * 0.18, hipY + s * 0.15]], '#3d5aa0', '#d9c36a'); ball(c, shX + s * 0.32, shY + s * 0.2, s * 0.06, '#d9c36a'); }
-    else if (m.weapon !== 'none' && m.weapon !== 'tower') weapon(c, m, fhx, fhy, fa, s, p);
-    limb(c, fsx, shY + s * 0.04, fhx, fhy, armW, shade(m.body, 0.05));
-    ball(c, fhx, fhy, armW * 0.55, m.skin);
-    if (m.sparks && Math.sin(p.t * 9) > 0.6) limb(c, fhx + s * 0.1, fhy - s * 0.4, fhx + s * 0.18, fhy - s * 0.52, 1.5, '#fff6a0');
+    const fsx = shX + s * 0.13 * bulk, fsy = shY + s * 0.05;
+    if (m.weapon === 'tower') { poly(c, [[shX + s * 0.12, shY - s * 0.15], [shX + s * 0.42, shY - s * 0.15], [shX + s * 0.42, hipY + s * 0.3], [shX + s * 0.27, hipY + s * 0.42], [shX + s * 0.12, hipY + s * 0.3]], '#7a808a'); limb(c, shX + s * 0.27, shY - s * 0.1, shX + s * 0.27, hipY + s * 0.35, s * 0.04, m.trim); }
+    if (m.weapon === 'shieldmace') { poly(c, [[shX + s * 0.18, shY - s * 0.08], [shX + s * 0.46, shY - s * 0.08], [shX + s * 0.46, hipY + s * 0.15], [shX + s * 0.32, hipY + s * 0.32], [shX + s * 0.18, hipY + s * 0.15]], '#3d5aa0'); ball(c, shX + s * 0.32, shY + s * 0.2, s * 0.06, '#d9c36a'); }
+    const fh = hand(fsx, fsy, fa, armL);
+    if (m.weapon !== 'none' && m.weapon !== 'tower' && m.weapon !== 'shieldmace') weapon(c, m, fh[0], fh[1], fa, s, p);
+    arm(c, fsx, fsy, fa, armL, armW, bareArms ? m.skin : shade(sleeve, 0.05), m.skin, 0.12);
+    ball(c, fh[0], fh[1], armW * 0.55, m.skin);
+    if (m.sparks && Math.sin(p.t * 9) > 0.6) limb(c, fh[0] + s * 0.1, fh[1] - s * 0.4, fh[0] + s * 0.18, fh[1] - s * 0.52, 1.5, '#fff6a0');
   }
 
   // ------------------------------------------------------------------ other rigs

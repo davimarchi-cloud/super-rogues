@@ -451,3 +451,11 @@ button.big { min-height: 44px; font-size: 15px; }
 .small, .abil, .eqitem span, .stock .small { color: #ddd6c8; }
 .card.result { font-size: 15px; }
 .eqhero .stats-row { gap: 2px 3px; } .eqhero .stat { font-size: 10px; padding: 0 4px 0 3px; } .eqhero .stat i { font-size: 9px; }
+
+/* v13 (review #12): splash-art portraits are painted cards, not cut-outs */
+.por { border-radius: 8px; filter: none; box-shadow: 0 0 0 1px #000a, 0 0 0 2px #e8b84a33, 0 3px 8px #000a; object-fit: cover; }
+.por.sm { border-radius: 5px; box-shadow: 0 0 0 1px #000a; }
+.hbanner img { aspect-ratio: 10 / 13; max-width: 100px; border-radius: 6px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #e8b84a44, 0 8px 18px #000c; filter: none; }
+.lineup img { width: 76px; height: 99px; border-radius: 8px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #e8b84a33, 0 10px 20px #000c; margin: 0 -8px; filter: brightness(.8); }
+.lineup img.mid { width: 96px; height: 125px; filter: none; z-index: 1; }
+.banner .emb-img { border-radius: 50%; }

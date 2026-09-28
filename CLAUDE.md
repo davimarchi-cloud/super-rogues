@@ -29,6 +29,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `js/sim.js` | motor de combate puro e determinístico (20 ticks/s). Roda no navegador e no Node |
 | `js/run.js` | máquina de estados da run (mapa, lutas, lojas, eventos, XP, itens). JSON puro, salvo no localStorage |
 | `js/models.js` | modelos 2.5D desenhados em código (humanoide, fera, bomba, golem, serpente, espectro, torre) com poses parado/andando/ataque/habilidade/morte; `portrait()` gera os retratos dos menus |
+| `js/splash.js` | splash art de cada unidade (fora da luta): pose heroica com o modelo em modo `detail`, luz na cor do herói, raios, bokeh, névoa, luz de contorno e brilho; `B.Splash.image(key, w, h, 'bust'|'full')`, cache em data: URL |
 | `js/icons.js` | ícones de itens e relíquias desenhados em código (~60 desenhos; cada item/relíquia mapeado em `IT`/`RE`), moldura na cor do tier, cache em data: URL |
 | `js/render.js` | canvas 2.5D: tabuleiro achatado (K=0.6) com espessura, unidades pelos modelos, barras, efeitos. Interpola posição entre hexes |
 | `js/ui.js` | telas DOM + loop da batalha. Sem handler inline (CSP): todo botão tem `data-act` |
@@ -115,6 +116,12 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v13 (2026-09-28), lote 12 do David** ("stickman", pediu splash art HD fora da luta e modelo alinhado na luta): o
+  humanoide ganhou volume (braço/antebraço, coxa/canela com articulação, mãos, botas, tronco com ombros e cintura,
+  pescoço, olhos com íris e brilho, sobrancelhas, boca). `js/splash.js` pinta a splash de cada unidade e TODO retrato
+  dos menus virou splash (busto quadrado ou figura inteira nos estandartes/título). Limite honesto: é arte feita em
+  código; não há gerador de imagem disponível (conector Higgsfield sem autorização; IA local reprovada antes). Se o
+  dono autorizar um gerador, dá para trocar por splash pintada de verdade mantendo os mesmos lugares.
 - **v12 (2026-09-28), lote 11 do David** ("many more unique heroes, go wild"): +15 heróis = 33 (Hippolyta amazona
   lança+veneno, Deadshot sniper, Vesper vampiro, Kage ninja, Rex cão, Vey hipnotizador, Pip palhaço, Barley bebum, Azgul
   demônio, Grok homem das cavernas, Imhotep múmia, Leonidas hoplita, Harlequin, Sprocket alquimista, Zephyr monge do
