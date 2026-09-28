@@ -121,6 +121,13 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v17 (2026-09-28), lote 15 do David** ("ghosts have items and relics as the player had"): itens e relíquias de
+  atributo do fantasma já valiam (heroDef com as relíquias dele), mas as relíquias de efeito de time (Phoenix Feather,
+  Vengeful Spirit, Frost Sigil, Thunder Totem, War Horn, Last Breath) só funcionavam para o lado do jogador. Agora o sim
+  guarda os efeitos por lado (`W.fl` jogador, `W.fl1` inimigo, `Sim.create({ enemyRelics })`, `flOf`); lutas normais
+  ficaram idênticas (mesmos números na matriz e no bot). O cartão do fantasma mostra os itens de cada herói e as
+  relíquias tocáveis. O fantasma guardado é o time ao entrar no Gauntlet (depois da última loja).
+
 - **v16 (2026-09-28), pedido direto do dono** ("itemização com itens divididos por tipo e raridade, parecidos com
   Obsidian Knight"): 7 tipos e 7 raridades (preços 3/4/5/8/7/10/13). Os 78 itens antigos ganharam tipo (ids iguais:
   saves, fantasmas e Elo de conteúdo seguem valendo); 11 comuns de 2 atributos viraram incomuns. 42 novos: 13 para

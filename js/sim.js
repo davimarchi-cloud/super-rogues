@@ -18,9 +18,11 @@
     const W = {
       t: 0, nid: 0, units: [], byId: {}, occ: new Array(Hx.COLS * Hx.ROWS).fill(0), q: [], fx: [], zones: [],
       rng: rngOf(o.seed || 1), mode: o.mode || 'fight', over: false, winner: -1, kills: 0, wave: 0,
-      sd: 0, fightNo: o.fightNo || 1, fl: {}, once: {}, log: [],
+      sd: 0, fightNo: o.fightNo || 1, fl: {}, fl1: {}, once: {}, log: [],
     };
+    // team relic effects per side: W.fl = the player's relics, W.fl1 = the enemy's (a gauntlet ghost's, review #15)
     for (const id of (o.relics || [])) { const r = B.RELIC[id]; if (r && r.fl) W.fl[r.fl] = 1; }
+    for (const id of (o.enemyRelics || [])) { const r = B.RELIC[id]; if (r && r.fl) W.fl1[r.fl] = 1; }
     for (const h of (o.heroes || [])) spawn(W, h.def, 0, h.c, h.r);
     for (const e of (o.enemies || [])) spawn(W, e.def, 1, e.c, e.r);
     if (!o.noStart) start(W);
@@ -66,8 +68,11 @@
         if (t) { cc(W, t, 'stun', 3); t.st.frozenU = W.t + sec(3); fxRing(W, t.c, t.r, 0, '#8ef', 12); }
       }
     }
-    if (W.fl.frostsigil) for (const u of W.units) if (u.side === 1) slow(W, u, 0.4, 4);
-    if (W.fl.warhorn) for (const u of W.units) if (u.side === 0) buff(u, 'asPct', 0.3, sec(5), W);
+    for (const s of [0, 1]) {
+      const F = flOf(W, s);
+      if (F.frostsigil) for (const u of W.units) if (u.side !== s) slow(W, u, 0.4, 4);
+      if (F.warhorn) for (const u of W.units) if (u.side === s) buff(u, 'asPct', 0.3, sec(5), W);
+    }
   }
 
   // ------------------------------------------------------------------ queries
@@ -113,6 +118,7 @@
   function fx(W, o) { o.t0 = o.t0 ?? W.t; W.fx.push(o); }
   function fxNum(W, u, v, color, big) { fx(W, { k: 'num', c: u.c, r: u.r, id: u.id, text: String(v), color, big: !!big, t1: W.t + 16 }); }
   function fxRing(W, c, r, rad, color, dur = 8) { fx(W, { k: 'ring', c, r, rad, color, t1: W.t + dur }); }
+  const flOf = (W, side) => side ? W.fl1 : W.fl;
   function fxText(W, u, text, color) { fx(W, { k: 'text', c: u.c, r: u.r, id: u.id, text, color, t1: W.t + 24 }); }
 
   // ------------------------------------------------------------------ status effects
@@ -204,7 +210,8 @@
     }
     if (u.fl.has('undying') && !u.once.undying) { u.once.undying = 1; u.hp = 1; u.st.invuln = W.t + sec(2); fxText(W, u, 'UNDYING', '#f44'); return; }
     if (u.m.revive && !u.once.revive) { u.once.revive = 1; u.hp = Math.round(u.maxHp * u.m.revive); u.dots = []; fxText(W, u, 'REVIVE', '#ffe066'); return; }
-    if (u.side === 0 && u.kind === 'hero' && W.fl.feather && !W.once.feather) { W.once.feather = 1; u.hp = Math.round(u.maxHp * 0.3); u.dots = []; fxText(W, u, 'PHOENIX', '#ff7a3d'); return; }
+    const fk = u.side ? 'feather1' : 'feather';
+    if (u.kind === 'hero' && flOf(W, u.side).feather && !W.once[fk]) { W.once[fk] = 1; u.hp = Math.round(u.maxHp * 0.3); u.dots = []; fxText(W, u, 'PHOENIX', '#ff7a3d'); return; }
     u.dead = true; u.hp = 0; u.deathT = W.t; u.anim = null;
     if (W.occ[Hx.key(u.c, u.r)] === u.id) W.occ[Hx.key(u.c, u.r)] = 0;
     if (u.side === 1 && !u.suicide) W.kills++;
@@ -219,8 +226,8 @@
       if (v.fl.has('soulharvest')) heal(W, v, v.maxHp * 0.05);
       if (v.m.killAtk && v.side !== u.side && Hx.dist(v, u) <= 3 && (v.sc.ka || 0) < v.m.killAtkCap) { const g = Math.min(v.m.killAtk, v.m.killAtkCap - (v.sc.ka || 0)); v.sc.ka = (v.sc.ka || 0) + g; v.bAtk += g; }
     }
-    if (u.side === 0 && u.kind === 'hero' && W.fl.lastbreath) { fxRing(W, u.c, u.r, 1, '#ff7a3d', 12); for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) deal(W, u, e, 3 * atkOf(W, u), 'magic', {}); }
-    if (u.side === 0 && u.kind === 'hero' && W.fl.vengeance) for (const a of allies(W, u)) if (a.kind === 'hero') { buff(a, 'atkPct', 0.2, 1e9); fxText(W, a, 'VENGEANCE', '#f66'); }
+    if (u.kind === 'hero' && flOf(W, u.side).lastbreath) { fxRing(W, u.c, u.r, 1, '#ff7a3d', 12); for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) deal(W, u, e, 3 * atkOf(W, u), 'magic', {}); }
+    if (u.kind === 'hero' && flOf(W, u.side).vengeance) for (const a of allies(W, u)) if (a.kind === 'hero') { buff(a, 'atkPct', 0.2, 1e9); fxText(W, a, 'VENGEANCE', '#f66'); }
     if (u.kind === 'hero') {  // either side: gauntlet teams are heroes too
       const lum = allies(W, u).find(a => a.fl.has('resurrect') && !a.once.res);
       if (lum) { lum.once.res = 1; at(W, W.t + sec(1), () => { if (u.dead && !W.over) reviveAt(W, u, 0.5, 'RESURRECTED'); }); }
@@ -886,8 +893,8 @@
       for (const e of due) { e.fn(); if (W.over) break; }
     }
     if (W.mode === 'fight' && W.t > sec(B.CFG.suddenDeath) && W.t % TPS === 0) { W.sd += 0.15; if (W.t === sec(B.CFG.suddenDeath) + TPS) fx(W, { k: 'banner', text: 'Sudden death', t1: W.t + 40 }); }
-    if (W.fl.thunder && W.t % sec(4) === 0) {
-      const es = W.units.filter(v => !v.dead && v.side === 1);
+    for (const s of [0, 1]) if (flOf(W, s).thunder && W.t % sec(4) === 0) {
+      const es = W.units.filter(v => !v.dead && v.side !== s);
       if (es.length) { const e = es[Math.floor(W.rng() * es.length)]; fx(W, { k: 'bolt', pts: [[e.c, e.r - 2], [e.c, e.r]], color: '#fff6a0', t1: W.t + 6 }); deal(W, null, e, 60 + 30 * W.fightNo + 5 * W.wave, 'magic', {}); }
     }
     if (W.zones.length && W.t % 10 === 0) {

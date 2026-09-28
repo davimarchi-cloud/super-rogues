@@ -230,8 +230,10 @@
 
   // ---------------- gauntlet (reviews #3 #4 by David)
   function teamRow(team, relics) {
-    return `<div class="gteam">${team.map(h => `<div class="gh">${img(h.key, 56)}<b>${esc(HEROES[h.key].name)}</b><span>Lv ${h.lvl}${h.items.length ? ' · ' + h.items.length + ' item' + (h.items.length > 1 ? 's' : '') : ''}</span></div>`).join('')}</div>
-      ${relics && relics.length ? `<div class="relics inline">${relics.filter(id => RELIC[id]).map(id => `<img class="ico sm" title="${esc(RELIC[id].name)}" src="${B.Icons.relic(id, 26)}" alt="">`).join('')}</div>` : ''}`;
+    // review #15: the ghost's items are shown hero by hero (they fight with them, like its relics)
+    return `<div class="gteam">${team.map(h => `<div class="gh">${img(h.key, 56)}<b>${esc(HEROES[h.key].name)}</b><span>Lv ${h.lvl}</span>
+      <span class="gitems">${h.items.filter(id => ITEM[id]).map(id => `<img class="ico xs" src="${B.Icons.item(id, 22)}" title="${esc(ITEM[id].name + ': ' + ITEM[id].desc)}" alt="${esc(ITEM[id].name)}">`).join('') || '<i>no items</i>'}</span></div>`).join('')}</div>
+      ${relics && relics.length ? `<div class="relics inline">${relics.filter(id => RELIC[id]).map(id => `<button class="relicbtn" data-act="relic-info" data-arg="${id}" title="${esc(RELIC[id].name + ': ' + RELIC[id].desc)}" aria-label="${esc(RELIC[id].name)}"><img class="ico sm" src="${B.Icons.relic(id, 26)}" alt=""></button>`).join('')}</div>` : ''}`;
   }
   function gauntletHTML() {
     const g = run.g;

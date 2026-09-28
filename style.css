@@ -580,3 +580,7 @@ body.wide .dpor .por { width: 68px; height: 68px; }
 .relicline > b { font-family: var(--serif); text-transform: uppercase; letter-spacing: 2px; font-size: 13px; color: var(--gold); margin-right: 4px; }
 .relicbtn { min-height: 0; padding: 0; border: 0; background: none; width: 32px; height: 32px; }
 .relicbtn .ico { width: 30px; height: 30px; }
+
+/* review #15: a ghost's items under each of its heroes */
+.gitems { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; min-height: 22px; }
+.gitems .ico.xs { width: 22px; height: 22px; filter: none; } .gitems i { font-size: 11px; }

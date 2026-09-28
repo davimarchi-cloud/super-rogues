@@ -161,6 +161,27 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(early === 0 && late > 0, `legendary and mythic items only show up after the first fights (early ${early}, late ${late})`);
 }
 
+// review #15 (David): a gauntlet ghost fights with the items and relics its player had
+{
+  const other = Run.newRun(321); Run.pickStart(other, ['bastion', 'kestrel']);
+  other.heroes[0].items = ['warmog']; other.heroes[1].items = ['bloodthirster'];
+  const run = Run.newRun(322); Run.pickStart(run, ['brakk', 'lumen']);
+  const relics = ['tooth', 'frostsigil', 'warhorn', 'feather'];
+  run.phase = 'gauntlet'; run.g = { status: 'match', history: [], round: 0, opp: { name: 'X', elo: 1000, team: Run.teamSnapshot(other), relics } };
+  run.cur = { type: 'gauntlet' };
+  const W = Run.gauntletWorld(run);
+  const ghost = W.units.filter(u => u.side === 1), mine = W.units.filter(u => u.side === 0);
+  const exp = Run.heroDef({ relics }, other.heroes[0]);
+  ok(ghost.length === 2 && Math.round(ghost.find(u => u.key === 'bastion').maxHp) === Math.round(exp.hp) && ghost.find(u => u.key === 'bastion').m.hp >= 400 + 150, 'ghost heroes wear their items and stat relics (Warmog + Giant Tooth)');
+  ok(mine.every(u => u.st.slowU > W.t) && ghost.every(u => u.buffs.some(b => b.s === 'asPct' && b.v === 0.3)) && !mine.some(u => u.buffs.some(b => b.s === 'asPct' && b.v === 0.3)), "the ghost's team relics work for the ghost: its Frost Sigil slows us, its War Horn speeds up its own heroes");
+  for (const u of ghost) u.hp = 5;  // so a ghost hero surely dies
+  let phoenix = 0; for (let k = 0; k < 20 * 90 && !W.over; k++) { Sim.step(W); for (const f of W.fx) if (f.k === 'text' && f.text === 'PHOENIX' && W.byId[f.id] && W.byId[f.id].side === 1) phoenix = 1; }
+  ok(phoenix && W.once.feather1 && !W.once.feather, "the ghost's Phoenix Feather revives one of its heroes (ours was not used)");
+  const plain = Run.newRun(323); Run.pickStart(plain, ['brakk', 'lumen']); plain.relics = ['frostsigil']; plain.cur = Run.makeFight(plain, 'easy', 1);
+  const P = Run.fightWorld(plain);
+  ok(P.units.filter(u => u.side === 1).every(u => u.st.slowU > P.t) && P.units.filter(u => u.side === 0).every(u => !(u.st.slowU > P.t)), 'our Frost Sigil still slows the enemies in normal fights');
+}
+
 // v5: passive scaling actually grows during a fight
 {
   const grew = (key, fn, secs = 12, diff = 'hard', n = 4) => {

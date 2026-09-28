@@ -215,7 +215,8 @@
     const o = run.g.opp, ghost = { relics: o.relics || [], heroes: [] };
     for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
     return B.Sim.create({
-      mode: 'fight', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: 7, relics: run.relics,
+      // review #15: the ghost fights with its own relics too (stat relics via heroDef, team effects via enemyRelics)
+      mode: 'fight', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: 7, relics: run.relics, enemyRelics: o.relics || [],
       heroes: run.heroes.map(h => ({ def: heroDef(run, h), c: h.pos.c, r: h.pos.r })),
       // their formation, mirrored so it faces ours: rows 4..7 -> 3..0
       enemies: o.team.map(h => { const d = heroDef(ghost, h); d.uid = 0; return { def: d, c: 7 - h.pos.c, r: 7 - h.pos.r }; }),
