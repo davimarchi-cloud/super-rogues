@@ -91,7 +91,7 @@ clica"), aperta **Send for review**. O envio inteiro vira um lote (`batch`) e a 
    Implementar os aceitos. Mudança grande/reestruturação é permitida.
 4. `node tools/tests/run-all.js` tem de passar. Se mexeu em número, olhar boss-matrix/sim-run.
 5. `git add -A && git commit` nesta pasta (mensagem cita lote e #ids) = cópia de segurança; desfazer = `git revert`.
-6. `bash tools/deploy.sh` e **confirmar que o site já serve a versão nova** (ex.: `curl -s https://balance-three-amber.vercel.app/ | grep <algo novo>`):
+6. `bash tools/deploy.sh` e **confirmar que o site já serve a versão nova** (ex.: `curl -s https://balance-three-amber.vercel.app/ | grep <algo novo>`; na API só GET ou um POST sem `pid` válido: todo POST com pid cria jogador no ladder de produção):
    o apelido leva alguns segundos para virar (visto na v4: logo após o deploy ainda vinha a versão velha).
 7. `node tools/sugestoes.js feito <id> "<resposta curta em inglês ou na língua da sugestão>"` ou `recusa <id> "<motivo>"`,
    um por item. **Só DEPOIS de publicar**: quando todos os itens do lote estão respondidos, a página de quem enviou
