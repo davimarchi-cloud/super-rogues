@@ -17,6 +17,9 @@ const SCHEMA = [
   `create table if not exists teams (id bigserial primary key, pid text not null, name text not null, elo_at real not null, team text not null,
      relics text not null, wins int not null default 0, status text not null default 'running', opp bigint, created bigint not null, updated bigint)`,
   `create index if not exists teams_pick on teams(status, wins)`,
+  // v15 (review #14): an Elo for every hero, item and relic, apart from the players (balance data)
+  `create table if not exists ratings (kind text not null, id text not null, elo real not null default 1000, games int not null default 0,
+     wins int not null default 0, updated bigint, primary key (kind, id))`,
 ];
 
 function memStore() {
@@ -52,6 +55,12 @@ function memStore() {
       if (!pool.length) return null; const w = Math.min(...pool.map(t => t.wins)); const c = pool.filter(t => t.wins === w);
       return Object.assign({}, c[Math.floor(Math.random() * c.length)]);
     },
+    async getRatings(keys) { const R = M.ratings = M.ratings || {}, o = {}; for (const k of keys) if (R[k]) o[k] = R[k].elo; return o; },
+    async addRatings(rows) {
+      const R = M.ratings = M.ratings || {};
+      for (const r of rows) { const x = R[r.kind + ':' + r.id] = R[r.kind + ':' + r.id] || { kind: r.kind, id: r.id, elo: 1000, games: 0, wins: 0 }; x.elo += r.delta; x.games++; x.wins += r.win; }
+    },
+    async listRatings() { return Object.values(M.ratings || {}).map(pubRating); },
   };
 }
 
@@ -96,6 +105,20 @@ function pgStore() {
         : await q("select * from teams where status in ('lost','champion') and wins >= $1 and pid <> $2 order by wins asc, random() limit 1", [minWins, pid]);
       return r.length ? num(r[0]) : null;
     },
+    async getRatings(keys) {
+      if (!keys.length) return {};
+      const o = {}; for (const r of await q("select kind, id, elo from ratings where kind || ':' || id = any($1::text[])", [keys])) o[r.kind + ':' + r.id] = Number(r.elo);
+      return o;
+    },
+    // deltas, not absolute values: two fights finishing at once both count
+    async addRatings(rows) {
+      if (!rows.length) return;
+      await q(`insert into ratings (kind, id, elo, games, wins, updated)
+        select k, i, 1000 + d, 1, w, $5 from unnest($1::text[], $2::text[], $3::float8[], $4::int[]) as u(k, i, d, w)
+        on conflict (kind, id) do update set elo = ratings.elo + (excluded.elo - 1000), games = ratings.games + 1, wins = ratings.wins + excluded.wins, updated = excluded.updated`,
+        [rows.map(r => r.kind), rows.map(r => r.id), rows.map(r => r.delta), rows.map(r => r.win), Date.now()]);
+    },
+    async listRatings() { return (await q('select kind, id, elo, games, wins from ratings')).map(pubRating); },
   };
 }
 
@@ -104,6 +127,7 @@ function pub(s) { return { id: Number(s.id), batch: Number(s.batch || s.id), nam
 // Neon returns bigint/real columns as strings: normalise numbers
 function num(r) { for (const k of ['id', 'elo', 'runs', 'crowns', 'best', 'elo_at', 'wins', 'opp', 'created', 'updated']) if (r[k] != null) r[k] = Number(r[k]); return r; }
 function pubPlayer(p) { return { name: p.name, elo: Math.round(Number(p.elo)), runs: Number(p.runs), crowns: Number(p.crowns), best: Number(p.best) }; }
+function pubRating(r) { return { kind: r.kind, id: r.id, elo: Math.round(Number(r.elo)), games: Number(r.games), wins: Number(r.wins) }; }
 function pubScore(s) { return { name: s.name, score: Number(s.score), wave: Number(s.wave), heroes: String(s.heroes || '').split(',').filter(Boolean), created: Number(s.created) }; }
 
 let store = null;

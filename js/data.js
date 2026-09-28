@@ -624,6 +624,8 @@
     R('rally', 'Rally Banner', 'Each hero gives +10 armor to adjacent allies.', { mods: { aura: [{ r: 1, stat: 'armor', val: 10 }] } }),
   ];
   B.RELIC = {}; for (const r of B.RELICS) B.RELIC[r.id] = r;
+  // review #14 (David): content Elo only rates what acts in a fight, so these never get a rating
+  B.NONCOMBAT = { item: ['coin', 'charm'], relic: ['idol', 'lens', 'seal', 'dice', 'purse', 'tome', 'treasure', 'bounty'] };
 
   // ---------------------------------------------------------------- mobs (stats at fight scale 1)
   const M = (o) => o;

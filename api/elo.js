@@ -1,5 +1,10 @@
 // Elo + PvP gauntlet (reviews #3 and #4 by David).
-// - No hearts: losing any fight ends the run = a loss against an opponent rated (your Elo - 200)      op 'fail'
+// - No hearts: losing any fight ends the run = a loss against an opponent rated 1000                  op 'fail'
+//   Review #14: reaching the gauntlet = a WIN against an opponent rated 1000                          op 'enter'
+// - Review #14: every hero, item and relic has its own Elo (table ratings, apart from the players), for balancing.
+//   Only pieces that acted in that fight are rated (see usedIn). A lost run / reaching the gauntlet rates the pieces of
+//   that fight against 1000; a duel rates each side's pieces against the other side's pieces of the same kind.
+//   GET ?ratings=1 lists them.
 // - After the last shop the player's team is stored as a GHOST and enters the gauntlet: round k is against the ghost of
 //   another run whose own gauntlet ended with k wins (or the closest above). Review #10: only player ghosts, no bots.
 //   Other players' ghosts first; if there are none yet, ghosts of your own older runs. Each match is a 1v1 Elo game against that team's rating
@@ -11,9 +16,54 @@ const getStore = require('./_store');
 require('../js/hex.js'); require('../js/data.js');
 const D = globalThis.B;
 
-const K = 32;
+const K = 32, PVE = 1000;
 const expect = (r, o) => 1 / (1 + Math.pow(10, (o - r) / 400));
 const eloAfter = (r, o, score) => r + K * (score - expect(r, o));
+
+// ---- content Elo (review #14)
+const KC = 16;          // content plays far more games than a player: a smaller step keeps the numbers steady
+const RATED_PER_HOUR = 40;  // rated fights per IP per hour, so nobody can flood the balance data
+// the pieces that acted in a fight: fielded heroes, their equipped items and the team's relics, minus anything with
+// no combat effect (B.NONCOMBAT), Hero's Crest without a 4th hero and Adventurer's Pack when no hero uses the extra slot
+function usedIn(team, relics) {
+  const out = new Map(), add = (kind, id) => out.set(kind + ':' + id, { kind, id });
+  for (const h of team) { add('hero', h.key); for (const id of h.items) if (!D.NONCOMBAT.item.includes(id)) add('item', id); }
+  for (const id of relics) {
+    if (D.NONCOMBAT.relic.includes(id)) continue;
+    if (id === 'crest' && team.length <= D.CFG.maxTeam) continue;
+    if (id === 'backpack' && !team.some(h => h.items.length > D.CFG.baseSlots + Math.max(0, h.lvl - 2))) continue;
+    add('relic', id);
+  }
+  return [...out.values()];
+}
+async function allowRated(st, iph) {
+  const k = 'rated:' + iph, hour = Math.floor(Date.now() / 3600e3);
+  let c = null; try { c = JSON.parse(await st.getKV(k)); } catch (_) {}
+  const n = c && c.h === hour ? c.n : 0;
+  if (n >= RATED_PER_HOUR) return false;
+  await st.setKV(k, JSON.stringify({ h: hour, n: n + 1 })); return true;
+}
+// sides: [{ used, score }] (one side = against a 1000-rated opponent) or two sides (a duel). A piece on both sides of a
+// duel is left out: a mirror says nothing about it. Never breaks the player's own Elo update.
+async function rateContent(st, iph, sides) {
+  try {
+    if (sides.length === 2) {
+      const a = new Set(sides[0].used.map(u => u.kind + ':' + u.id)), both = new Set(sides[1].used.map(u => u.kind + ':' + u.id).filter(k => a.has(k)));
+      sides = sides.map(s => ({ score: s.score, used: s.used.filter(u => !both.has(u.kind + ':' + u.id)) }));
+    }
+    if (!sides.some(s => s.used.length) || !(await allowRated(st, iph))) return;
+    const cur = await st.getRatings([...new Set(sides.flatMap(s => s.used.map(u => u.kind + ':' + u.id)))]);
+    const r = u => cur[u.kind + ':' + u.id] ?? PVE;
+    const avg = (used, kind) => { const v = used.filter(u => u.kind === kind).map(r); return v.length ? v.reduce((x, y) => x + y, 0) / v.length : PVE; };
+    const rows = [];
+    sides.forEach((s, i) => {
+      const other = sides.length === 2 ? sides[1 - i] : null;
+      for (const u of s.used) rows.push({ kind: u.kind, id: u.id, delta: KC * (s.score - expect(r(u), other ? avg(other.used, u.kind) : PVE)), win: s.score });
+    });
+    await st.addRatings(rows);
+  } catch (e) { console.error('ratings', e); }
+}
+const relicList = x => [...new Set((Array.isArray(x) ? x : []).filter(id => D.RELIC[id]))].slice(0, 40);
 
 // only well-formed teams made of real game content get stored (they are replayed in other players' browsers)
 function cleanTeam(team) {
@@ -40,7 +90,10 @@ async function nextOpponent(st, wins, pid, teamId) { return (await st.pickOppone
 module.exports = async (req, res) => {
   const st = getStore();
   try {
-    if (req.method === 'GET') return send(res, 200, { top: await st.topPlayers(25) });
+    if (req.method === 'GET') {
+      if (new URL(req.url || '/', 'http://x').searchParams.get('ratings')) return send(res, 200, { ratings: await st.listRatings() });
+      return send(res, 200, { top: await st.topPlayers(25) });
+    }
     if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
     if (!sameOrigin(req)) return send(res, 403, { error: 'Bad origin' });
     const b = await body(req);
@@ -55,22 +108,30 @@ module.exports = async (req, res) => {
 
     if (b.op === 'hello') return send(res, 200, me({}));
 
-    if (b.op === 'fail') {
-      const before = p.elo; p.elo = eloAfter(p.elo, p.elo - 200, 0); p.runs++;
-      await save({}); return send(res, 200, me({ delta: Math.round(p.elo) - Math.round(before) }));
+    if (b.op === 'fail') {  // review #14: a loss against 1000 (it was your Elo - 200); the pieces of the lost fight lose too
+      const before = p.elo; p.elo = eloAfter(p.elo, PVE, 0); p.runs++;
+      await save({});
+      const used = cleanTeam(b.team); if (used) await rateContent(st, ipHash(req), [{ used: usedIn(used, relicList(b.relics)), score: 0 }]);
+      return send(res, 200, me({ delta: Math.round(p.elo) - Math.round(before) }));
     }
 
     if (b.op === 'enter') {
       const team = cleanTeam(b.team);
       if (!team) return send(res, 400, { error: 'Invalid team' });
-      const relics = (Array.isArray(b.relics) ? b.relics : []).filter(id => D.RELIC[id]).slice(0, 40);
+      const relics = relicList(b.relics);
       if (await st.countTeams(pid, Date.now() - 3600e3) >= 20) return send(res, 429, { error: 'Too many gauntlet runs this hour.' });
+      // review #14: reaching the gauntlet is a win against 1000, for the player and for the pieces of the fight that got
+      // there (b.reached = the last boss fight; the team may have changed in the last shop)
+      const before = p.elo; p.elo = eloAfter(p.elo, PVE, 1);
+      const reach = Math.round(p.elo) - Math.round(before);
       const id = await st.insertTeam({ pid, name, elo_at: p.elo, team: JSON.stringify(team), relics: JSON.stringify(relics) });
       p.runs++;
+      const rt = b.reached && cleanTeam(b.reached.team);
+      await rateContent(st, ipHash(req), [{ used: rt ? usedIn(rt, relicList(b.reached.relics)) : usedIn(team, relics), score: 1 }]);
       const opp = await nextOpponent(st, 0, pid, id);
-      if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, champion: true, over: true })); }
+      if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, champion: true, over: true })); }
       await st.updateTeam(id, { wins: 0, status: 'running', opp: opp.id }); await save({});
-      return send(res, 200, me({ teamId: id, round: 0, wins: 0, opponent: oppView(opp, pid) }));
+      return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, opponent: oppView(opp, pid) }));
     }
 
     if (b.op === 'result') {
@@ -81,6 +142,11 @@ module.exports = async (req, res) => {
       const win = !!b.win, before = p.elo;
       p.elo = eloAfter(p.elo, opp ? opp.elo_at : p.elo, win ? 1 : 0);
       const delta = Math.round(p.elo) - Math.round(before);
+      // review #14: the duel rates both teams' pieces (the team as it fought: items may move between duels)
+      const mine = cleanTeam(b.team) || JSON.parse(t.team), myRelics = b.team ? relicList(b.relics) : JSON.parse(t.relics);
+      const sides = [{ used: usedIn(mine, myRelics), score: win ? 1 : 0 }];
+      if (opp) sides.push({ used: usedIn(JSON.parse(opp.team), JSON.parse(opp.relics)), score: win ? 0 : 1 });
+      await rateContent(st, ipHash(req), sides);
       if (!win) {
         await st.updateTeam(t.id, { wins: t.wins, status: 'lost', opp: null });
         p.best = Math.max(p.best, t.wins); await save({});
@@ -100,3 +166,4 @@ module.exports = async (req, res) => {
   }
 };
 module.exports.eloAfter = eloAfter;
+module.exports.usedIn = usedIn;

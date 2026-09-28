@@ -232,7 +232,7 @@
     const g = run.g;
     if (g.status === 'intro') {
       return `<section class="title"><h2 class="sc">The Gauntlet</h2>
-        <div class="card gintro"><p class="small">Your team is saved as a <b>ghost</b> and duels the ghosts of other players' runs. Round 1 is against a ghost that lost its first duel, round 2 against one that won once, and so on. Each duel is a 1v1 Elo game. One loss ends your run. Go further than every ghost before you and you are crowned champion.</p>
+        <div class="card gintro"><p class="small">Your team is saved as a <b>ghost</b> and duels the ghosts of other players' runs. Round 1 is against a ghost that lost its first duel, round 2 against one that won once, and so on. Reaching the Gauntlet already counts as an Elo win against a 1000 rated opponent. Each duel is a 1v1 Elo game. One loss ends your run. Go further than every ghost before you and you are crowned champion.</p>
           ${teamRow(Run.teamSnapshot(run), run.relics)}
           <form class="stack" data-form="gauntlet"><input name="name" maxlength="16" placeholder="Your name on the ladder" value="${esc(myName())}" required><button class="primary big">Enter the Gauntlet</button></form></div></section>`;
     }
@@ -382,15 +382,15 @@
       const win = W.winner === 0;
       ui.result = { gauntlet: true, win, dmg, xp: run.heroes.map(h => ({ uid: h.uid, name: HEROES[h.key].name, gained: 0, from: h.lvl, to: h.lvl })), opp: run.g.opp, pending: true };
       screen = 'result'; save(); render();
-      try { const r = await Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win }); setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, pending: false }); }
+      try { const r = await Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win, team: Run.teamSnapshot(run), relics: run.relics }); setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, pending: false }); }
       catch (e) { Object.assign(ui.result, { pending: false, error: e.message }); }
       save(); render(); return;
     }
     ui.result = Run.finishFight(run, W); ui.result.dmg = dmg; screen = 'result';
     save(); render(); window.scrollTo(0, 0);
-    if (run.phase === 'over') {  // review #3: a lost fight ends the run = Elo loss against (your Elo - 200)
+    if (run.phase === 'over') {  // review #3: a lost fight ends the run = Elo loss (review #14: against 1000; the fight's pieces lose too)
       ui.result.pending = true; render();
-      try { const r = await Net.post('elo', { op: 'fail', pid: pid(), name: myName() }); setElo(r); run.eloEnd = r.elo; run.eloDelta = r.delta; Object.assign(ui.result, { delta: r.delta, elo: r.elo }); }
+      try { const r = await Net.post('elo', Object.assign({ op: 'fail', pid: pid(), name: myName() }, run.lastFight)); setElo(r); run.eloEnd = r.elo; run.eloDelta = r.delta; Object.assign(ui.result, { delta: r.delta, elo: r.elo }); }
       catch (e) { ui.result.error = e.message; }
       ui.result.pending = false; save(); render();
     }
@@ -510,15 +510,38 @@
     } catch (e) { toast(e.message); }
     btn.disabled = false;
   }
-  async function openScores() {
-    const head = '<div class="shead"><b>🏆 Ladder</b><button data-act="close">✕</button></div>';
+  // review #14 (David): a tab per kind of content with its own Elo, to balance heroes, items and relics
+  const LADDER_TABS = [['players', 'Players'], ['hero', 'Heroes'], ['item', 'Items'], ['relic', 'Relics']];
+  function contentTable(kind, ratings) {
+    const by = {}; for (const r of ratings) if (r.kind === kind) by[r.id] = r;
+    const ids = kind === 'hero' ? Object.keys(HEROES) : kind === 'item' ? B.ITEMS.map(i => i.id) : B.RELICS.map(r => r.id);
+    const def = id => kind === 'hero' ? HEROES[id] : kind === 'item' ? ITEM[id] : RELIC[id];
+    const pic = id => kind === 'hero' ? img(id, 28, 'por sm') : ico(kind, id, 28, 'ico sm');
+    const noFight = id => kind !== 'hero' && B.NONCOMBAT[kind].includes(id);
+    const rated = ids.filter(id => by[id] && by[id].games).sort((a, b) => by[b].elo - by[a].elo || by[b].games - by[a].games);
+    const rest = ids.filter(id => !rated.includes(id)).sort((a, b) => noFight(a) - noFight(b));
+    const name = id => `<td class="who">${pic(id)}<span>${esc(def(id).name)}</span></td>`;
+    const rows = rated.map((id, i) => { const r = by[id]; return `<tr><td>${i + 1}</td>${name(id)}<td><b>${r.elo}</b></td><td>${r.games}</td><td>${Math.round(100 * r.wins / r.games)}%</td></tr>`; }).join('')
+      + rest.map(id => `<tr class="unrated"><td></td>${name(id)}<td colspan="3">${noFight(id) ? 'no combat effect' : 'not played yet'}</td></tr>`).join('');
+    return `<p class="dim small">Every ${kind} has its own Elo, apart from the players, to guide balance. It only counts in fights where it acted: heroes on the board, equipped items and relics with a combat effect. Losing a run is a loss against 1000, reaching the Gauntlet a win against 1000, and a duel is a game against the other team's ${kind === 'hero' ? 'heroes' : kind + 's'}.</p>
+      <table class="tbl ctbl"><tr><th>#</th><th>${kind === 'hero' ? 'Hero' : kind === 'item' ? 'Item' : 'Relic'}</th><th>Elo</th><th>Fights</th><th>Won</th></tr>${rows}</table>`;
+  }
+  async function openScores(tab) {
+    tab = ui.ladderTab = tab || ui.ladderTab || 'players';
+    const head = `<div class="shead"><b>🏆 Ladder</b><button data-act="close">✕</button></div>
+      <div class="tabs">${LADDER_TABS.map(([k, n]) => `<button data-act="ladder-tab" data-arg="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('')}</div>`;
     openModal(head + '<p class="dim">Loading…</p>');
     try {
+      if (tab !== 'players') {
+        const e = await Net.get('elo?ratings=1');
+        if (ui.modal && ui.ladderTab === tab) openModal(head + contentTable(tab, e.ratings || []));
+        return;
+      }
       const e = await Net.get('elo');
       const eRows = e.top.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td><b>${p.elo}</b></td><td>${p.best}</td><td>${p.crowns ? '👑' + p.crowns : ''}</td></tr>`).join('');
-      if (ui.modal) openModal(head + `<h3>Elo</h3><p class="dim small">Rated by gauntlet duels against player ghosts. A run that dies before the gauntlet counts as a loss. Best = most duels won in one run.</p>
+      if (ui.modal && ui.ladderTab === tab) openModal(head + `<p class="dim small">Rated by gauntlet duels against player ghosts. A run that dies before the Gauntlet is a loss against a 1000 rated opponent, reaching it is a win against one. Best = most duels won in one run.</p>
         ${eRows ? `<table class="tbl"><tr><th>#</th><th>Name</th><th>Elo</th><th>Best</th><th></th></tr>${eRows}</table>` : '<p class="dim">No rated players yet.</p>'}`);
-    } catch (err) { if (ui.modal) openModal(head + `<p class="err">${esc(err.message)}</p>`); }
+    } catch (err) { if (ui.modal && ui.ladderTab === tab) openModal(head + `<p class="err">${esc(err.message)}</p>`); }
   }
   const HOWTO = `<div class="shead"><b>How to play</b><button data-act="close">✕</button></div>
     <ol class="small howto">
@@ -526,8 +549,8 @@
       <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 3 and 6 are bosses.</li>
       <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
-      <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the run ends (and costs Elo). Heroes always heal after a fight.</li>
-      <li>After the second boss and a last shop, your team enters the Gauntlet as a ghost and duels the ghosts of other players' runs, climbing one step per win. Each duel is an Elo game. One loss ends it. Beat everyone who came before and you are crowned champion.</li>
+      <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the run ends (an Elo loss against a 1000 rated opponent). Heroes always heal after a fight.</li>
+      <li>After the second boss and a last shop, your team enters the Gauntlet (an Elo win against a 1000 rated opponent) as a ghost and duels the ghosts of other players' runs, climbing one step per win. Each duel is an Elo game. One loss ends it. Beat everyone who came before and you are crowned champion.</li>
     </ol>`;
 
 
@@ -619,7 +642,7 @@
     skip: () => skipBattle(),
     'result-ok': () => { ui.result = null; screen = 'run'; render(); window.scrollTo(0, 0); },
     'to-duel': () => { run.phase = 'deploy'; run.cur = { type: 'gauntlet' }; ui.info = null; save(); render(); window.scrollTo(0, 0); },
-    'retry-elo': () => { if (ui.result && ui.result.gauntlet) { const w = ui.result.win; ui.result.pending = true; render(); Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win: w }).then(r => { setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, pending: false, error: null }); save(); render(); }).catch(e => { Object.assign(ui.result, { pending: false, error: e.message }); render(); }); } },
+    'retry-elo': () => { if (ui.result && ui.result.gauntlet) { const w = ui.result.win; ui.result.pending = true; render(); Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win: w, team: Run.teamSnapshot(run), relics: run.relics }).then(r => { setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, pending: false, error: null }); save(); render(); }).catch(e => { Object.assign(ui.result, { pending: false, error: e.message }); render(); }); } },
     buy: i => { const err = Run.buy(run, +i); if (err) toast(err); save(); render(); },
     reroll: () => { if (!Run.reroll(run)) toast('Not enough gold'); save(); render(); },
     leave: () => { Run.leave(run); save(); render(); window.scrollTo(0, 0); },
@@ -635,6 +658,7 @@
     'send-review': (a, el) => sendReview(el),
     'sug-refresh': () => loadQueue(),
     scores: () => openScores(),
+    'ladder-tab': k => openScores(k),
   };
   function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = worldFor(true); drawPreview(); } }
 
@@ -656,8 +680,8 @@
         d.push(t); store.set('balance.drafts', d); f.text.value = ''; renderDrafts(); f.text.focus();
       } else if (kind === 'gauntlet') {
         const name = f.name.value.trim(); store.set('balance.name', name);
-        const r = await Net.post('elo', { op: 'enter', pid: pid(), name, team: Run.teamSnapshot(run), relics: run.relics });
-        setElo(r); run.g.eloStart = r.elo; Run.gauntletUpdate(run, r); save(); render(); window.scrollTo(0, 0);
+        const r = await Net.post('elo', { op: 'enter', pid: pid(), name, team: Run.teamSnapshot(run), relics: run.relics, reached: run.lastFight });
+        setElo(r); Run.gauntletUpdate(run, r); save(); render(); window.scrollTo(0, 0);
       }
     } catch (err) { toast(err.message); if (btn) btn.disabled = false; }
   });

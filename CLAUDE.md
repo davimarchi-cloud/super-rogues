@@ -35,7 +35,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `js/ui.js` | telas DOM + loop da batalha. Sem handler inline (CSP): todo botão tem `data-act` |
 | `js/net.js` | cliente JSON de `/api` |
 | `api/suggest.js` | GET fila pública (agrupada por envio) + status do revisor; POST `{items: [...até 10], name}` = 1 envio (lote). Limite por IP: 3 envios/10 min, 12 envios e 40 mudanças/dia; fila máx 300 |
-| `api/elo.js` | Elo por jogador (id aleatório guardado no navegador) + Gauntlet PvP: `fail` (perdeu a run = derrota contra Elo−200), `enter` (guarda o time e sorteia o adversário), `result` (Elo 1v1 K=32 contra o Elo do time salvo); GET = ladder. Tabelas `players` e `teams` |
+| `api/elo.js` | Elo por jogador (id aleatório guardado no navegador) + Gauntlet PvP: `fail` (perdeu a run = derrota contra 1000), `enter` (chegar = vitória contra 1000; guarda o time e sorteia o adversário), `result` (Elo 1v1 K=32 contra o Elo do time salvo); GET = ladder. Elo de conteúdo (lote 14): cada herói/item/relíquia tem Elo próprio (K=16, tabela `ratings`), só o que agiu na luta (`usedIn`); GET `?ratings=1`. Tabelas `players`, `teams`, `ratings` |
 | `api/_store.js` | Neon em produção, memória no dev/teste. Tabelas `suggestions`, `kv`, `scores` |
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma` |
@@ -115,6 +115,15 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v15 (2026-09-28), lote 14 do David** (Elo): chegar ao Gauntlet = vitória contra um adversário de Elo 1000 (antes
+  não mexia no Elo); perder a run = derrota contra 1000 (antes era contra o próprio Elo − 200). Elo separado para cada
+  herói, item e relíquia (tabela `ratings`, K=16), para balanceamento. Só conta o que agiu na luta: heróis em campo,
+  itens equipados e relíquias com efeito de combate (`B.NONCOMBAT` lista os de ouro/XP/loja; Crest só com 4º herói,
+  Pack só se alguém usa o espaço extra). Eventos: run perdida (peças da luta perdida contra 1000), chegada (peças da
+  última luta de chefe contra 1000, `run.lastFight`), duelo (cada lado contra a média das peças do mesmo tipo do outro
+  lado; peça dos dois lados fica de fora). No máximo 40 lutas avaliadas por IP por hora (kv `rated:<iph>`). Abas no
+  🏆 Ladder: Players, Heroes, Items, Relics (Elo, lutas, % de vitória; os não jogados aparecem embaixo).
 
 - **v14 (2026-09-28), lote 13 do David** ("randomly adjusted to 75% of my screen", adaptar a tela/aparelho): causas
   tratadas: elemento mais largo que a tela faz o celular reduzir a página (agora `overflow-x: hidden` e tudo cabe),

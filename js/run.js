@@ -161,6 +161,8 @@
   function finishFight(run, W) {
     const f = run.cur, win = W.winner === 0;
     const res = { win, gold: 0, xp: [], boss: f.diff === 'boss', timeout: !!W.timeout };
+    // review #14: the team as it fought (before level ups), sent to api/elo.js to rate its heroes, items and relics
+    run.lastFight = { team: teamSnapshot(run), relics: run.relics.slice() };
     for (const u of W.units) {
       if (u.kind !== 'hero' || !u.uid) continue;
       const h = run.heroes.find(x => x.uid === u.uid); if (!h) continue;
@@ -196,7 +198,9 @@
   // apply an api/elo.js answer to the run
   function gauntletUpdate(run, r) {
     const g = run.g;
-    if (g.eloStart == null) g.eloStart = r.elo - (r.delta || 0);
+    if (g.eloStart == null) g.eloStart = r.elo - (r.delta || 0) - (r.reach || 0);
+    // review #14: reaching the gauntlet is itself a win against a 1000 rated opponent
+    if (r.reach != null && !g.history.length) g.history.push({ name: 'Reached the Gauntlet', elo: 1000, win: true, delta: r.reach });
     g.elo = r.elo; g.teamId = r.teamId; g.wins = r.wins || 0;
     if (r.delta != null && g.opp) g.history.push({ name: g.opp.name, elo: g.opp.elo, win: !!r.win, delta: r.delta });
     if (r.opponent) { g.opp = r.opponent; g.round = r.round; g.status = 'match'; run.cur = { type: 'gauntlet' }; }

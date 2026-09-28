@@ -142,7 +142,7 @@ ok(fin.phase === 'over' || (REMOTE && fin.phase === 'gauntlet'), `run reached th
 await shot('11-over'); await noHScroll('over');
 if (fin.result === 'defeat' && !REMOTE) {
   await sleep(600);
-  ok(await ev(`__bal.run.eloEnd === 976 && /Elo/.test(document.querySelector('#screen').textContent) && /976/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run and cost Elo (1000 -> 976)');
+  ok(await ev(`__bal.run.eloEnd === 984 && /Elo/.test(document.querySelector('#screen').textContent) && /984/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run and cost Elo (review #14: loss vs 1000, 1000 -> 984)');
 }
 
 // ---- gauntlet: Rival's ghost is already stored; take a strong team past the last shop into the duels
@@ -152,11 +152,12 @@ if (!REMOTE) {
   await click('[data-act=start-pick]'); await ev(`document.querySelectorAll('[data-act=start-pick]')[1].click()`); await click('[data-act=start-go]'); await sleep(150);
   await ev(`(() => { const r = __bal.run; B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k)));
     r.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[0].id); h.items = ['bloodthirster', 'warmog', 'infinity', 'guardian']; });
-    r.step = B.CFG.seq.length - 2; r.fightNo = 6; B.Run.advance(r); __bal.render(); })()`);
+    r.relics.push('drum'); r.step = B.CFG.seq.length - 2; r.fightNo = 6; B.Run.advance(r); __bal.render(); })()`);
   ok(await ev(`__bal.run.phase === 'gauntlet' && !!document.querySelector('form[data-form=gauntlet]') && !document.querySelector('form[data-form=score]') && !/Onslaught/.test(document.body.textContent)`), 'after the last shop comes the Gauntlet (no Onslaught)');
   await shot('16-gauntlet-intro');
   await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(900);
   ok(await ev(`__bal.run.g.status === 'match' && document.querySelector('.opp').textContent.includes('Rival')`), 'gauntlet round 1: a card shows the stored rival team');
+  ok(await ev(`/Reached the Gauntlet \\(\\+\\d+\\)/.test(document.querySelector('#screen').textContent) && __bal.run.g.history[0].win`), 'review #14: reaching the gauntlet shows as an Elo win');
   await shot('17-gauntlet-opponent'); await noHScroll('gauntlet card'); await noVScroll('gauntlet card');
   await click('[data-act=to-duel]'); await sleep(300);
   ok(await ev(`/Rival/.test(document.querySelector('.bhead').textContent) && __bal.run.cur.type === 'gauntlet'`), 'duel deploy screen');
@@ -172,6 +173,21 @@ if (!REMOTE) {
   for (let k = 0; k < 30 && !(await ev(`!!document.querySelector('#modal table')`)); k++) await sleep(100);
   const ladder = await ev(`document.querySelector('#modal').textContent`);
   ok(ladder.includes('Rival') && ladder.includes('TestBot') && !/Onslaught/.test(ladder), 'Elo ladder lists the players' + (ladder.includes('Rival') && ladder.includes('TestBot') ? '' : ': ' + ladder.replace(/\s+/g, ' ').slice(0, 400)));
+  // review #14: a tab per kind of content with its own Elo
+  const tab = async (k, n, extra, msg) => {
+    await click(`[data-act=ladder-tab][data-arg=${k}]`);
+    for (let i = 0; i < 40 && !(await ev(`!!document.querySelector('#modal .ctbl') && document.querySelector('[data-act=ladder-tab].on').dataset.arg === '${k}'`)); i++) await sleep(100);
+    const t = await ev(`(() => { const t = document.querySelector('#modal .ctbl'); return t ? { rows: t.querySelectorAll('tr').length - 1, rated: t.querySelectorAll('tr:not(.unrated)').length - 1, text: t.textContent } : null; })()`);
+    ok(t && t.rows === n && t.rated >= 1 && /\d+%/.test(t.text) && extra(t.text), msg + (t ? ` (${t.rated} rated of ${t.rows})` : ''));
+    await noHScroll(k + ' tab');
+  };
+  await tab('hero', await ev('Object.keys(B.HEROES).length'), x => /Bastion/.test(x), 'Heroes tab: every hero listed, the played ones with Elo, fights and win rate');
+  await shot('20-ladder-heroes');
+  await tab('item', await ev('B.ITEMS.length'), x => /no combat effect/.test(x) && /not played yet/.test(x), 'Items tab: every item (no-combat items marked)');
+  await tab('relic', await ev('B.RELICS.length'), x => /no combat effect/.test(x), 'Relics tab: every relic');
+  await shot('21-ladder-relics');
+  await click('[data-act=ladder-tab][data-arg=players]'); await sleep(400);
+  ok(await ev(`/TestBot/.test(document.querySelector('#modal').textContent)`), 'back to the Players tab');
   await click('[data-act=close]');
 }
 
