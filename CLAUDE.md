@@ -121,6 +121,11 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v22 (2026-09-28), lote 20 do David** (chefes com Elo na aba de heróis, sem mexer no Elo do jogador): op `boss`
+  no api/elo.js (ratings kind 'boss', K 16, contra o Elo do jogador; conta no limite de 40/h por IP); o cliente manda
+  ao fim de toda luta de chefe (vitória ou derrota) e o resultado mostra "☠ Gorewarden's Elo X (±d)". A aba Heroes do
+  Ladder lista os 2 chefes junto (☠, nome em vermelho).
+
 - **v21 (2026-09-28), lote 19 do David** ("not clear how hero abilities scale with AP, attack etc." + ler a habilidade
   na tela de itens): `SCALE` no ui.js descreve cada uma das 33 habilidades como o sim calcula (P = % do ataque físico;
   M = % do ataque × AP/100 mágico; A = mágico sem AP (Eclipse); B = queimadura × AP; H = cura % da vida máx × AP;

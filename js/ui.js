@@ -375,8 +375,9 @@
     }).join('')}</div>`;
     const sub = r.gauntlet ? `${r.win ? 'You beat' : 'You fell to'} ${esc(r.opp.name)}'s team.`
       : r.win ? `<span class="rewards"><span class="price big">+${r.gold}</span>${r.prize ? `<span class="prize">${ico('item', r.prize, 30)}<b style="color:${TIER_COLOR[ITEM[r.prize].tier]}">${esc(ITEM[r.prize].name)}</b></span>` : ''}</span>` : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
+    const bl = r.boss ? `<p class="small dim ghostline">☠ ${esc(r.boss.name)}'s Elo: <b>${r.boss.elo}</b> (${r.boss.delta >= 0 ? '+' : ''}${r.boss.delta})</p>` : '';
     const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${esc(r.ghost.name)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})${r.ghost.ownerDelta != null ? ` · its player ${r.ghost.ownerDelta >= 0 ? '+' : ''}${r.ghost.ownerDelta}` : ''}</p>` : '';
-    return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${gh}${table}
+    return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${gh}${bl}${table}
       <div class="bar"><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
   }
 
@@ -598,7 +599,12 @@
       catch (e) { Object.assign(ui.result, { pending: false, error: e.message }); }
       save(); render(); return;
     }
+    const bossKey = run.cur && run.cur.diff === 'boss' ? (run.cur.enemies.find(e => B.BOSSES[e.key]) || {}).key : null;
     ui.result = Run.finishFight(run, W); ui.result.dmg = dmg; screen = 'result';
+    if (bossKey) {  // review #20: the boss's own Elo (never the player's)
+      const res = ui.result;
+      Net.post('elo', { op: 'boss', pid: pid(), name: myName(), boss: bossKey, win: res.win }).then(r => { if (r.boss) { res.boss = r.boss; if (ui.result === res && screen === 'result') render(); } }).catch(() => {});
+    }
     save(); render(); window.scrollTo(0, 0);
     if (run.phase === 'over') {  // review #3: a lost fight ends the run = Elo loss (review #14: against 1000; the fight's pieces lose too)
       ui.result.pending = true; render();
@@ -745,17 +751,18 @@
   // review #14 (David): a tab per kind of content with its own Elo, to balance heroes, items and relics
   const LADDER_TABS = [['players', 'Players'], ['hero', 'Heroes'], ['item', 'Items'], ['relic', 'Relics']];
   function contentTable(kind, ratings) {
-    const by = {}; for (const r of ratings) if (r.kind === kind) by[r.id] = r;
-    const ids = kind === 'hero' ? Object.keys(HEROES) : kind === 'item' ? B.ITEMS.map(i => i.id) : B.RELICS.map(r => r.id);
-    const def = id => kind === 'hero' ? HEROES[id] : kind === 'item' ? ITEM[id] : RELIC[id];
+    // review #20: the bosses sit in the heroes tab with their own Elo
+    const by = {}; for (const r of ratings) if (r.kind === kind || (kind === 'hero' && r.kind === 'boss')) by[r.id] = r;
+    const ids = kind === 'hero' ? Object.keys(HEROES).concat(Object.keys(B.BOSSES)) : kind === 'item' ? B.ITEMS.map(i => i.id) : B.RELICS.map(r => r.id);
+    const def = id => kind === 'hero' ? HEROES[id] || B.BOSSES[id] : kind === 'item' ? ITEM[id] : RELIC[id];
     const pic = id => kind === 'hero' ? img(id, 28, 'por sm') : ico(kind, id, 28, 'ico sm');
     const noFight = id => kind !== 'hero' && B.NONCOMBAT[kind].includes(id);
     const rated = ids.filter(id => by[id] && by[id].games).sort((a, b) => by[b].elo - by[a].elo || by[b].games - by[a].games);
     const rest = ids.filter(id => !rated.includes(id)).sort((a, b) => noFight(a) - noFight(b));
-    const name = id => `<td class="who">${pic(id)}<span${kind === 'item' ? ` style="color:${TIER_COLOR[ITEM[id].tier]}"` : ''}>${esc(def(id).name)}</span></td>`;
+    const name = id => `<td class="who">${pic(id)}<span${kind === 'item' ? ` style="color:${TIER_COLOR[ITEM[id].tier]}"` : B.BOSSES[id] ? ' class="bossname"' : ''}>${B.BOSSES[id] ? '☠ ' : ''}${esc(def(id).name)}</span></td>`;
     const rows = rated.map((id, i) => { const r = by[id]; return `<tr><td>${i + 1}</td>${name(id)}<td><b>${r.elo}</b></td><td>${r.games}</td><td>${Math.round(100 * r.wins / r.games)}%</td></tr>`; }).join('')
       + rest.map(id => `<tr class="unrated"><td></td>${name(id)}<td colspan="3">${noFight(id) ? 'no combat effect' : 'not played yet'}</td></tr>`).join('');
-    return `<p class="dim small">Every ${kind} has its own Elo, apart from the players, to guide balance. It only counts in fights where it acted: heroes on the board, equipped items and relics with a combat effect. Losing a run is a loss against 1000, reaching the Gauntlet a win against 1000, and a duel is a game against the other team's ${kind === 'hero' ? 'heroes' : kind + 's'}.</p>
+    return `<p class="dim small">Every ${kind} has its own Elo, apart from the players, to guide balance. It only counts in fights where it acted: heroes on the board, equipped items and relics with a combat effect. Losing a run is a loss against 1000, reaching the Gauntlet a win against 1000, and a duel is a game against the other team's ${kind === 'hero' ? 'heroes' : kind + 's'}.${kind === 'hero' ? ' ☠ Bosses have their own Elo: it rises when they beat a player and falls when they lose (against that player\'s Elo), and never changes the player\'s.' : ''}</p>
       <table class="tbl ctbl"><tr><th>#</th><th>${kind === 'hero' ? 'Hero' : kind === 'item' ? 'Item' : 'Relic'}</th><th>Elo</th><th>Fights</th><th>Won</th></tr>${rows}</table>`;
   }
   async function openScores(tab) {

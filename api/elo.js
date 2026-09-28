@@ -7,7 +7,9 @@
 //   GET ?ratings=1 lists them.
 // - Review #16: a duel counts for the GHOST too: the ghost team has its own Elo (teams.elo_at, K 32, shown on its card)
 //   and a defense record (def_w / def_l), and its player gains or loses Elo when it defends (K 16; not when it is your
-//   own ghost). Answers carry `peak` = the most duels any finished ghost won: the height of the gauntlet tower.
+//   own ghost). Review #20: every BOSS has its own Elo too (ratings kind 'boss', K 16), op 'boss': it rises when the boss
+//   beats a player and falls when it loses, against that player's Elo; the player's own Elo never moves for it.
+//   Answers carry `peak` = the most duels any finished ghost won: the height of the gauntlet tower.
 // - After the last shop the player's team is stored as a GHOST and enters the gauntlet: round k is against the ghost of
 //   another run whose own gauntlet ended with k wins (or the closest above). Review #10: only player ghosts, no bots.
 //   Other players' ghosts first; if there are none yet, ghosts of your own older runs. Each match is a 1v1 Elo game against that team's rating
@@ -115,6 +117,15 @@ module.exports = async (req, res) => {
     const me = extra => Object.assign({ elo: Math.round(p.elo), runs: p.runs, crowns: p.crowns, best: p.best }, extra);
 
     if (b.op === 'hello') return send(res, 200, me({}));
+
+    if (b.op === 'boss') {  // review #20: a boss fight moves the boss's Elo only
+      const key = String(b.boss || ''); if (!D.BOSSES[key]) return send(res, 400, { error: 'Unknown boss' });
+      if (!(await allowRated(st, ipHash(req)))) return send(res, 200, me({ boss: null }));
+      const r0 = (await st.getRatings(['boss:' + key]))['boss:' + key] ?? PVE, score = b.win ? 0 : 1;
+      const delta = KC * (score - expect(r0, p.elo));
+      await st.addRatings([{ kind: 'boss', id: key, delta, win: score }]);
+      return send(res, 200, me({ boss: { key, name: D.BOSSES[key].name, elo: Math.round(r0 + delta), delta: Math.round(r0 + delta) - Math.round(r0) } }));
+    }
 
     if (b.op === 'fail') {  // review #14: a loss against 1000 (it was your Elo - 200); the pieces of the lost fight lose too
       const before = p.elo; p.elo = eloAfter(p.elo, PVE, 0); p.runs++;
