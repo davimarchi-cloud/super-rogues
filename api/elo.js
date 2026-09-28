@@ -5,6 +5,9 @@
 //   Only pieces that acted in that fight are rated (see usedIn). A lost run / reaching the gauntlet rates the pieces of
 //   that fight against 1000; a duel rates each side's pieces against the other side's pieces of the same kind.
 //   GET ?ratings=1 lists them.
+// - Review #16: a duel counts for the GHOST too: the ghost team has its own Elo (teams.elo_at, K 32, shown on its card)
+//   and a defense record (def_w / def_l), and its player gains or loses Elo when it defends (K 16; not when it is your
+//   own ghost). Answers carry `peak` = the most duels any finished ghost won: the height of the gauntlet tower.
 // - After the last shop the player's team is stored as a GHOST and enters the gauntlet: round k is against the ghost of
 //   another run whose own gauntlet ended with k wins (or the closest above). Review #10: only player ghosts, no bots.
 //   Other players' ghosts first; if there are none yet, ghosts of your own older runs. Each match is a 1v1 Elo game against that team's rating
@@ -83,7 +86,8 @@ function cleanTeam(team) {
   }
   return out;
 }
-const oppView = (t, pid) => t && { teamId: t.id, name: t.name, elo: Math.round(t.elo_at), wins: t.wins, status: t.status, own: t.pid === pid, team: JSON.parse(t.team), relics: JSON.parse(t.relics) };
+const oppView = (t, pid) => t && { teamId: t.id, name: t.name, elo: Math.round(t.elo_at), wins: t.wins, status: t.status, own: t.pid === pid, defW: t.def_w || 0, defL: t.def_l || 0, team: JSON.parse(t.team), relics: JSON.parse(t.relics) };
+const KD = 16;  // a player's Elo moves by half as much when their ghost defends
 
 // next opponent with at least `wins` wins: other players first, then your own older teams
 async function nextOpponent(st, wins, pid, teamId) { return (await st.pickOpponent(wins, pid, false)) || (await st.pickOpponent(wins, pid, true, teamId)); }
@@ -92,7 +96,9 @@ module.exports = async (req, res) => {
   const st = getStore();
   try {
     if (req.method === 'GET') {
-      if (new URL(req.url || '/', 'http://x').searchParams.get('ratings')) return send(res, 200, { ratings: await st.listRatings() });
+      const qs = new URL(req.url || '/', 'http://x').searchParams;
+      if (qs.get('ratings')) return send(res, 200, { ratings: await st.listRatings() });
+      if (qs.get('peak')) return send(res, 200, { peak: await st.maxWins(0) });  // review #16: height of the gauntlet tower
       return send(res, 200, { top: await st.topPlayers(25) });
     }
     if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
@@ -129,10 +135,10 @@ module.exports = async (req, res) => {
       p.runs++;
       const rt = b.reached && cleanTeam(b.reached.team);
       await rateContent(st, ipHash(req), [{ used: rt ? usedIn(rt, relicList(b.reached.relics)) : usedIn(team, relics), score: 1 }]);
-      const opp = await nextOpponent(st, 0, pid, id);
-      if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, champion: true, over: true })); }
+      const opp = await nextOpponent(st, 0, pid, id), peak = await st.maxWins(id);
+      if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, peak, champion: true, over: true })); }
       await st.updateTeam(id, { wins: 0, status: 'running', opp: opp.id }); await save({});
-      return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, opponent: oppView(opp, pid) }));
+      return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, peak, opponent: oppView(opp, pid) }));
     }
 
     if (b.op === 'result') {
@@ -148,17 +154,29 @@ module.exports = async (req, res) => {
       const sides = [{ used: usedIn(mine, myRelics), score: win ? 1 : 0 }];
       if (opp) sides.push({ used: usedIn(JSON.parse(opp.team), JSON.parse(opp.relics)), score: win ? 0 : 1 });
       await rateContent(st, ipHash(req), sides);
+      // review #16: the ghost's side of the duel: its own Elo and record, and its player's Elo (not for your own ghost)
+      let ghost = null;
+      if (opp) {
+        const gElo = eloAfter(opp.elo_at, before, win ? 0 : 1);
+        await st.ghostResult(opp.id, gElo, !win);
+        ghost = { name: opp.name, elo: Math.round(gElo), delta: Math.round(gElo) - Math.round(opp.elo_at) };
+        if (opp.pid !== pid) {
+          const o = await st.getPlayer(opp.pid);
+          if (o) { const oe = o.elo + KD * ((win ? 0 : 1) - expect(o.elo, before)); ghost.ownerDelta = Math.round(oe) - Math.round(o.elo); o.elo = oe; await st.setPlayer(o.pid, o); }
+        }
+      }
+      const peak = await st.maxWins(t.id);
       if (!win) {
         await st.updateTeam(t.id, { wins: t.wins, status: 'lost', opp: null });
         p.best = Math.max(p.best, t.wins); await save({});
-        return send(res, 200, me({ teamId: t.id, win, delta, wins: t.wins, over: true }));
+        return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, wins: t.wins, over: true }));
       }
       const wins = t.wins + 1;
       const next = await nextOpponent(st, wins, pid, t.id);
       p.best = Math.max(p.best, wins);
-      if (!next) { await st.updateTeam(t.id, { wins, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: t.id, win, delta, wins, champion: true, over: true })); }
+      if (!next) { await st.updateTeam(t.id, { wins, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, wins, champion: true, over: true })); }
       await st.updateTeam(t.id, { wins, status: 'running', opp: next.id }); await save({});
-      return send(res, 200, me({ teamId: t.id, win, delta, wins, round: wins, opponent: oppView(next, pid) }));
+      return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, wins, round: wins, opponent: oppView(next, pid) }));
     }
     return send(res, 400, { error: 'Unknown op' });
   } catch (e) {

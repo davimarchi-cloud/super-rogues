@@ -17,6 +17,9 @@ const SCHEMA = [
   `create table if not exists teams (id bigserial primary key, pid text not null, name text not null, elo_at real not null, team text not null,
      relics text not null, wins int not null default 0, status text not null default 'running', opp bigint, created bigint not null, updated bigint)`,
   `create index if not exists teams_pick on teams(status, wins)`,
+  // v18 (review #16): a ghost keeps its own Elo (elo_at moves with every duel it defends) and a defense record
+  `alter table teams add column if not exists def_w int not null default 0`,
+  `alter table teams add column if not exists def_l int not null default 0`,
   // v15 (review #14): an Elo for every hero, item and relic, apart from the players (balance data)
   `create table if not exists ratings (kind text not null, id text not null, elo real not null default 1000, games int not null default 0,
      wins int not null default 0, updated bigint, primary key (kind, id))`,
@@ -45,9 +48,11 @@ function memStore() {
     async upsertPlayer(pid, name, iph, fallback) { const P = M.players = M.players || {}; if (!P[pid]) P[pid] = { pid, name: name || fallback, elo: 1000, runs: 0, crowns: 0, best: 0, iph, created: Date.now() }; else if (name) P[pid].name = name; return Object.assign({}, P[pid]); },
     async setPlayer(pid, f) { Object.assign(M.players[pid], f, { updated: Date.now() }); },
     async topPlayers(n) { return Object.values(M.players || {}).sort((a, b) => b.elo - a.elo).slice(0, n).map(pubPlayer); },
-    async insertTeam(t) { const T = M.teams = M.teams || []; const r = Object.assign({ id: ++M.id, wins: 0, status: 'running', opp: null, created: Date.now() }, t); T.push(r); return r.id; },
+    async insertTeam(t) { const T = M.teams = M.teams || []; const r = Object.assign({ id: ++M.id, wins: 0, status: 'running', opp: null, def_w: 0, def_l: 0, created: Date.now() }, t); T.push(r); return r.id; },
     async getTeam(id) { const r = (M.teams || []).find(t => t.id === id); return r ? Object.assign({}, r) : null; },
     async updateTeam(id, f) { Object.assign((M.teams || []).find(t => t.id === id), f, { updated: Date.now() }); },
+    async ghostResult(id, elo, won) { const t = (M.teams || []).find(x => x.id === id); if (!t) return; t.elo_at = elo; if (won) t.def_w = (t.def_w || 0) + 1; else t.def_l = (t.def_l || 0) + 1; },
+    async maxWins(excludeId) { const w = (M.teams || []).filter(t => (t.status === 'lost' || t.status === 'champion') && t.id !== excludeId).map(t => t.wins); return w.length ? Math.max(...w) : -1; },
     async fixCrowns(pid, crowns) { if (M.players && M.players[pid]) M.players[pid].crowns = crowns; },
     async countTeams(pid, since) { return (M.teams || []).filter(t => t.pid === pid && t.created >= since).length; },
     async pickOpponent(minWins, pid, own, excludeId) {
@@ -99,6 +104,8 @@ function pgStore() {
     async getTeam(id) { const r = await q('select * from teams where id=$1', [id]); return r.length ? num(r[0]) : null; },
     async updateTeam(id, f) { await q('update teams set wins=$2, status=$3, opp=$4, updated=$5 where id=$1', [id, f.wins, f.status, f.opp, Date.now()]); },
     async countTeams(pid, since) { return Number((await q('select count(*)::int n from teams where pid=$1 and created>=$2', [pid, since]))[0].n); },
+    async ghostResult(id, elo, won) { await q(`update teams set elo_at=$2, ${won ? 'def_w=def_w+1' : 'def_l=def_l+1'} where id=$1`, [id, elo]); },
+    async maxWins(excludeId) { const r = await q("select max(wins)::int m from teams where status in ('lost','champion') and id <> $1", [excludeId || 0]); return r[0].m == null ? -1 : Number(r[0].m); },
     async pickOpponent(minWins, pid, own, excludeId) {
       const r = own
         ? await q("select * from teams where status in ('lost','champion') and wins >= $1 and pid = $2 and id <> $3 order by wins asc, random() limit 1", [minWins, pid, excludeId || 0])
@@ -125,7 +132,7 @@ function pgStore() {
 // only public fields ever leave the server (never iph)
 function pub(s) { return { id: Number(s.id), batch: Number(s.batch || s.id), name: s.name, text: s.text, status: s.status, reply: s.reply || null, created: Number(s.created), updated: s.updated ? Number(s.updated) : null }; }
 // Neon returns bigint/real columns as strings: normalise numbers
-function num(r) { for (const k of ['id', 'elo', 'runs', 'crowns', 'best', 'elo_at', 'wins', 'opp', 'created', 'updated']) if (r[k] != null) r[k] = Number(r[k]); return r; }
+function num(r) { for (const k of ['id', 'elo', 'runs', 'crowns', 'best', 'elo_at', 'wins', 'opp', 'def_w', 'def_l', 'created', 'updated']) if (r[k] != null) r[k] = Number(r[k]); return r; }
 function pubPlayer(p) { return { name: p.name, elo: Math.round(Number(p.elo)), runs: Number(p.runs), crowns: Number(p.crowns), best: Number(p.best) }; }
 function pubRating(r) { return { kind: r.kind, id: r.id, elo: Math.round(Number(r.elo)), games: Number(r.games), wins: Number(r.wins) }; }
 function pubScore(s) { return { name: s.name, score: Number(s.score), wave: Number(s.wave), heroes: String(s.heroes || '').split(',').filter(Boolean), created: Number(s.created) }; }

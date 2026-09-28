@@ -584,3 +584,32 @@ body.wide .dpor .por { width: 68px; height: 68px; }
 /* review #15: a ghost's items under each of its heroes */
 .gitems { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; min-height: 22px; }
 .gitems .ico.xs { width: 22px; height: 22px; filter: none; } .gitems i { font-size: 11px; }
+
+/* =====================================================================================================
+   v18 (review #16): the gauntlet tower. Crown on top, floors of ghosts, your token climbs one floor per win.
+   ===================================================================================================== */
+.tower { display: grid; gap: 3px; margin: 6px 0 8px; }
+.floor { position: relative; display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 3px 10px 3px 40px; border-radius: 9px;
+  background: linear-gradient(90deg, #1d2029, #14161c); border: 1px solid var(--line); font-size: 12px; }
+.floor .fn { flex: none; width: 50px; font-family: var(--serif); text-transform: uppercase; letter-spacing: 1px; font-size: 10px; color: var(--dim); }
+.floor .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.floor.cleared { border-color: #2f6f45; background: linear-gradient(90deg, #17301f, #13171a); color: #cdeed6; }
+.floor.fell { border-color: #7a2a2f; background: linear-gradient(90deg, #321618, #15131a); }
+.floor.cur { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 16px #ffcf5a44; background: linear-gradient(90deg, #3a3018, #1a1812); }
+.floor.locked { opacity: .6; }
+.floor.gap { justify-content: center; min-height: 20px; padding: 0; font-size: 11px; color: var(--dim); background: none; border-style: dashed; }
+.floor.crown { border-color: #b8902c; background: linear-gradient(90deg, #3a2c10, #1b1810 70%); color: var(--gold); }
+.floor.crown .fn { font-size: 16px; letter-spacing: 0; }
+.floor.ground { border-style: dashed; }
+.token { position: absolute; left: 6px; top: 50%; margin-top: -13px; width: 26px; height: 26px; border-radius: 50%; overflow: hidden; background: #111;
+  box-shadow: 0 0 0 2px var(--gold), 0 0 12px var(--gold); z-index: 1; }
+.token .por { width: 26px !important; height: 26px !important; border-radius: 50%; display: block; }
+.tower.climb .floor.cur .token { animation: climb .9s cubic-bezier(.3, 1.35, .5, 1) .15s both; }
+.tower.climb .floor.just { animation: justcleared 1.4s ease-out; }
+@keyframes climb { from { transform: translateY(36px) scale(.8); } to { transform: none; } }
+@keyframes justcleared { 0% { box-shadow: 0 0 0 2px #5fd47a, 0 0 22px #5fd47a; } 100% { box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { .tower.climb .floor.cur .token, .tower.climb .floor.just { animation: none; } }
+.ghostline { margin-top: -4px; }
+body.wide .gwrap, body.landscape .gwrap { display: grid; grid-template-columns: minmax(240px, 340px) minmax(0, 1fr); gap: 14px; align-items: start; }
+body.wide .gauntlet { max-width: 1000px; margin: 0 auto; }
+.tower { text-align: left; }

@@ -79,7 +79,7 @@
     }
     const stepN = Math.max(0, run.step);
     const elo = store.get('balance.elo', null), g = run.g;
-    const prog = g ? (g.round != null ? 'Gauntlet · round ' + (g.round + 1) : 'Gauntlet') : 'Day ' + (stepN + 1) + '/' + CFG.seq.length;
+    const prog = g ? (g.round != null ? 'Gauntlet · floor ' + (g.round + 1) : 'Gauntlet') : 'Day ' + (stepN + 1) + '/' + CFG.seq.length;
     h.innerHTML = `${elo != null ? `<span class="elo" title="Your Elo rating">⚜ ${elo}</span>` : ''}
       <span class="gold" title="Gold">${run.gold}</span><span class="prog">${prog}</span>
       <span class="grow"></span>${battle ? '' : '<button data-act="team">Team</button>'}<button data-act="suggest" class="sugg">💡</button><button data-act="menu">☰</button>`;
@@ -182,7 +182,7 @@
     const gau = run.cur && run.cur.type === 'gauntlet';
     const f = run.cur;
     return `<section class="deploy">
-      <div class="bhead">${gau ? `⚔ Gauntlet round ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '☠ Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
+      <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '☠ Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
       <p class="hint tight">Drag heroes within the blue rows. Tap a unit for details.</p>
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
@@ -224,7 +224,8 @@
       ${r.xp.map(x => { const hk = (run.heroes.find(h => h.uid === x.uid) || {}).key; return `<tr><td class="who">${hk ? img(hk, 28, 'por sm') : ''}${esc(x.name)}</td><td><b class="num">${Math.round(r.dmg[x.uid] || 0)}</b></td><td class="kw-xp">+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`; }).join('')}</table>`;
     const sub = r.gauntlet ? `${r.win ? 'You beat' : 'You fell to'} ${esc(r.opp.name)}'s team.`
       : r.win ? '+' + r.gold + ' gold' : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
-    return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${table}
+    const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${esc(r.ghost.name)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})${r.ghost.ownerDelta != null ? ` · its player ${r.ghost.ownerDelta >= 0 ? '+' : ''}${r.ghost.ownerDelta}` : ''}</p>` : '';
+    return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${gh}${table}
       <div class="bar"><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
   }
 
@@ -235,20 +236,54 @@
       <span class="gitems">${h.items.filter(id => ITEM[id]).map(id => `<img class="ico xs" src="${B.Icons.item(id, 22)}" title="${esc(ITEM[id].name + ': ' + ITEM[id].desc)}" alt="${esc(ITEM[id].name)}">`).join('') || '<i>no items</i>'}</span></div>`).join('')}</div>
       ${relics && relics.length ? `<div class="relics inline">${relics.filter(id => RELIC[id]).map(id => `<button class="relicbtn" data-act="relic-info" data-arg="${id}" title="${esc(RELIC[id].name + ': ' + RELIC[id].desc)}" aria-label="${esc(RELIC[id].name)}"><img class="ico sm" src="${B.Icons.relic(id, 26)}" alt=""></button>`).join('')}</div>` : ''}`;
   }
+  // review #16 (David: "a cool UI for the gauntlet, moving up in the gauntlet"): the gauntlet is a tower. Floor k holds a
+  // ghost that won at least k duels; above the last floor (the best ghost so far, `peak`) waits the crown. Your token
+  // (your lead hero) stands on the floor you are fighting and climbs one floor, animated, after every win.
+  const isReach = h => h.reach || h.name === 'Reached the Gauntlet';
+  function towerHTML(g, mode) {
+    const duels = g.history.filter(h => !isReach(h)), reach = g.history.find(isReach);
+    const champion = g.status === 'champion', lost = g.status === 'lost';
+    const cur = mode === 'intro' ? -1 : champion ? null : lost ? duels.length - 1 : g.round;
+    const known = g.peak != null && g.peak >= 0 ? g.peak + 1 : null;             // number of ghost floors
+    const floors = Math.max(known || 0, (cur == null ? duels.length : cur + 1) + (known ? 0 : 1), 1);
+    const lo = Math.max(0, (cur == null ? floors : Math.max(cur, 0)) - 2), hi = Math.min(floors - 1, Math.max(cur == null ? floors - 1 : cur, 0) + 3);
+    const token = run.heroes[0] ? `<span class="token">${img(run.heroes[0].key, 24, 'por')}</span>` : '<span class="token"></span>';
+    const climb = ui.climb; ui.climb = false;
+    const rows = [];
+    rows.push(`<div class="floor crown ${champion ? 'cur' : ''}">${champion ? token : ''}<span class="fn">👑</span><span>${champion ? '<b>Champion!</b> You went further than every ghost' : `Champion · beat ${known ? known + ' ghost' + (known > 1 ? 's' : '') : 'every ghost'} in a row`}</span></div>`);
+    if (hi < floors - 1) rows.push(`<div class="floor gap">⋯ ${floors - 1 - hi} more floor${floors - 1 - hi > 1 ? 's' : ''}</div>`);
+    for (let k = hi; k >= lo; k--) {
+      const d = duels[k], isCur = k === cur, o = isCur && !lost ? g.opp : null;
+      if (d && (d.win || lost)) {
+        rows.push(`<div class="floor ${d.win ? 'cleared' : 'fell'} ${isCur ? 'cur' : ''} ${climb && k === duels.length - 1 ? 'just' : ''}">${isCur ? token : ''}<span class="fn">Floor ${k + 1}</span>
+          <span class="grow">${d.win ? '✔' : '✘'} ${esc(d.name)}</span><span class="${d.delta >= 0 ? 'win' : 'lose'}">${d.delta >= 0 ? '+' : ''}${d.delta}</span></div>`);
+      } else if (isCur) {
+        rows.push(`<div class="floor cur">${token}<span class="fn">Floor ${k + 1}</span><span class="grow">vs <b>${esc(o ? o.name : '?')}</b></span>${o ? `<span class="elo">⚜ ${o.elo}</span>` : ''}</div>`);
+      } else {
+        rows.push(`<div class="floor locked"><span class="fn">Floor ${k + 1}</span><span class="grow dim">a ghost with ${k}+ win${k === 1 ? '' : 's'}</span><span>🔒</span></div>`);
+      }
+    }
+    if (lo > 0) rows.push(`<div class="floor gap">⋯ ${lo} floor${lo > 1 ? 's' : ''} cleared below</div>`);
+    rows.push(`<div class="floor ground ${cur === -1 ? 'cur' : ''}">${cur === -1 ? token : ''}<span class="fn">Gate</span><span class="grow">${reach ? `Reached the Gauntlet <span class="win">+${reach.delta}</span>` : 'Your team enters as a ghost'}</span></div>`);
+    return `<div class="tower ${climb ? 'climb' : ''}">${rows.join('')}</div>`;
+  }
   function gauntletHTML() {
     const g = run.g;
     if (g.status === 'intro') {
+      if (g.peak == null && !ui.peakAsked) { ui.peakAsked = true; Net.get('elo?peak=1').then(r => { g.peak = r.peak; if (run.g === g && g.status === 'intro') render(); }).catch(() => {}); }
       return `<section class="title"><h2 class="sc">The Gauntlet</h2>
         <div class="card gintro"><p class="small">Your team is saved as a <b>ghost</b> and duels the ghosts of other players' runs. Round 1 is against a ghost that lost its first duel, round 2 against one that won once, and so on. Reaching the Gauntlet already counts as an Elo win against a 1000 rated opponent. Each duel is a 1v1 Elo game. One loss ends your run. Go further than every ghost before you and you are crowned champion.</p>
           ${teamRow(Run.teamSnapshot(run), run.relics)}
+          ${g.peak != null ? towerHTML(g, 'intro') : ''}
           <form class="stack" data-form="gauntlet"><input name="name" maxlength="16" placeholder="Your name on the ladder" value="${esc(myName())}" required><button class="primary big">Enter the Gauntlet</button></form></div></section>`;
     }
     // match card
     const o = g.opp;
-    return `<section><h2 class="sc">Gauntlet · round ${g.round + 1}</h2>
-      ${g.history.length ? `<p class="small">${g.history.map(h => `${h.win ? '✔' : '✘'} ${esc(h.name)} (${h.delta >= 0 ? '+' : ''}${h.delta})`).join(' · ')}</p>` : ''}
+    const def = o.defW || o.defL ? ` As a ghost it defended ${o.defW} time${o.defW === 1 ? '' : 's'} and fell ${o.defL}.` : '';
+    return `<section class="gauntlet"><h2 class="sc">Gauntlet · floor ${g.round + 1}</h2>
+      <div class="gwrap">${towerHTML(g)}
       <div class="card opp"><div class="row"><b class="sc">👻 ${esc(o.name)}</b><span class="grow"></span><span class="elo">⚜ ${o.elo}</span></div>
-        <p class="small dim">${o.own ? 'A ghost of one of your own earlier runs (no other player\'s ghost has reached this step yet).' : o.status === 'champion' ? 'Their run was crowned champion in the gauntlet.' : 'Their run went ' + o.wins + '-1 in the gauntlet.'}</p>${teamRow(o.team, o.relics)}</div>
+        <p class="small dim">${o.own ? 'A ghost of one of your own earlier runs (no other player\'s ghost has reached this step yet).' : o.status === 'champion' ? 'Their run was crowned champion in the gauntlet.' : 'Their run went ' + o.wins + '-1 in the gauntlet.'}${def}</p>${teamRow(o.team, o.relics)}</div></div>
       <div class="bar"><button data-act="team">Team & items</button><button class="primary big" data-act="to-duel">Prepare the duel</button></div></section>`;
   }
   function stockCard(s, i) {
@@ -282,7 +317,7 @@
         <div class="score">${g.wins}</div><p>duel${g.wins === 1 ? '' : 's'} won</p>
         <p class="elo-line">Elo ${g.eloStart} → <b>${g.elo}</b> <span class="${d >= 0 ? 'win' : 'lose'}">(${d >= 0 ? '+' : ''}${d})</span></p>
         ${g.status === 'champion' ? '<p class="small">No one had ever gone this far. Your team now guards the top of the ladder.</p>' : ''}
-        ${g.history.length ? `<p class="small">${g.history.map(h => `${h.win ? '✔' : '✘'} ${esc(h.name)} (${h.delta >= 0 ? '+' : ''}${h.delta})`).join(' · ')}</p>` : ''}`;
+        ${g.history.length ? towerHTML(g) : ''}`;
     } else {
       body = `<h2 class="sc">Your run has ended</h2><p>You fell at fight ${run.fightNo}. Won ${run.won} fight${run.won === 1 ? '' : 's'}.</p>
         ${run.eloEnd != null ? `<p class="elo-line">Elo <b>${run.eloEnd}</b> <span class="lose">(${run.eloDelta})</span></p>` : ''}`;
@@ -389,7 +424,7 @@
       const win = W.winner === 0;
       ui.result = { gauntlet: true, win, dmg, xp: run.heroes.map(h => ({ uid: h.uid, name: HEROES[h.key].name, gained: 0, from: h.lvl, to: h.lvl })), opp: run.g.opp, pending: true };
       screen = 'result'; save(); render();
-      try { const r = await Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win, team: Run.teamSnapshot(run), relics: run.relics }); setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, pending: false }); }
+      try { const r = await Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win, team: Run.teamSnapshot(run), relics: run.relics }); setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, ghost: r.ghost, pending: false }); ui.climb = win; }
       catch (e) { Object.assign(ui.result, { pending: false, error: e.message }); }
       save(); render(); return;
     }
@@ -569,7 +604,7 @@
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
       <li>Items have a type (weapon, off-hand, helmet, armor, gloves, boots, trinket) and a rarity: <span class="r-common">common</span>, <span class="r-uncommon">uncommon</span>, <span class="r-rare">rare</span>, <span class="r-epic">epic</span>, <span class="r-set">set</span>, <span class="r-legendary">legendary</span> and <span class="r-mythic">mythic</span>. A hero wears one item of each type, up to their slot count. Two or three pieces of a set on the same hero unlock set bonuses.</li>
       <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the run ends (an Elo loss against a 1000 rated opponent). Heroes always heal after a fight.</li>
-      <li>After the second boss and a last shop, your team enters the Gauntlet (an Elo win against a 1000 rated opponent) as a ghost and duels the ghosts of other players' runs, climbing one step per win. Each duel is an Elo game. One loss ends it. Beat everyone who came before and you are crowned champion.</li>
+      <li>After the second boss and a last shop, your team enters the Gauntlet (an Elo win against a 1000 rated opponent) as a ghost and climbs a tower of ghosts of other players' runs, one floor per win. Each duel is an Elo game, for the ghost too (its own Elo and its player's). One loss ends it. Beat everyone who came before and you are crowned champion.</li>
     </ol>`;
 
 
@@ -661,7 +696,7 @@
     skip: () => skipBattle(),
     'result-ok': () => { ui.result = null; screen = 'run'; render(); window.scrollTo(0, 0); },
     'to-duel': () => { run.phase = 'deploy'; run.cur = { type: 'gauntlet' }; ui.info = null; save(); render(); window.scrollTo(0, 0); },
-    'retry-elo': () => { if (ui.result && ui.result.gauntlet) { const w = ui.result.win; ui.result.pending = true; render(); Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win: w, team: Run.teamSnapshot(run), relics: run.relics }).then(r => { setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, pending: false, error: null }); save(); render(); }).catch(e => { Object.assign(ui.result, { pending: false, error: e.message }); render(); }); } },
+    'retry-elo': () => { if (ui.result && ui.result.gauntlet) { const w = ui.result.win; ui.result.pending = true; render(); Net.post('elo', { op: 'result', pid: pid(), name: myName(), teamId: run.g.teamId, win: w, team: Run.teamSnapshot(run), relics: run.relics }).then(r => { setElo(r); Run.gauntletUpdate(run, r); ui.climb = w; Object.assign(ui.result, { delta: r.delta, elo: r.elo, ghost: r.ghost, pending: false, error: null }); save(); render(); }).catch(e => { Object.assign(ui.result, { pending: false, error: e.message }); render(); }); } },
     buy: i => { const err = Run.buy(run, +i); if (err) toast(err); save(); render(); },
     reroll: () => { if (!Run.reroll(run)) toast('Not enough gold'); save(); render(); },
     leave: () => { Run.leave(run); save(); render(); window.scrollTo(0, 0); },

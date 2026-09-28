@@ -227,9 +227,10 @@
     const g = run.g;
     if (g.eloStart == null) g.eloStart = r.elo - (r.delta || 0) - (r.reach || 0);
     // review #14: reaching the gauntlet is itself a win against a 1000 rated opponent
-    if (r.reach != null && !g.history.length) g.history.push({ name: 'Reached the Gauntlet', elo: 1000, win: true, delta: r.reach });
+    if (r.reach != null && !g.history.length) g.history.push({ name: 'Reached the Gauntlet', elo: 1000, win: true, delta: r.reach, reach: true });
+    if (r.peak != null) g.peak = r.peak;
     g.elo = r.elo; g.teamId = r.teamId; g.wins = r.wins || 0;
-    if (r.delta != null && g.opp) g.history.push({ name: g.opp.name, elo: g.opp.elo, win: !!r.win, delta: r.delta });
+    if (r.delta != null && g.opp) g.history.push({ name: g.opp.name, elo: g.opp.elo, win: !!r.win, delta: r.delta, key: g.opp.team && g.opp.team[0] && g.opp.team[0].key, ghost: r.ghost || null });
     if (r.opponent) { g.opp = r.opponent; g.round = r.round; g.status = 'match'; run.cur = { type: 'gauntlet' }; }
     if (r.over) { g.status = r.champion ? 'champion' : 'lost'; g.opp = null; run.cur = null; run.phase = 'over'; run.result = 'gauntlet'; }
   }

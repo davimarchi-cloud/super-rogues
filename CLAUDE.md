@@ -121,6 +121,14 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v18 (2026-09-28), lote 16 do David** (Elo dos fantasmas + "cool UI for the gauntlet, moving up"): o duelo conta
+  para o fantasma também: o time guardado tem Elo próprio (`teams.elo_at` muda a cada defesa, K 32) e placar de defesas
+  (`def_w`/`def_l`); o jogador dono ganha/perde Elo quando o fantasma defende (K 16, e não quando é o seu próprio
+  fantasma). Heróis/itens/relíquias do fantasma já entravam no Elo de conteúdo desde a v15. `peak` (mais duelos que um
+  fantasma terminado venceu, `maxWins`) volta no enter/result e em GET `?peak=1` = altura da torre. UI: o Gauntlet é
+  uma torre (coroa no topo, andares de fantasmas, portão embaixo), o marcador (retrato do seu 1º herói) sobe um andar
+  animado a cada vitória; o resultado do duelo mostra o Elo do fantasma e do dono; o cartão mostra as defesas dele.
+
 - **v17 (2026-09-28), lote 15 do David** ("ghosts have items and relics as the player had"): itens e relíquias de
   atributo do fantasma já valiam (heroDef com as relíquias dele), mas as relíquias de efeito de time (Phoenix Feather,
   Vengeful Spirit, Frost Sigil, Thunder Totem, War Horn, Last Breath) só funcionavam para o lado do jogador. Agora o sim

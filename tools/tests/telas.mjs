@@ -162,8 +162,9 @@ if (!REMOTE) {
   await click('[data-act=close]'); await sleep(100);
   await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(900);
   ok(await ev(`__bal.run.g.status === 'match' && document.querySelector('.opp').textContent.includes('Rival')`), 'gauntlet round 1: a card shows the stored rival team');
+  ok(await ev(`!!document.querySelector('.tower .floor.cur .token') && !!document.querySelector('.tower .floor.crown') && /Floor 1/.test(document.querySelector('.tower .floor.cur').textContent) && /Rival/.test(document.querySelector('.tower .floor.cur').textContent)`), 'review #16: the gauntlet tower: your token on floor 1 facing Rival, the crown on top');
   ok(await ev(`document.querySelectorAll('.opp .gitems img').length === 2 && document.querySelectorAll('.opp .relics img').length === 1 && __bal.run.g.opp.relics.includes('feather')`), "review #15: the ghost card shows the rival's items hero by hero and its relics");
-  ok(await ev(`/Reached the Gauntlet \\(\\+\\d+\\)/.test(document.querySelector('#screen').textContent) && __bal.run.g.history[0].win`), 'review #14: reaching the gauntlet shows as an Elo win');
+  ok(await ev(`/Reached the Gauntlet\\s*\\+\\d+/.test(document.querySelector('#screen').textContent) && __bal.run.g.history[0].win`), 'review #14: reaching the gauntlet shows as an Elo win');
   await shot('17-gauntlet-opponent'); await noHScroll('gauntlet card'); await noVScroll('gauntlet card');
   await click('[data-act=to-duel]'); await sleep(300);
   ok(await ev(`/Rival/.test(document.querySelector('.bhead').textContent) && __bal.run.cur.type === 'gauntlet'`), 'duel deploy screen');
@@ -175,6 +176,8 @@ if (!REMOTE) {
   const g = await ev(`({ phase: __bal.run.phase, status: __bal.run.g.status, wins: __bal.run.g.wins, elo: __bal.run.g.elo })`);
   ok(g.phase === 'over' && (g.status === 'champion' || g.status === 'lost'), `gauntlet ends (${g.status}, ${g.wins} win, Elo ${g.elo})`);
   await shot('19-gauntlet-over');
+  ok(await ev(`!!document.querySelector('.tower') && (__bal.run.g.status === 'champion' ? !!document.querySelector('.floor.crown.cur .token') && !!document.querySelector('.floor.cleared') : !!document.querySelector('.floor.fell'))`), 'the final tower shows where the run ended (crown or the floor it fell on)');
+  await noVScroll('gauntlet over');
   await click('[data-act=scores]');
   for (let k = 0; k < 30 && !(await ev(`!!document.querySelector('#modal table')`)); k++) await sleep(100);
   const ladder = await ev(`document.querySelector('#modal').textContent`);
