@@ -115,6 +115,10 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v11 (2026-09-28), lote 10 do David** (legibilidade): `fmt()` em ui.js colore termos do jogo (ataque, magia,
+  defesa, vida, controle, dano contínuo, crítico, mana, ouro, XP, alcance), deixa números em negrito e durações em
+  itálico em toda descrição (heróis, specs, itens, relíquias, eventos, chefes, mobs); tokeniza o texto CRU e escapa
+  cada pedaço (não pode receber HTML). Atributos viraram fichas coloridas com símbolo (`chips()`).
 - **v10 (2026-09-28), lote 9 do David** ("too big for my phone ... without scrolling", batalha mais bonita): tudo compacto;
   o `telas.mjs` roda em 390x740 e checa que título, início, mapa, loja, deploy, batalha, resultado, evento, nível,
   Team e Gauntlet cabem sem rolar (`noVScroll`). Batalha: painel no topo (título, relógio, 1×/2×/4×/⏭), faixa do time

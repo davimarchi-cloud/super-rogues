@@ -32,6 +32,33 @@
   const img = (key, px, cls = 'por') => `<img class="${cls}" src="${por(key, px)}" alt="">`;
   const EMBLEM = '<svg class="emblem" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 9v45M20 56h24M9 17h46"/><path d="M9 17 3 35M9 17l6 18M55 17l-6 18M55 17l6 18"/></g><path d="M1 35a8 6 0 0 0 16 0zM47 35a8 6 0 0 0 16 0z" fill="currentColor"/><circle cx="32" cy="8" r="4" fill="currentColor"/></svg>';
   const ico = (kind, id, px = 36, cls = 'ico') => `<img class="${cls}" src="${kind === 'item' ? B.Icons.item(id, px) : B.Icons.relic(id, px)}" alt="">`;
+  // review #10 (David): readable at a glance. fmt() colours game terms and bolds numbers in any description;
+  // durations ("1.5s") are italic. It tokenises the RAW text and escapes every piece, so it is XSS-safe.
+  const KW = [
+    ['kw-atk', 'attack speed|attacks?|physical|damage'], ['kw-ap', 'magic damage|magic|ability power|abilities|ability|AP'],
+    ['kw-def', 'magic resist|armor|MR|shields?|invulnerable|untargetable|dodge'], ['kw-hp', 'max HP|HP|heals?|healing|healed|regenerates?|regen|lifesteal|revives?|resurrect\\w*'],
+    ['kw-cc', 'stuns?|stunned|stunning|freezes?|frozen|freeze|roots?|slows?|slowed|silence[sd]?|taunts?|pulls?|knock\\w*'],
+    ['kw-dot', 'burns?|burning|burn|poisons?|poison|bleed'], ['kw-crit', 'crit chance|crit damage|critical|crits?'],
+    ['kw-mana', 'mana'], ['kw-gold', 'gold'], ['kw-xp', 'XP|level'], ['kw-move', 'move speed|range|hex(?:es)?'],
+  ];
+  const KW_RE = new RegExp('([+\\-−]?\\d+(?:\\.\\d+)?(?:%|x|s\\b)?)|\\b(' + KW.map(k => k[1]).join('|') + ')\\b', 'gi');
+  const KW_CLS = w => { for (const [c, re] of KW) if (new RegExp('^(?:' + re + ')$', 'i').test(w)) return c; return ''; };
+  function fmt(text) {
+    const t = String(text == null ? '' : text); let out = '', last = 0, m;
+    KW_RE.lastIndex = 0;
+    while ((m = KW_RE.exec(t))) {
+      out += esc(t.slice(last, m.index)); last = m.index + m[0].length;
+      if (m[1]) out += /\ds$/.test(m[1]) ? `<em class="dur">${esc(m[1])}</em>` : `<b class="num">${esc(m[1])}</b>`;
+      else out += `<span class="${KW_CLS(m[2])}">${esc(m[2])}</span>`;
+    }
+    return out + esc(t.slice(last));
+  }
+  // stat chips: coloured, with a symbol, instead of "HP 600 · ATK 58 · ..."
+  function chips(d, full) {
+    const c = (cls, sym, v, tip) => `<span class="stat ${cls}" title="${tip}"><i>${sym}</i>${v}</span>`;
+    return `<span class="stats-row">${c('s-hp', '❤', d.hp, 'Health')}${c('s-atk', '⚔', d.atk, 'Attack')}${full ? c('s-ap', '✦', d.ap, 'Ability power') : ''}${c('s-arm', '⛨', d.armor, 'Armor')}${c('s-mr', '◈', d.mr, 'Magic resist')}${c('s-as', '»', d.as, 'Attacks per second')}${c('s-rng', '➶', d.range, 'Range (hexes)')}${d.crit ? c('s-crit', '✸', d.crit, 'Crit chance') : ''}${d.dodge ? c('s-dodge', '↯', d.dodge, 'Dodge') : ''}</span>`;
+  }
+  const pct = x => Math.round(x * 100) + '%';
   const TIER_COLOR = { common: '#b8c0cc', rare: '#5fa8ff', epic: '#c77dff' };
   const NODE_ICON = { F: '⚔', X: '?', B: '☠', S: '🛒', G: '♛' };
   const SHOP_NAME = { heroShop: 'Hero Shop', itemShop: 'Item Shop', relicShop: 'Relic Shop' };
@@ -92,8 +119,8 @@
     const h = HEROES[key];
     return `<div class="hcard">
       <div class="hrow">${img(key, 48)}<b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
-      <div class="small">HP ${h.hp} · ATK ${h.atk} · ARM ${h.armor} · AS ${h.as} · RNG ${h.range}</div>
-      <div class="abil"><b>${esc(h.abName)}</b>: ${esc(h.abDesc)}</div>${extra}</div>`;
+      ${chips({ hp: h.hp, atk: h.atk, armor: h.armor, mr: h.mr, as: h.as, range: h.range })}
+      <div class="abil"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div>${extra}</div>`;
   }
   function startHTML() {
     const f = run.startOffer.includes(ui.focus) ? ui.focus : run.startOffer[0], h = HEROES[f], n = ui.startPick.length;
@@ -102,8 +129,8 @@
         return `<button class="hbanner ${on ? 'on' : ''} ${k === f ? 'focus' : ''}" data-act="start-pick" data-arg="${k}" style="--cloth:${d.color}">
           <span class="rod"></span><img src="${por(k, 120, true)}" alt=""><b>${esc(d.name)}</b><i>${d.role}</i>${on ? '<span class="chk">✓</span>' : ''}</button>`; }).join('')}</div>
       <div class="card detail"><div class="hrow">${img(f, 48)}<b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
-        <div class="small">HP ${h.hp} · ATK ${h.atk} · ARM ${h.armor} · MR ${h.mr} · AS ${h.as} · RNG ${h.range}</div>
-        <div class="abil"><b>${esc(h.abName)}</b>: ${esc(h.abDesc)}</div></div>
+        ${chips({ hp: h.hp, atk: h.atk, armor: h.armor, mr: h.mr, as: h.as, range: h.range, crit: h.crit ? pct(h.crit) : 0, dodge: h.dodge ? pct(h.dodge) : 0 })}
+        <div class="abil"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div></div>
       <div class="bar"><button class="primary big" data-act="start-go" ${n === 2 ? '' : 'disabled'}>Begin the journey (${n}/2)</button></div></section>`;
   }
 
@@ -121,7 +148,7 @@
   }
   function optHTML(o, i) {
     if (o.type === 'fight') {
-      if (o.diff === 'boss') { const b = o.enemies.map(e => B.BOSSES[e.key]).find(Boolean); return bannerHTML(i, 'boss', img(b.key, 72, 'por emb-img'), esc(b.name), `<span class="small">${esc(b.desc)}</span><span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold'); }
+      if (o.diff === 'boss') { const b = o.enemies.map(e => B.BOSSES[e.key]).find(Boolean); return bannerHTML(i, 'boss', img(b.key, 72, 'por emb-img'), esc(b.name), `<span class="small">${fmt(b.desc)}</span><span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold'); }
       return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔⚔' : '⚔', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold' + (o.enemies.some(e => e.elite) ? ' · ★ elite' : ''));
     }
     if (o.type === 'shop') return bannerHTML(i, 'shop', o.kind === 'heroShop' ? '♞' : o.kind === 'itemShop' ? '⚒' : '◆', SHOP_NAME[o.kind] + (o.final ? ' (last)' : ''), `<span class="small">${SHOP_DESC[o.kind]}</span>`);
@@ -140,9 +167,9 @@
     const pair = d.specs[p.lvl - 2];
     return `<section><h2>Level up!</h2>
       <div class="hrow big">${img(h.key, 64)}<b>${esc(d.name)}</b> reached <b>Lv ${p.lvl}</b></div>
-      <p class="small">+15% HP and attack, +10 ability power, +4 armor and MR${p.lvl >= 3 ? ', <b>+1 item slot</b>' : ''}.</p>
+      <p class="small">${fmt('+15% HP and attack, +10 ability power, +4 armor and MR')}${p.lvl >= 3 ? ', <b class="kw-gold">+1 item slot</b>' : ''}.</p>
       <h3>Choose a specialization</h3>
-      <div class="opts">${pair.map((s, i) => `<button class="card opt" data-act="spec" data-arg="${i}"><div class="ctitle">${esc(s.name)}</div><div class="small">${esc(s.desc)}</div></button>`).join('')}</div></section>`;
+      <div class="opts">${pair.map((s, i) => `<button class="card opt" data-act="spec" data-arg="${i}"><div class="ctitle spec">★ ${esc(s.name)}</div><div class="small">${fmt(s.desc)}</div></button>`).join('')}</div></section>`;
   }
 
   function deployHTML() {
@@ -188,7 +215,7 @@
   function resultHTML() {
     const r = ui.result;
     const table = r.gauntlet ? '' : `<table class="tbl"><tr><th>Hero</th><th>Damage</th><th>XP</th><th>Level</th></tr>
-      ${r.xp.map(x => { const hk = (run.heroes.find(h => h.uid === x.uid) || {}).key; return `<tr><td class="who">${hk ? img(hk, 28, 'por sm') : ''}${esc(x.name)}</td><td>${Math.round(r.dmg[x.uid] || 0)}</td><td>+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`; }).join('')}</table>`;
+      ${r.xp.map(x => { const hk = (run.heroes.find(h => h.uid === x.uid) || {}).key; return `<tr><td class="who">${hk ? img(hk, 28, 'por sm') : ''}${esc(x.name)}</td><td><b class="num">${Math.round(r.dmg[x.uid] || 0)}</b></td><td class="kw-xp">+${x.gained}</td><td>${x.to > x.from ? '<b class="up">Lv ' + x.to + ' ▲</b>' : 'Lv ' + x.to}</td></tr>`; }).join('')}</table>`;
     const sub = r.gauntlet ? `${r.win ? 'You beat' : 'You fell to'} ${esc(r.opp.name)}'s team.`
       : r.win ? '+' + r.gold + ' gold' : 'Your run is over. ' + (r.timeout ? 'Time ran out.' : '');
     return `<section class="result"><h2 class="${r.win ? 'win' : 'lose'} sc headline">${r.win ? 'Victory' : 'Defeat'}</h2><p>${sub}</p>${eloLine(r)}${table}
@@ -219,9 +246,9 @@
   function stockCard(s, i) {
     const dis = s.sold || run.gold < s.price || (s.kind === 'hero' && run.heroes.length >= Run.teamMax(run));
     let body = '';
-    if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><div class="small"><b>${esc(h.abName)}</b>: ${esc(h.abDesc)}</div>`; }
-    else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div><div class="tier">${it.tier}</div></div></div><div class="small">${esc(it.desc)}</div>`; }
-    else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier">relic</div></div></div><div class="small">${esc(r.desc)}</div>`; }
+    if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><div class="small"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div>`; }
+    else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div><div class="tier t-${it.tier}">${it.tier}</div></div></div><div class="small">${fmt(it.desc)}</div>`; }
+    else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier t-relic">relic</div></div></div><div class="small">${fmt(r.desc)}</div>`; }
     return `<div class="card stock ${s.sold ? 'sold' : ''}">${body}<button class="${dis ? '' : 'primary'}" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''}>${s.sold ? 'Sold' : `Buy <span class="price">${s.price}</span>`}</button></div>`;
   }
   function shopHTML() {
@@ -235,8 +262,8 @@
     const e = EVENT[run.cur.id];
     const ok = ch => !(ch.req && ch.req.gold && run.gold < ch.req.gold);
     return `<section>${trackHTML()}<h2>❓ ${esc(e.name)}</h2><p>${esc(e.text)}</p>
-      ${run.cur.done ? `<div class="card result">${esc(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div>`
-        : `<div class="stack">${e.choices.map((ch, i) => `<button class="big" data-act="event" data-arg="${i}" ${ok(ch) ? '' : 'disabled'}>${esc(ch.label)}</button>`).join('')}</div>`}</section>`;
+      ${run.cur.done ? `<div class="card result">${fmt(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div>`
+        : `<div class="stack">${e.choices.map((ch, i) => `<button class="big" data-act="event" data-arg="${i}" ${ok(ch) ? '' : 'disabled'}>${fmt(ch.label)}</button>`).join('')}</div>`}</section>`;
   }
   function overHTML() {
     const g = run.g;
@@ -263,9 +290,9 @@
     if (!W || !ui.info) return '<span class="dim">Tap a unit to see its stats.</span>';
     const u = W.byId[ui.info]; if (!u) return '';
     const hd = HEROES[u.key];
-    const abil = hd ? `<b>${esc(hd.abName)}</b>: ${esc(hd.abDesc)}` : u.boss ? esc(B.BOSSES[u.key].desc) : u.abil ? esc(MOB_ABIL[u.abil] || '') : u.fl.has('dive') ? 'Leaps to your back line at the start.' : u.kind === 'summon' ? 'Summoned unit.' : 'No special ability.';
+    const abil = hd ? `<b class="abname">${esc(hd.abName)}</b> ${fmt(hd.abDesc)}` : u.boss ? fmt(B.BOSSES[u.key].desc) : u.abil ? fmt(MOB_ABIL[u.abil] || '') : u.fl.has('dive') ? 'Leaps to your back line at the start.' : u.kind === 'summon' ? 'Summoned unit.' : 'No special ability.';
     return `<div class="hrow">${img(u.key, 40)}<b>${esc(u.name)}</b>${u.kind === 'hero' ? ' Lv ' + u.lvl : ''}${u.elite ? ' <span class="elite">★ elite</span>' : ''}</div>
-      <div class="small">HP ${Math.max(0, Math.round(u.hp))}/${u.maxHp} · ATK ${Math.round(Sim.atkOf(W, u))} · AP ${Math.round(u.ap)} · ARM ${Math.round(u.armor)} · MR ${Math.round(u.mr)} · AS ${Sim.asOf(W, u).toFixed(2)} · RNG ${u.range}${u.crit ? ' · CRIT ' + Math.round(u.crit * 100) + '%' : ''}${u.dodge ? ' · DODGE ' + Math.round(u.dodge * 100) + '%' : ''}</div>
+      ${chips({ hp: Math.max(0, Math.round(u.hp)) + '/' + u.maxHp, atk: Math.round(Sim.atkOf(W, u)), ap: Math.round(u.ap), armor: Math.round(Sim.armorOf(W, u)), mr: Math.round(Sim.mrOf(W, u)), as: Sim.asOf(W, u).toFixed(2), range: u.range, crit: u.crit ? pct(u.crit) : 0, dodge: u.dodge ? pct(u.dodge) : 0 }, true)}
       <div class="small">${abil}</div>`;
   }
 
@@ -362,7 +389,7 @@
   function teamHTML() {
     const selId = ui.selBag >= 0 ? run.bag[ui.selBag] : null, sel = selId ? ITEM[selId] : null;
     const items = run.bag.map((id, i) => { const it = ITEM[id]; return `<button class="eqitem ${ui.selBag === i ? 'on' : ''}" style="--tier:${TIER_COLOR[it.tier]}" data-act="bag" data-arg="${i}">
-      ${ico('item', id, 34)}<span class="t"><b>${esc(it.name)}</b><span>${esc(it.desc)}</span></span></button>`; }).join('');
+      ${ico('item', id, 34)}<span class="t"><b>${esc(it.name)}</b><span>${fmt(it.desc)}</span></span></button>`; }).join('');
     const heroes = run.heroes.map(h => {
       const d = HEROES[h.key], def = Run.heroDef(run, h), sl = Run.slots(run, h), full = h.items.length >= sl;
       const next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null, prev = CFG.xpLevels[h.lvl] || 0;
@@ -378,9 +405,8 @@
         <div class="hrow">${img(h.key, 40)}<div><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span><div class="xpbar"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></div></div></div>
         ${target ? '<div class="tap">Tap to equip here</div>' : sel && full ? '<div class="tap dim">No free slot</div>' : ''}
         <div class="slots">${slots.join('')}</div>
-        <div class="small stats">HP ${Math.round(def.hp)} · ATK ${Math.round(def.atk)} · AP ${Math.round(def.ap)} · ARM ${Math.round(def.armor)} · MR ${Math.round(def.mr)} · AS ${def.as.toFixed(2)} · RNG ${def.range}${def.crit ? ' · CRIT ' + Math.round(def.crit * 100) + '%' : ''}</div>
+        ${chips({ hp: Math.round(def.hp), atk: Math.round(def.atk), ap: Math.round(def.ap), armor: Math.round(def.armor), mr: Math.round(def.mr), as: def.as.toFixed(2), range: def.range, crit: def.crit ? pct(def.crit) : 0, dodge: def.dodge ? pct(def.dodge) : 0 }, true)}
         <div class="small"><b>${esc(d.abName)}</b>${specs.length ? ' · ' + specs.map(sp => `<span class="spec" title="${esc(sp.desc)}">★ ${esc(sp.name)}</span>`).join(' ') : ''}</div>
-        ${h.lvl < 3 ? '<div class="dim small">More slots at Lv 3, 4, 5.</div>' : ''}
       </div>`;
     }).join('');
     return `<div class="shead"><b>Team & items</b><button data-act="close">✕</button></div>
@@ -389,7 +415,7 @@
         <div class="eqcol"><h3>Items (${run.bag.length})</h3>${items || '<p class="dim small">Bag is empty. Buy items in the Item Shop.</p>'}</div>
         <div class="eqcol"><h3>Heroes (${run.heroes.length}/${Run.teamMax(run)})</h3>${heroes}</div>
       </div>
-      <h3>Relics</h3>${run.relics.length ? `<div class="relics">${run.relics.map(id => `<div class="relic-row">${ico('relic', id, 30)}<span><b>${esc(RELIC[id].name)}</b> <span class="dim">${esc(RELIC[id].desc)}</span></span></div>`).join('')}</div>` : '<p class="dim small">None yet.</p>'}`;
+      <h3>Relics</h3>${run.relics.length ? `<div class="relics">${run.relics.map(id => `<div class="relic-row">${ico('relic', id, 30)}<span><b class="relic">${esc(RELIC[id].name)}</b> <span class="desc">${fmt(RELIC[id].desc)}</span></span></div>`).join('')}</div>` : '<p class="dim small">None yet.</p>'}`;
   }
 
   function ago(ms, now) { const s = Math.max(0, Math.round((now - ms) / 1000)); return s < 60 ? s + 's ago' : s < 3600 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago'; }
@@ -627,5 +653,5 @@
   render();
   bootNotice();
   // test hook (headless Chrome tests drive the game through this)
-  window.__bal = { get run() { return run; }, get battle() { return battle; }, ACT, render, skipBattle, poll, hexScreen: (c, r) => { const b = view.canvas.getBoundingClientRect(), p = Render.hexScreen(view, c, r); return { x: b.left + p.x, y: b.top + p.y }; } };
+  window.__bal = { get run() { return run; }, get battle() { return battle; }, ACT, render, skipBattle, poll, fmt, hexScreen: (c, r) => { const b = view.canvas.getBoundingClientRect(), p = Render.hexScreen(view, c, r); return { x: b.left + p.x, y: b.top + p.y }; } };
 })();
