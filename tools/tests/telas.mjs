@@ -155,7 +155,7 @@ ok(fin.phase === 'over' || (REMOTE && fin.phase === 'gauntlet'), `run reached th
 await shot('11-over'); await noHScroll('over');
 if (fin.result === 'defeat' && !REMOTE) {
   await sleep(600);
-  ok(await ev(`__bal.run.eloEnd === 984 && /Elo/.test(document.querySelector('#screen').textContent) && /984/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run and cost Elo (review #14: loss vs 1000, 1000 -> 984)');
+  ok(await ev(`__bal.run.eloEnd == null && !!__bal.run.lgEnd && /league point/.test(document.querySelector('#screen').textContent) && /1000/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run; review #24: it costs league points but no Elo');
 }
 
 // ---- review #19: every hero ability has a scaling explanation with real numbers
@@ -209,7 +209,7 @@ if (!REMOTE) {
   ok(await ev(`__bal.run.g.status === 'match' && document.querySelector('.opp').textContent.includes('Rival')`), 'gauntlet round 1: a card shows the stored rival team');
   ok(await ev(`!!document.querySelector('.tower .floor.cur .token') && !!document.querySelector('.tower .floor.crown') && /Floor 1/.test(document.querySelector('.tower .floor.cur').textContent) && /Rival/.test(document.querySelector('.tower .floor.cur').textContent)`), 'review #16: the gauntlet tower: your token on floor 1 facing Rival, the crown on top');
   ok(await ev(`document.querySelectorAll('.opp .gitems img').length === 2 && document.querySelectorAll('.opp .relics img').length === 1 && __bal.run.g.opp.relics.includes('feather')`), "review #15: the ghost card shows the rival's items hero by hero and its relics");
-  ok(await ev(`/Reached the Gauntlet\\s*\\+\\d+/.test(document.querySelector('#screen').textContent) && __bal.run.g.history[0].win`), 'review #14: reaching the gauntlet shows as an Elo win');
+  ok(await ev(`!__bal.run.g.history.some(h => h.reach || h.name === 'Reached the Gauntlet') && __bal.run.g.eloStart === __bal.run.g.elo`), 'review #24: reaching the gauntlet no longer moves the Elo');
   await shot('17-gauntlet-opponent'); await noHScroll('gauntlet card'); await noVScroll('gauntlet card');
   await click('[data-act=to-duel]'); await sleep(300);
   ok(await ev(`/Rival/.test(document.querySelector('.bhead').textContent) && __bal.run.cur.type === 'gauntlet'`), 'duel deploy screen');

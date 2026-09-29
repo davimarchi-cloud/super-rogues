@@ -121,6 +121,18 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v26 (2026-09-29), lote 24 do David** (5 pedidos): (#29) andar f = fantasma cuja run TERMINOU com exatamente f
+  vitórias (ganhou aquele andar e perdeu o seguinte: "no 3º andar, fantasmas que terminaram 3-1"); o topo é o campeão
+  (nunca perdeu); qualquer jogador, inclusive você; sorteio; sem f exato, o recorde mais próximo acima; no andar 1 sem
+  ninguém, um fantasma de 0 vitórias; Gauntlet abandonado há 6 h conta como terminado (`pickGhost('eq'|'gt')`,
+  `STALE_MS`, `peakOf`); torre com max(1, peak) andares rotulados "k-1" e "campeão k-0". (#30) morte súbita = dano
+  verdadeiro em TODAS as unidades, 1%, 2%, 3%... da vida máx por segundo depois dos 45 s (`CFG.suddenDeathRamp`; saiu o
+  aumento de dano). (#31) o Elo do jogador só muda nos duelos (run perdida e chegada ao Gauntlet não contam mais; o Elo
+  de conteúdo e os pontos de liga continuam). (#32) as defesas do fantasma não mexem no Elo do dono (o Elo e o placar
+  do próprio fantasma continuam). (#33) controle com duração cheia, execuções, puxões e empurrões funcionam em chefes
+  (a redução de 60% dos venenos de % de vida continua). Balanceamento: fightScale [.., 1.55 no chefe 1, .., 2.45 no
+  chefe 2]; bot 300 runs: chefe 1 23%, chefe 2 41%, Gauntlet 24/300 (igual a antes do lote).
+
 - **v25 (2026-09-28), lote 23 do David** ("all ghosts are saved ... a random ghost is used, not the first ghost ever to
   lose at a level. The pool expands"): o sorteio pegava só os fantasmas com o MENOR recorde ≥ k (com poucos jogadores,
   sempre o mesmo) e ignorava fantasmas de Gauntlets abandonados (status 'running' para sempre). Agora

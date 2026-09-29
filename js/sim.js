@@ -127,7 +127,7 @@
     if (!alive(u) || s <= 0) return;
     if (ccImmune(W, u)) { fxText(W, u, 'IMMUNE', '#fff'); return; }
     if (u.m.cleanseOnce && !u.once.cleanse) { u.once.cleanse = 1; fxText(W, u, 'CLEANSED', '#fff'); return; }
-    const d = sec(s * (u.boss ? 0.5 : 1) * (1 - Math.min(0.8, u.m.ccResist || 0)));
+    const d = sec(s * (1 - Math.min(0.8, u.m.ccResist || 0)));  // review #24: full duration on bosses too
     u.st[kind] = Math.max(u.st[kind] || 0, W.t + d);
   }
   function slow(W, u, p, s) {
@@ -157,7 +157,7 @@
       dmg *= src.critDmg; crit = true;
       if (src.m.critStack && (src.sc.cs || 0) < src.m.critStackCap) { const g = Math.min(src.m.critStack, src.m.critStackCap - (src.sc.cs || 0)); src.sc.cs = (src.sc.cs || 0) + g; src.crit += g; }
     }
-    let amp = 1 + W.sd;
+    let amp = 1;
     if (src) {
       amp += bsum(W, src, 'dmgAmp');
       if (src.m.giantSlayer && tgt.maxHp > src.maxHp) amp += src.m.giantSlayer;
@@ -331,7 +331,7 @@
       if (u.m.apPerAtk) u.ap += u.m.apPerAtk;
     }
     if (u.eclipse > 0 && alive(tgt)) { u.eclipse--; const x = deal(W, u, tgt, atk * u.ab.bonus, 'magic', { ability: true }); heal(W, u, x * u.ab.heal); }
-    if (u.m.reap && alive(tgt) && !tgt.boss && tgt.hp < tgt.maxHp * u.m.reap) { fxText(W, tgt, 'REAPED', '#aaa'); deal(W, u, tgt, tgt.hp + tgt.shield + 1, 'true', {}); }
+    if (u.m.reap && alive(tgt) && tgt.hp < tgt.maxHp * u.m.reap) { fxText(W, tgt, 'REAPED', '#aaa'); deal(W, u, tgt, tgt.hp + tgt.shield + 1, 'true', {}); }
     if (dealt <= 0) return;
     const m = u.m;
     if (m.burnOnHit) dot(W, tgt, 'burn', m.burnOnHit * atk, 3, u);
@@ -410,7 +410,7 @@
       if (!n.length && Hx.dist(u, t) > 1) continue;
       if (Hx.dist(u, t) > 1) blink(W, u, n[0].c, n[0].r);
       deal(W, u, t, ab.dmg * atkOf(W, u), 'phys', { ability: true, canCrit: true, forceCrit: u.fl.has('ambush') });
-      if (alive(t) && ab.execute && !t.boss && t.hp < t.maxHp * ab.execute) { fxText(W, t, 'EXECUTE', '#f44'); deal(W, u, t, t.hp + t.shield + 1, 'true', {}); }
+      if (alive(t) && ab.execute && t.hp < t.maxHp * ab.execute) { fxText(W, t, 'EXECUTE', '#f44'); deal(W, u, t, t.hp + t.shield + 1, 'true', {}); }
       if (alive(t) && ab.mark) { t.st.vulnU = W.t + sec(5); t.st.vulnP = Math.max(t.st.vulnP || 0, ab.mark); }
       if (ab.twin) { const o = enemies(W, u).filter(e => e !== t && Hx.dist(e, t) <= 2)[0]; if (o) deal(W, u, o, ab.dmg * ab.twin * atkOf(W, u), 'phys', { ability: true }); }
       if (ab.untarg) u.st.untarg = W.t + sec(ab.untarg);
@@ -533,7 +533,7 @@
     if (!ts.length) return false;
     for (const t of ts.slice(0, ab.count)) {
       fx(W, { k: 'bolt', pts: [[u.c, u.r], [t.c, t.r]], color: '#2fb3a0', t1: W.t + 6 });
-      if (!t.boss && Hx.dist(u, t) > 1) {
+      if (Hx.dist(u, t) > 1) {
         const n = freeNeighbors(W, u.c, u.r).sort((a, b) => Hx.dist(a, t) - Hx.dist(b, t))[0];
         if (n) { place(W, t, n.c, n.r, 5); t.busy = Math.max(t.busy, W.t + 5); t.anim = null; }
       }
@@ -542,7 +542,7 @@
       if (ab.vuln) { t.st.vulnU = W.t + sec(4); t.st.vulnP = Math.max(t.st.vulnP || 0, ab.vuln); }
     }
     if (ab.whirl) at(W, W.t + 6, () => { if (u.dead) return; fxRing(W, u.c, u.r, 1, '#2fb3a0', 8); for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) { deal(W, u, e, atkOf(W, u), 'phys', { ability: true }); slow(W, e, 0.3, 2); } });
-    if (ab.pullAll) for (const e of enemies(W, u)) if (!e.boss && Hx.dist(e, u) <= 3 && Hx.dist(e, u) > 1) {
+    if (ab.pullAll) for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 3 && Hx.dist(e, u) > 1) {
       const n = freeNeighbors(W, e.c, e.r).filter(h => Hx.dist(h, u) < Hx.dist(e, u))[0];
       if (n) { place(W, e, n.c, n.r, 5); e.busy = Math.max(e.busy, W.t + 5); }
       cc(W, e, 'stun', 1);
@@ -621,7 +621,7 @@
   };
   // --- v12 heroes (review #11)
   function push(W, src, t, n) {
-    if (t.boss || t.dead || n <= 0) return;
+    if (t.dead || n <= 0) return;
     let c = t.c, r = t.r, steps = 0;
     for (let i = 0; i < n; i++) {
       const away = Hx.neighbors(c, r).filter(h => Hx.dist(h, src) > Hx.dist({ c, r }, src));
@@ -656,7 +656,7 @@
       if (!alive(t) || u.dead) return;
       fx(W, { k: 'proj', from: u.id, fc: u.c, fr: u.r, to: t.id, tc: t.c, tr: t.r, color: '#fff2a0', size: 1.5, t1: W.t + 3 });
       deal(W, u, t, ab.dmg * atkOf(W, u) * (1 + 0.08 * Hx.dist(u, t)), 'phys', { ability: true, canCrit: true });
-      if (alive(t) && !t.boss && t.hp < t.maxHp * ab.exec) { fxText(W, t, 'HEADSHOT', '#ff4040'); deal(W, u, t, t.hp + t.shield + 1, 'true', {}); }
+      if (alive(t) && t.hp < t.maxHp * ab.exec) { fxText(W, t, 'HEADSHOT', '#ff4040'); deal(W, u, t, t.hp + t.shield + 1, 'true', {}); }
       if (alive(t) && ab.stun) cc(W, t, 'stun', ab.stun);
     });
     if (ab.camo) u.st.untarg = W.t + sec(ab.camo);
@@ -892,7 +892,14 @@
       const due = W.q.filter(e => e.t <= W.t); W.q = W.q.filter(e => e.t > W.t);
       for (const e of due) { e.fn(); if (W.over) break; }
     }
-    if (W.mode === 'fight' && W.t > sec(B.CFG.suddenDeath) && W.t % TPS === 0) { W.sd += 0.15; if (W.t === sec(B.CFG.suddenDeath) + TPS) fx(W, { k: 'banner', text: 'Sudden death', t1: W.t + 40 }); }
+    // review #24 (David): sudden death is damage over time that grows slowly and hits EVERY unit, allies and enemies:
+    // each second after it starts, true damage of (1% x seconds into sudden death) of the unit's max HP
+    if (W.mode === 'fight' && W.t > sec(B.CFG.suddenDeath) && W.t % TPS === 0) {
+      W.sd += 0.15;
+      const k = Math.round((W.t - sec(B.CFG.suddenDeath)) / TPS);
+      if (k === 1) fx(W, { k: 'banner', text: 'Sudden death: everyone burns', t1: W.t + 40 });
+      for (const u of W.units) if (alive(u)) deal(W, null, u, u.maxHp * B.CFG.suddenDeathRamp * k, 'true', { dot: true });
+    }
     for (const s of [0, 1]) if (flOf(W, s).thunder && W.t % sec(4) === 0) {
       const es = W.units.filter(v => !v.dead && v.side !== s);
       if (es.length) { const e = es[Math.floor(W.rng() * es.length)]; fx(W, { k: 'bolt', pts: [[e.c, e.r - 2], [e.c, e.r]], color: '#fff6a0', t1: W.t + 6 }); deal(W, null, e, 60 + 30 * W.fightNo + 5 * W.wave, 'magic', {}); }
@@ -922,6 +929,6 @@
     return { x: a.x + (b.x - a.x) * p, y: a.y + (b.y - a.y) * p };
   }
 
-  B.Sim = { TPS, sec, create, step, run, spawn, posAt, mobScaleDef, applyElite, rngOf, atkOf, asOf, armorOf, mrOf, abilities: A };
+  B.Sim = { TPS, sec, create, step, run, spawn, posAt, mobScaleDef, applyElite, rngOf, atkOf, asOf, armorOf, mrOf, abilities: A, cc };
   if (typeof module !== 'undefined') module.exports = B.Sim;
 })(typeof window !== 'undefined' ? window : globalThis);

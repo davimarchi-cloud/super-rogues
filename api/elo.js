@@ -1,13 +1,12 @@
 // Elo + PvP gauntlet (reviews #3 and #4 by David).
-// - No hearts: losing any fight ends the run = a loss against an opponent rated 1000                  op 'fail'
-//   Review #14: reaching the gauntlet = a WIN against an opponent rated 1000                          op 'enter'
+// - No hearts: losing any fight ends the run                                                          op 'fail'
+//   Review #24: the player's Elo moves ONLY in gauntlet duels (a lost run / reaching the gauntlet used to count too)
 // - Review #14: every hero, item and relic has its own Elo (table ratings, apart from the players), for balancing.
 //   Only pieces that acted in that fight are rated (see usedIn). A lost run / reaching the gauntlet rates the pieces of
 //   that fight against 1000; a duel rates each side's pieces against the other side's pieces of the same kind.
 //   GET ?ratings=1 lists them.
 // - Review #16: a duel counts for the GHOST too: the ghost team has its own Elo (teams.elo_at, K 32, shown on its card)
-//   and a defense record (def_w / def_l), and its player gains or loses Elo when it defends (K 16; not when it is your
-//   own ghost). Review #20: every BOSS has its own Elo too (ratings kind 'boss', K 16), op 'boss': it rises when the boss
+//   and a defense record (def_w / def_l); review #24: its player's Elo does not move for it. Review #20: every BOSS has its own Elo too (ratings kind 'boss', K 16), op 'boss': it rises when the boss
 //   beats a player and falls when it loses, against that player's Elo; the player's own Elo never moves for it.
 //   Review #21: leagues (B.LEAGUES): +1 league point per duel won, -2 per run lost before the gauntlet; 10 points move
 //   the player up one league, never down; Celestial has no ceiling. Answers carry league, lp and `lg` (the change).
@@ -92,7 +91,6 @@ function cleanTeam(team) {
   return out;
 }
 const oppView = (t, pid) => t && { teamId: t.id, name: t.name, elo: Math.round(t.elo_at), wins: t.wins, status: t.status, own: t.pid === pid, defW: t.def_w || 0, defL: t.def_l || 0, team: JSON.parse(t.team), relics: JSON.parse(t.relics) };
-const KD = 16;  // a player's Elo moves by half as much when their ghost defends
 // review #21: league points; returns what changed
 function leaguePoints(p, delta) {
   const R = D.LEAGUE_RULES, top = D.LEAGUES.length - 1, l0 = p.league | 0, lp0 = p.lp | 0;
@@ -102,15 +100,21 @@ function leaguePoints(p, delta) {
 }
 
 // next opponent with at least `wins` wins: other players first, then your own older teams
-// review #23 (David): every saved ghost counts (finished, crowned or abandoned mid-gauntlet) and the pool grows with each
-// run; floor k draws at RANDOM among all ghosts with at least k wins (it used to take the lowest record only, so with
-// few players it was always the same ghost). Other players' ghosts first, then your own; a ghost this run already
-// faced comes back only when there is no one else.
+// review #24 (David): floor f (after f-1 wins) meets a ghost whose run ended with EXACTLY f wins, i.e. it won that floor
+// and lost the next one ("on the 3rd floor I fight ghosts that ended 3-1"); the top floor holds the champion, who never
+// lost. Anyone's ghost (yours too), drawn at random. When no ghost has exactly f wins, the closest record above; on floor
+// 1 with nobody above, a ghost that won 0 (the first ghosts). A ghost this run already faced comes back only when there
+// is no one else. A gauntlet left unfinished for 6 hours counts as ended. No ghost at all: you are the champion.
+const STALE_MS = 6 * 3600e3;
 async function nextOpponent(st, wins, pid, teamId, faced) {
-  const seen = [teamId].concat(faced || []);
-  return (await st.pickOpponent(wins, pid, false, seen)) || (await st.pickOpponent(wins, pid, true, seen))
-    || (await st.pickOpponent(wins, pid, false, [teamId])) || (await st.pickOpponent(wins, pid, true, [teamId]));
+  const f = wins + 1, stale = Date.now() - STALE_MS;
+  for (const ex of [[teamId].concat(faced || []), [teamId]]) {
+    const g = (await st.pickGhost('eq', f, ex, stale)) || (await st.pickGhost('gt', f, ex, stale)) || (f === 1 ? await st.pickGhost('eq', 0, ex, stale) : null);
+    if (g) return g;
+  }
+  return null;
 }
+const peakOf = (st, teamId) => st.maxWins(teamId, Date.now() - STALE_MS);
 
 module.exports = async (req, res) => {
   const st = getStore();
@@ -118,7 +122,7 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
       const qs = new URL(req.url || '/', 'http://x').searchParams;
       if (qs.get('ratings')) return send(res, 200, { ratings: await st.listRatings() });
-      if (qs.get('peak')) return send(res, 200, { peak: await st.maxWins(0) });  // review #16: height of the gauntlet tower
+      if (qs.get('peak')) return send(res, 200, { peak: await peakOf(st, 0) });  // review #16: height of the gauntlet tower
       return send(res, 200, { top: await st.topPlayers(25) });
     }
     if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
@@ -144,12 +148,12 @@ module.exports = async (req, res) => {
       return send(res, 200, me({ boss: { key, name: D.BOSSES[key].name, elo: Math.round(r0 + delta), delta: Math.round(r0 + delta) - Math.round(r0) } }));
     }
 
-    if (b.op === 'fail') {  // review #14: a loss against 1000 (it was your Elo - 200); the pieces of the lost fight lose too
-      const before = p.elo; p.elo = eloAfter(p.elo, PVE, 0); p.runs++;
+    if (b.op === 'fail') {  // review #24: a lost run no longer moves the player's Elo (league points and the pieces' Elo still do)
+      p.runs++;
       const lg = leaguePoints(p, D.LEAGUE_RULES.pveLoss);
       await save({});
       const used = cleanTeam(b.team); if (used) await rateContent(st, ipHash(req), [{ used: usedIn(used, relicList(b.relics)), score: 0 }]);
-      return send(res, 200, me({ delta: Math.round(p.elo) - Math.round(before), lg }));
+      return send(res, 200, me({ lg }));
     }
 
     if (b.op === 'enter') {
@@ -157,18 +161,16 @@ module.exports = async (req, res) => {
       if (!team) return send(res, 400, { error: 'Invalid team' });
       const relics = relicList(b.relics);
       if (await st.countTeams(pid, Date.now() - 3600e3) >= 20) return send(res, 429, { error: 'Too many gauntlet runs this hour.' });
-      // review #14: reaching the gauntlet is a win against 1000, for the player and for the pieces of the fight that got
-      // there (b.reached = the last boss fight; the team may have changed in the last shop)
-      const before = p.elo; p.elo = eloAfter(p.elo, PVE, 1);
-      const reach = Math.round(p.elo) - Math.round(before);
+      // review #24: reaching the gauntlet no longer moves the player's Elo; it still rates the pieces of the fight that got
+      // there against 1000 (b.reached = the last boss fight; the team may have changed in the last shop)
       const id = await st.insertTeam({ pid, name, elo_at: p.elo, team: JSON.stringify(team), relics: JSON.stringify(relics) });
       p.runs++;
       const rt = b.reached && cleanTeam(b.reached.team);
       await rateContent(st, ipHash(req), [{ used: rt ? usedIn(rt, relicList(b.reached.relics)) : usedIn(team, relics), score: 1 }]);
-      const opp = await nextOpponent(st, 0, pid, id), peak = await st.maxWins(id);
-      if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, peak, champion: true, over: true })); }
+      const opp = await nextOpponent(st, 0, pid, id), peak = await peakOf(st, id);
+      if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, peak, champion: true, over: true })); }
       await st.updateTeam(id, { wins: 0, status: 'running', opp: opp.id, faced: [opp.id] }); await save({});
-      return send(res, 200, me({ teamId: id, round: 0, wins: 0, reach, peak, opponent: oppView(opp, pid) }));
+      return send(res, 200, me({ teamId: id, round: 0, wins: 0, peak, opponent: oppView(opp, pid) }));
     }
 
     if (b.op === 'result') {
@@ -189,13 +191,9 @@ module.exports = async (req, res) => {
       if (opp) {
         const gElo = eloAfter(opp.elo_at, before, win ? 0 : 1);
         await st.ghostResult(opp.id, gElo, !win);
-        ghost = { name: opp.name, elo: Math.round(gElo), delta: Math.round(gElo) - Math.round(opp.elo_at) };
-        if (opp.pid !== pid) {
-          const o = await st.getPlayer(opp.pid);
-          if (o) { const oe = o.elo + KD * ((win ? 0 : 1) - expect(o.elo, before)); ghost.ownerDelta = Math.round(oe) - Math.round(o.elo); o.elo = oe; await st.setPlayer(o.pid, o); }
-        }
+        ghost = { name: opp.name, elo: Math.round(gElo), delta: Math.round(gElo) - Math.round(opp.elo_at) };  // review #24: its player's Elo never moves
       }
-      const peak = await st.maxWins(t.id);
+      const peak = await peakOf(st, t.id);
       const lg = win ? leaguePoints(p, D.LEAGUE_RULES.duelWin) : null;
       if (!win) {
         await st.updateTeam(t.id, { wins: t.wins, status: 'lost', opp: null });

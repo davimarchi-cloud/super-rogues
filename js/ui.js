@@ -423,7 +423,7 @@
     const duels = g.history.filter(h => !isReach(h)), reach = g.history.find(isReach);
     const champion = g.status === 'champion', lost = g.status === 'lost';
     const cur = mode === 'intro' ? -1 : champion ? null : lost ? duels.length - 1 : g.round;
-    const known = g.peak != null && g.peak >= 0 ? g.peak + 1 : null;             // number of ghost floors
+    const known = g.peak != null && g.peak >= 0 ? Math.max(1, g.peak) : null;   // review #24: floor k = ghosts that ended k-1
     const floors = Math.max(known || 0, (cur == null ? duels.length : cur + 1) + (known ? 0 : 1), 1);
     const lo = Math.max(0, (cur == null ? floors : Math.max(cur, 0)) - 2), hi = Math.min(floors - 1, Math.max(cur == null ? floors - 1 : cur, 0) + 3);
     const token = run.heroes[0] ? `<span class="token">${img(run.heroes[0].key, 24, 'por')}</span>` : '<span class="token"></span>';
@@ -439,7 +439,7 @@
       } else if (isCur) {
         rows.push(`<div class="floor cur">${token}<span class="fn">Floor ${k + 1}</span><span class="grow">vs <b>${esc(o ? o.name : '?')}</b></span>${o ? `<span class="elo">⚜ ${o.elo}</span>` : ''}</div>`);
       } else {
-        rows.push(`<div class="floor locked"><span class="fn">Floor ${k + 1}</span><span class="grow dim">a ghost with ${k}+ win${k === 1 ? '' : 's'}</span><span>🔒</span></div>`);
+        rows.push(`<div class="floor locked"><span class="fn">Floor ${k + 1}</span><span class="grow dim">${known && k + 1 === known ? `the champion ghost, ${k + 1}-0` : `a ghost that went ${k + 1}-1`}</span><span>🔒</span></div>`);
       }
     }
     if (lo > 0) rows.push(`<div class="floor gap">⋯ ${lo} floor${lo > 1 ? 's' : ''} cleared below</div>`);
@@ -451,7 +451,7 @@
     if (g.status === 'intro') {
       if (g.peak == null && !ui.peakAsked) { ui.peakAsked = true; Net.get('elo?peak=1').then(r => { g.peak = r.peak; if (run.g === g && g.status === 'intro') render(); }).catch(() => {}); }
       return `<section class="title"><h2 class="sc">The Gauntlet</h2>
-        <div class="card gintro"><p class="small">Your team is saved as a <b>ghost</b> and duels the ghosts of other players' runs. Every run that reaches the Gauntlet leaves a ghost, so the pool keeps growing. Floor 1 draws a random ghost, floor 2 a random ghost that won at least once, and so on (other players' ghosts first, and never the same ghost twice while there is someone else). Reaching the Gauntlet already counts as an Elo win against a 1000 rated opponent. Each duel is a 1v1 Elo game. One loss ends your run. Go further than every ghost before you and you are crowned champion.</p>
+        <div class="card gintro"><p class="small">Your team is saved as a <b>ghost</b> and duels the ghosts of other players' runs. Every run that reaches the Gauntlet leaves a ghost, so the pool keeps growing. Floor 1 holds the ghosts that went 1-1, floor 2 those that went 2-1, and so on: each floor, a random ghost that won exactly that floor and lost the next. The top floor holds the champion, who never lost. Anyone's ghost, never the same one twice while there is someone else. Your Elo only moves here: each duel is a 1v1 Elo game. One loss ends your run. Go further than every ghost before you and you are crowned champion.</p>
           ${teamRow(Run.teamSnapshot(run), run.relics)}
           ${g.peak != null ? towerHTML(g, 'intro') : ''}
           <form class="stack" data-form="gauntlet"><input name="name" maxlength="16" placeholder="Your name on the ladder" value="${esc(myName())}" required><button class="primary big">Enter the Gauntlet</button></form></div></section>`;
@@ -636,7 +636,7 @@
     save(); render(); window.scrollTo(0, 0);
     if (run.phase === 'over') {  // review #3: a lost fight ends the run = Elo loss (review #14: against 1000; the fight's pieces lose too)
       ui.result.pending = true; render();
-      try { const r = await Net.post('elo', Object.assign({ op: 'fail', pid: pid(), name: myName() }, run.lastFight)); setElo(r); run.eloEnd = r.elo; run.eloDelta = r.delta; run.lgEnd = r.lg || null; Object.assign(ui.result, { delta: r.delta, elo: r.elo, lg: r.lg }); }
+      try { const r = await Net.post('elo', Object.assign({ op: 'fail', pid: pid(), name: myName() }, run.lastFight)); setElo(r); run.lgEnd = r.lg || null; Object.assign(ui.result, { lg: r.lg }); }  // review #24: no Elo before the gauntlet
       catch (e) { ui.result.error = e.message; }
       ui.result.pending = false; save(); render();
     }
@@ -830,7 +830,7 @@
       }
       const e = await Net.get('elo');
       const eRows = e.top.map((p, i) => `<tr><td>${i + 1}</td><td class="who">${emblem(p.league || 0, 20)}<span>${esc(p.name)}</span></td><td><b>${p.elo}</b></td><td>${p.best}</td><td>${p.crowns ? '👑' + p.crowns : ''}</td></tr>`).join('');
-      if (ui.modal && ui.ladderTab === tab) openModal(head + `<p class="dim small">Rated by gauntlet duels against player ghosts. A run that dies before the Gauntlet is a loss against a 1000 rated opponent, reaching it is a win against one. Best = most duels won in one run.</p>
+      if (ui.modal && ui.ladderTab === tab) openModal(head + `<p class="dim small">Rated only by Gauntlet duels against player ghosts (a ghost's defenses do not move its player's Elo). Best = most duels won in one run.</p>
         ${eRows ? `<table class="tbl"><tr><th>#</th><th>Name</th><th>Elo</th><th>Best</th><th></th></tr>${eRows}</table>` : '<p class="dim">No rated players yet.</p>'}`);
     } catch (err) { if (ui.modal && ui.ladderTab === tab) openModal(head + `<p class="err">${esc(err.message)}</p>`); }
   }
@@ -842,8 +842,8 @@
       <li>How abilities scale: <span class="kw-atk">physical</span> abilities deal a % of <b>attack</b>; <span class="kw-ap">magic</span> abilities deal a % of attack multiplied by <b>ability power</b> (100 AP = ×1, 150 AP = ×1.5), and so do burns and heals; shields are a % of <b>max HP</b>. Tap a hero (in battle or in Team) to see its numbers.</li>
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
       <li>Items have a type (weapon, off-hand, helmet, armor, gloves, boots, trinket) and a rarity: <span class="r-common">common</span>, <span class="r-uncommon">uncommon</span>, <span class="r-rare">rare</span>, <span class="r-epic">epic</span>, <span class="r-set">set</span>, <span class="r-legendary">legendary</span> and <span class="r-mythic">mythic</span>. A hero wears one item of each type, up to their slot count. Two or three pieces of a set on the same hero unlock set bonuses.</li>
-      <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the run ends (an Elo loss against a 1000 rated opponent). Heroes always heal after a fight.</li>
-      <li>After the second boss and a last shop, your team enters the Gauntlet (an Elo win against a 1000 rated opponent) as a ghost and climbs a tower of ghosts of other players' runs, one floor per win. Each duel is an Elo game, for the ghost too (its own Elo and its player's). One loss ends it. Beat everyone who came before and you are crowned champion.</li>
+      <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the run ends (and costs 2 league points). Heroes always heal after a fight.</li>
+      <li>After the second boss and a last shop, your team enters the Gauntlet as a ghost and climbs a tower of ghosts of other players' runs, one floor per win. Each duel is an Elo game; your Elo only moves in duels. The ghost keeps its own Elo and record. One loss ends it. Beat everyone who came before and you are crowned champion.</li>
     </ol>`;
 
 

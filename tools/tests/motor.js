@@ -271,6 +271,23 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(Run.eventChoices(run).length === 3 && run.cur.offer.heroes.length === 2, 'an event saved without an offer rolls one when opened');
 }
 
+// review #24: sudden death burns every unit (1%, 2%, ... of max HP per second); crowd control and executes work on bosses
+{
+  const hd = Run.heroDef({ relics: [] }, { key: 'bastion', lvl: 1, specs: [], items: [], bonus: {} });
+  const W = Sim.create({ mode: 'fight', seed: 3, heroes: [{ def: hd, c: 0, r: 7 }], enemies: [{ def: Sim.mobScaleDef('brute', 1), c: 7, r: 0 }] });
+  const [h, m] = W.units; for (const u of W.units) { u.st.stun = 1e9; u.m.regen = 0; }
+  W.t = Sim.sec(CFG.suddenDeath) - 1; const h0 = h.hp, m0 = m.hp;
+  for (let i = 0; i < Sim.TPS * 2 + 1; i++) Sim.step(W);
+  ok(Math.round(h0 - h.hp) === Math.round(h.maxHp * 0.03) && Math.round(m0 - m.hp) === Math.round(m.maxHp * 0.03), `sudden death: both sides burn 1% then 2% of max HP (hero -${Math.round(h0 - h.hp)}, enemy -${Math.round(m0 - m.hp)})`);
+  const B2 = Sim.create({ mode: 'fight', seed: 4, noStart: true, heroes: [{ def: Run.heroDef({ relics: [] }, { key: 'vex', lvl: 1, specs: [], items: [], bonus: {} }), c: 3, r: 6 }], enemies: [{ def: Sim.mobScaleDef('gorewarden', 1.3), c: 3, r: 2 }] });
+  const vx = B2.units[0], boss = B2.units[1];
+  Sim.cc(B2, boss, 'stun', 2);
+  ok(boss.boss && boss.st.stun - B2.t === Sim.sec(2), 'a boss is stunned for the full duration (no longer halved)');
+  boss.st.stun = 0; boss.hp = boss.maxHp * 0.1; vx.ab = Object.assign({}, vx.ab, { execute: 0.2 });
+  Sim.abilities.shadowstep(B2, vx);
+  ok(boss.dead, 'executes work on bosses');
+}
+
 // v5: passive scaling actually grows during a fight
 {
   const grew = (key, fn, secs = 12, diff = 'hard', n = 4) => {

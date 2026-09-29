@@ -57,13 +57,16 @@ function memStore() {
     async getTeam(id) { const r = (M.teams || []).find(t => t.id === id); return r ? Object.assign({}, r) : null; },
     async updateTeam(id, f) { const t = (M.teams || []).find(x => x.id === id); Object.assign(t, f, { updated: Date.now() }); if (f.faced) t.faced = JSON.stringify(f.faced); },
     async ghostResult(id, elo, won) { const t = (M.teams || []).find(x => x.id === id); if (!t) return; t.elo_at = elo; if (won) t.def_w = (t.def_w || 0) + 1; else t.def_l = (t.def_l || 0) + 1; },
-    async maxWins(excludeId) { const w = (M.teams || []).filter(t => t.id !== excludeId).map(t => t.wins); return w.length ? Math.max(...w) : -1; },
+    async maxWins(excludeId, staleBefore) { const w = (M.teams || []).filter(t => t.id !== excludeId && (t.status === 'lost' || t.status === 'champion' || (t.status === 'running' && (t.updated || t.created) < (staleBefore || 0)))).map(t => t.wins); return w.length ? Math.max(...w) : -1; },
     async fixCrowns(pid, crowns) { if (M.players && M.players[pid]) M.players[pid].crowns = crowns; },
     async countTeams(pid, since) { return (M.teams || []).filter(t => t.pid === pid && t.created >= since).length; },
-    // review #23: any saved ghost (finished, crowned or abandoned mid-gauntlet) with at least minWins, picked at random
-    async pickOpponent(minWins, pid, own, exclude) {
+    // review #24: a ghost whose run ENDED (lost, crowned, or abandoned before staleBefore) with exactly w wins ('eq'), or
+    // the lowest record above w ('gt'); anyone's ghost, picked at random
+    async pickGhost(cmp, w, exclude, staleBefore) {
       const ex = new Set(exclude || []);
-      const pool = (M.teams || []).filter(t => !ex.has(t.id) && t.wins >= minWins && (own ? t.pid === pid : t.pid !== pid));
+      const ended = t => t.status === 'lost' || t.status === 'champion' || (t.status === 'running' && (t.updated || t.created) < staleBefore);
+      let pool = (M.teams || []).filter(t => !ex.has(t.id) && ended(t) && (cmp === 'eq' ? t.wins === w : t.wins > w));
+      if (cmp === 'gt' && pool.length) { const m = Math.min(...pool.map(t => t.wins)); pool = pool.filter(t => t.wins === m); }
       return pool.length ? Object.assign({}, pool[Math.floor(Math.random() * pool.length)]) : null;
     },
     async getRatings(keys) { const R = M.ratings = M.ratings || {}, o = {}; for (const k of keys) if (R[k]) o[k] = R[k].elo; return o; },
@@ -114,10 +117,11 @@ function pgStore() {
     },
     async countTeams(pid, since) { return Number((await q('select count(*)::int n from teams where pid=$1 and created>=$2', [pid, since]))[0].n); },
     async ghostResult(id, elo, won) { await q(`update teams set elo_at=$2, ${won ? 'def_w=def_w+1' : 'def_l=def_l+1'} where id=$1`, [id, elo]); },
-    async maxWins(excludeId) { const r = await q('select max(wins)::int m from teams where id <> $1', [excludeId || 0]); return r[0].m == null ? -1 : Number(r[0].m); },
-    async pickOpponent(minWins, pid, own, exclude) {
+    async maxWins(excludeId, staleBefore) { const r = await q("select max(wins)::int m from teams where id <> $1 and (status in ('lost','champion') or (status = 'running' and coalesce(updated, created) < $2))", [excludeId || 0, staleBefore || 0]); return r[0].m == null ? -1 : Number(r[0].m); },
+    async pickGhost(cmp, w, exclude, staleBefore) {
       const ex = (exclude || []).map(Number).filter(Number.isFinite);
-      const r = await q(`select * from teams where wins >= $1 and pid ${own ? '=' : '<>'} $2 and not (id = any($3::bigint[])) order by random() limit 1`, [minWins, pid, ex]);
+      const r = await q(`select * from teams where not (id = any($1::bigint[])) and (status in ('lost','champion') or (status = 'running' and coalesce(updated, created) < $3))
+        and wins ${cmp === 'eq' ? '=' : '>'} $2 order by ${cmp === 'eq' ? '' : 'wins asc, '}random() limit 1`, [ex, w, staleBefore || 0]);
       return r.length ? num(r[0]) : null;
     },
     async getRatings(keys) {

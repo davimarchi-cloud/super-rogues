@@ -11,9 +11,10 @@
     xpLevels: [0, 0, 30, 85, 180, 330], // cumulative XP to reach level N (index = level); 1 XP per second alive
     maxLevel: 5, baseSlots: 1,          // item slots: 1 at Lv1-2, +1 at Lv3, Lv4, Lv5
     // by fight number (1..8). Review #22: 8 fights, bosses at 4 and 8 keep the strength they had at 3 and 6 (1.3, 2)
-    fightScale: [1, 0.9, 1.0, 1.15, 1.5, 1.6, 1.8, 2.0, 2.3],
+    fightScale: [1, 0.9, 1.0, 1.15, 1.55, 1.6, 1.8, 2.0, 2.45],
     firstFight: 0.5,  // review #22: the first fight is fought by a single hero: half the usual enemy budget
     suddenDeath: 45, fightCap: 150,     // seconds
+    suddenDeathRamp: 0.01,              // review #24: sudden death burns every unit for 1%, 2%, 3%... of max HP per second
     // node sequence: F = fight (2 of easy/medium/hard), X = shop or event (2 options), B = boss (no option),
     // S = final shop choice (2 shops), G = the PvP gauntlet against player ghosts (review #9 removed the Onslaught)
     // Review #22 (David): the run starts with 1 hero and 1 relic, and each boss gets 1 more fight and 1 more shop/event
@@ -582,7 +583,7 @@
     I('crackedlens', 'Cracked Lens', 'rare', { crit: 0.2, critStack: 0.02, critStackCap: 0.2 }, '+20% crit, each crit +2% crit (up to +20%)'),
     I('colossus', 'Colossus Heart', 'epic', { rampHpPct: 0.015, rampHpPctCap: 0.6 }, '+1.5% max HP every second (up to +60%)'),
     I('eclipsecrown', 'Eclipse Crown', 'epic', { ap: 40, apPerAtk: 2 }, '+40 AP, +2 AP per attack'),
-    I('reaper', "Reaper's Toll", 'epic', { atk: 15, reap: 0.12 }, '+15 attack, hits execute enemies below 12% HP (not bosses)'),
+    I('reaper', "Reaper's Toll", 'epic', { atk: 15, reap: 0.12 }, '+15 attack, hits execute enemies below 12% HP'),
     I('mirrorshield', 'Mirror Shield', 'epic', { mr: 30, thorns: 0.35 }, '+30 MR, reflects 35% of melee damage'),
     I('hourglass', 'Stasis Hourglass', 'epic', { ap: 20, armor: 20, stasis: 1 }, 'Once per fight at 40% HP: invulnerable for 2s'),
   ];
@@ -641,7 +642,7 @@
     N('boots', 'windwalkers', 'Windwalker Boots', 'legendary', { ms: 2, dodge: 0.2, asPct: 0.15 }, '+2 move speed, +20% dodge, +15% attack speed'),
     N('trinket', 'mountainheart', 'Heart of the Mountain', 'legendary', { hpPct: 0.25, regen: 0.015, ccResist: 0.3 }, '+25% max HP, 1.5% regen per second, crowd control 30% shorter'),
     // mythic: one per slot, only in late shops
-    N('weapon', 'worldsplitter', 'Worldsplitter', 'mythic', { atk: 40, crit: 0.2, critDmg: 0.5, multishot: 0.5, reap: 0.1 }, '+40 attack, +20% crit, +50% crit damage, attacks also hit a 2nd enemy for 50%, execute enemies below 10% HP (not bosses)'),
+    N('weapon', 'worldsplitter', 'Worldsplitter', 'mythic', { atk: 40, crit: 0.2, critDmg: 0.5, multishot: 0.5, reap: 0.1 }, '+40 attack, +20% crit, +50% crit damage, attacks also hit a 2nd enemy for 50%, execute enemies below 10% HP'),
     N('offhand', 'eternitytome', 'Tome of Eternity', 'mythic', { ap: 50, apPerSec: 4, abilityBurn: 0.03, manaMaxPct: -0.2 }, '+50 AP, +4 AP every second, abilities burn 3% max HP/s and need 20% less mana'),
     N('helmet', 'voidmask', 'Mask of the Void', 'mythic', { allPct: 0.25, cleanseOnce: 1, omni: 0.15 }, '+25% HP, attack, AP, armor and MR, ignores the first crowd control, abilities heal 15% of damage'),
     N('armor', 'obsidianplate', 'Obsidian Bulwark', 'mythic', { hp: 500, armor: 40, mr: 40, thorns: 0.3, stasis: 1 }, '+500 HP, +40 armor and MR, reflects 30% melee damage, once per fight at 40% HP: invulnerable for 2s'),
