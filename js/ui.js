@@ -245,6 +245,7 @@
         <button data-act="shop" class="shopic"><span class="hi">👑</span><b>Crown Shop</b><span>${acct.crowns | 0} crown${(acct.crowns | 0) === 1 ? '' : 's'}</span></button>
         <button data-act="scores"><span class="hi">🏆</span><b>Ladder</b><span>Elo · leagues</span></button>
       </div>
+      <button class="labtile" data-act="art-lab"><span class="hi">🎨</span><b>Art Lab</b><span>Try your own pictures on a hero: splash art and battle poses</span></button>
     </section>`;
   }
   function heroCard(key, extra = '') {
@@ -724,7 +725,7 @@
 
   // ------------------------------------------------------------------ modals
   function openModal(html) { const m = $('#modal'); m.innerHTML = `<div class="sheet">${html}</div>`; m.hidden = false; ui.modal = true; }
-  function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.modal = null; ui.confirmBuy = null; clearInterval(ui.sugTimer); }
+  function closeModal() { if (ui.modal === 'artlab' && B.ArtLab) B.ArtLab.closed(); const m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.modal = null; ui.confirmBuy = null; clearInterval(ui.sugTimer); }
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), Math.max(2200, String(msg).length * 45)); }
 
   // Team sheet (review #2): items on the LEFT, heroes on the RIGHT. Tap an item, then tap a hero to equip it.
@@ -828,6 +829,7 @@
       </form>
       <h3>My list</h3><div id="drafts">${draftsHTML()}</div>
       <div class="row"><input id="sugName" maxlength="24" placeholder="Your name (optional)" value="${esc(store.get('balance.name', ''))}"><button class="primary" data-act="send-review">Send for review</button></div>
+      <p class="small">Made hero art? <a href="#" data-act="art-lab">Try it in the 🎨 Art Lab</a> and send the pictures from there.</p>
       <p class="dim small">Everything sent is public. Claude implements what fits the game, replies to each change, and declines anything harmful or unrelated to the game.</p>
       <div class="row"><h3>Queue</h3><span class="grow"></span><button class="chip" data-act="sug-refresh">↻ Refresh</button></div><div id="sugQueue"><p class="dim">Loading…</p></div>`;
   }
@@ -1134,6 +1136,7 @@
     sell: () => { if (ui.selBag < 0) return; Run.sell(run, ui.selBag); ui.selBag = -1; save(); openModal(teamHTML()); header(); },
     close: () => { closeModal(); ui.selBag = -1; if (!battle) render(); },
     suggest: () => openSuggest(),
+    'art-lab': arg => { if (ui.modal) closeModal(); B.ArtLab.open(labKit, arg); },
     'draft-del': i => { const d = drafts(); d.splice(+i, 1); store.set('balance.drafts', d); renderDrafts(); },
     'send-review': (a, el) => sendReview(el),
     'sug-refresh': () => loadQueue(),
@@ -1153,6 +1156,12 @@
     skin: k => { store.set('balance.skin', k === 'royal' ? 'royal' : 'classic'); applySkin(); refreshShop(); toast(k === 'royal' ? 'Royal board on' : 'Classic board on'); },
     'copy-ref': () => { const i = $('#refLink'); if (!i) return; i.select(); const done = () => toast('Invite link copied'); if (navigator.clipboard) navigator.clipboard.writeText(i.value).then(done, () => { try { document.execCommand('copy'); done(); } catch (_) {} }); else { try { document.execCommand('copy'); done(); } catch (_) {} } },
   };
+  // Art Lab (owner, 2026-09-29): its buttons join the one click listener; it gets the helpers it needs
+  const labKit = { $, $$: s => [...document.querySelectorAll(s)], esc, toast, openModal, Net, store, trackBatch, ui };
+  Object.assign(ACT, B.ArtLab.actions); B.ArtLab.init(labKit);
+  // hero pictures (this device's test art or the official art) finish loading after the first screen: redraw it
+  B.Art.onChange(() => { if (screen === 'battle' || ui.modal || ui.drag) return; clearTimeout(ui.artH); ui.artH = setTimeout(() => { if (screen !== 'battle' && !ui.modal && !ui.drag) render(); }, 80); });
+  B.Art.boot();
   function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = worldFor(true); drawPreview(); } }
 
   document.addEventListener('click', e => {

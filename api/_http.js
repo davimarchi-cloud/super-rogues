@@ -8,11 +8,11 @@ function send(res, code, obj) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.end(JSON.stringify(obj));
 }
-async function body(req) {
+async function body(req, max = 20000) {
   if (req.body && typeof req.body === 'object') return req.body;
   if (typeof req.body === 'string') { try { return JSON.parse(req.body); } catch (_) { return {}; } }
   let raw = '';
-  for await (const chunk of req) { raw += chunk; if (raw.length > 20000) return {}; }
+  for await (const chunk of req) { raw += chunk; if (raw.length > max) return {}; }
   try { return JSON.parse(raw || '{}'); } catch (_) { return {}; }
 }
 // CSRF: a browser POST from another site carries its Origin; ours matches the Host we were called on

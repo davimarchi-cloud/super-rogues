@@ -1,5 +1,5 @@
 // Splash art (review #12, David: "create HD art (splash art) at least for the out of combat parts").
-// A painted-look card for every unit, made in code (no image files: the CSP only allows our own scripts): a hero pose
+// A painted-look card for every unit, made in code (a hero with a picture uses it instead, see art.js): a hero pose
 // drawn with the detailed model, a coloured light behind it, god rays, bokeh, mist, a rim light on the silhouette and
 // a glow in the hero's colour. The battle keeps the same model at a lower detail, so both stay aligned.
 (function (G) {
@@ -26,6 +26,8 @@
   }
   // mode 'bust' = square close-up (menus, lists); 'full' = standing figure (banners, title)
   function image(key, w, h, mode) {
+    // a picture made for this hero (official art or the Art Lab test on this device) wins over the painted one
+    const art = B.Art && B.Art.splash(key, w, h, mode); if (art) return art;
     const id = key + ':' + w + 'x' + h + ':' + mode;
     if (cache[id]) return cache[id];
     if (typeof document === 'undefined' || !B.Models) return '';

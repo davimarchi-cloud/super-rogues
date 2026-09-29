@@ -117,7 +117,9 @@
     ctx.lineWidth = o.sel && o.sel === u.uid ? 3 : 1.6;
     ctx.beginPath(); ctx.ellipse(p.x, p.y, S * 0.5, S * 0.5 * K * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
     const pose = poseOf(W, u, T);
-    B.Models.draw(ctx, u.key === 'clone' ? 'mirage' : u.key, p.x, p.y, S, pose, u.color || (hero ? '#9df' : '#f99'));
+    const mk = u.key === 'clone' ? 'mirage' : u.key, art = B.Art && B.Art.sprite(mk);
+    if (art) B.Art.draw(ctx, art, p.x, p.y, S, pose, u.color || (hero ? '#9df' : '#f99'));
+    else B.Models.draw(ctx, mk, p.x, p.y, S, pose, u.color || (hero ? '#9df' : '#f99'));
     if (W.t - u.hitT < 3 && !u.dead) { ctx.globalAlpha = 0.35; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(p.x, p.y - S * 0.6, S * 0.35, S * 0.6, 0, 0, Math.PI * 2); ctx.fill(); }
     if (u.st.frozenU > s) { ctx.globalAlpha = 0.45; ctx.fillStyle = '#9fe8ff'; ctx.beginPath(); ctx.moveTo(p.x, p.y - S * 1.45); ctx.lineTo(p.x + S * 0.42, p.y - S * 0.7); ctx.lineTo(p.x, p.y + S * 0.05); ctx.lineTo(p.x - S * 0.42, p.y - S * 0.7); ctx.closePath(); ctx.fill(); }
     if (u.shield > 0 && u.shieldU > s && !u.dead) { ctx.globalAlpha = 0.25; ctx.strokeStyle = '#e8ecff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(p.x, p.y - S * 0.62, S * 0.5, S * 0.8, 0, 0, Math.PI * 2); ctx.stroke(); }
@@ -217,7 +219,11 @@
     const sd = W.sd > 0 ? Math.min(0.55, 0.25 + W.sd * 0.15) * (0.75 + 0.25 * Math.sin(now * 6)) : 0;
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, sd ? `rgba(200,20,40,${sd})` : royal() ? 'rgba(0,0,0,0.45)' : 'rgba(20,40,120,0.18)'); ctx.fillStyle = vg; ctx.fillRect(-10, -10, v.w + 20, v.h + 20);
     if (!o.deploy) bossBar(v, W);
-    if (o.dragGhost) { ctx.globalAlpha = 0.65; B.Models.draw(ctx, o.dragGhost.key, o.dragGhost.x, o.dragGhost.y + size * 0.5, size * 1.3, { t: T / 20, face: 1 }); ctx.globalAlpha = 1; }
+    if (o.dragGhost) {
+      const g = o.dragGhost, art = B.Art && B.Art.sprite(g.key); ctx.globalAlpha = 0.65;
+      if (art) B.Art.draw(ctx, art, g.x, g.y + size * 0.5, size * 1.3, { t: T / 20, face: 1 }); else B.Models.draw(ctx, g.key, g.x, g.y + size * 0.5, size * 1.3, { t: T / 20, face: 1 });
+      ctx.globalAlpha = 1;
+    }
   }
 
   // ------------------------------------------------------------------ battle effects (review #9)

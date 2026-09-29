@@ -54,6 +54,9 @@ const SCHEMA = [
   `alter table players add column if not exists xpv int not null default 0`,
   // v27: games and wins of each hero per player (King Tier profiles: most played, best win rate)
   `create table if not exists phero (pid text not null, hero text not null, games int not null default 0, wins int not null default 0, primary key (pid, hero))`,
+  // Art Lab (owner, 2026-09-29): pictures sent with a review (splash + battle poses as data: URLs). Never served back.
+  `create table if not exists art (id bigserial primary key, batch bigint not null, hero text not null, splash text, poses text not null,
+     meta text not null, iph text not null, created bigint not null)`,
 ];
 // public id of a player: never the pid itself (the pid is the player's secret key)
 const codeOf = pid => require('crypto').createHash('sha256').update('pub|' + pid).digest('hex').slice(0, 12);
@@ -73,6 +76,8 @@ function memStore() {
     async countBatches(iph, since) { return new Set(M.sug.filter(s => s.iph === iph && s.created >= since).map(s => s.batch)).size; },
     async countItems(iph, since) { return M.sug.filter(s => s.iph === iph && s.created >= since).length; },
     async countNew() { return M.sug.filter(s => s.status === 'new').length; },
+    async addArt(a) { (M.art = M.art || []).push(Object.assign({ id: (M.art.length || 0) + 1 }, a)); },
+    async countArt(iph, since) { return (M.art || []).filter(a => (iph == null || a.iph === iph) && a.created >= since).length; },
     async getBatch(b) { return M.sug.filter(s => s.batch === b).sort((x, y) => x.id - y.id).map(pub); },
     async countAhead(b) { return new Set(M.sug.filter(s => s.batch < b && (s.status === 'new' || s.status === 'doing')).map(s => s.batch)).size; },
     async listSuggestions(n) { return M.sug.slice().sort((a, b) => b.id - a.id).slice(0, n).map(pub); },
@@ -146,6 +151,8 @@ function pgStore() {
     async countBatches(iph, since) { return Number((await q('select count(distinct batch)::int n from suggestions where iph=$1 and created>=$2', [iph, since]))[0].n); },
     async countItems(iph, since) { return Number((await q('select count(*)::int n from suggestions where iph=$1 and created>=$2', [iph, since]))[0].n); },
     async countNew() { return Number((await q("select count(*)::int n from suggestions where status='new'"))[0].n); },
+    async addArt(a) { await q('insert into art (batch, hero, splash, poses, meta, iph, created) values ($1,$2,$3,$4,$5,$6,$7)', [a.batch, a.hero, a.splash, a.poses, a.meta, a.iph, a.created]); },
+    async countArt(iph, since) { return Number((await q(iph == null ? 'select count(*)::int n from art where created>=$1' : 'select count(*)::int n from art where iph=$2 and created>=$1', iph == null ? [since] : [since, iph]))[0].n); },
     async getBatch(b) { return (await q('select id, batch, name, text, status, reply, created, updated from suggestions where batch=$1 order by id', [b])).map(pub); },
     async countAhead(b) { return Number((await q("select count(distinct batch)::int n from suggestions where batch<$1 and status in ('new','doing')", [b]))[0].n); },
     async listSuggestions(n) { return (await q('select id, batch, name, text, status, reply, created, updated from suggestions order by id desc limit $1', [n])).map(pub); },

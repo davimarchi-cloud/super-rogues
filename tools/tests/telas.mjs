@@ -54,6 +54,7 @@ ok(await ev(`!!document.querySelector('.title h1') && document.title === 'Balanc
 await shot('01-title'); await noHScroll('title'); await noVScroll('title');
 // v27 (owner + review #25): the start menu has the Crown Shop and your profile; the suggestion box stays only at the top
 ok(await ev(`!!document.querySelector('#top [data-act=shop].crownchip') && document.querySelectorAll('.homeicons button').length === 3 && !!document.querySelector('.homeicons [data-act=shop]') && !!document.querySelector('.homeicons [data-act=my-profile]') && !document.querySelector('.live') && document.querySelectorAll('[data-act=suggest]').length === 1 && !!document.querySelector('#top [data-act=suggest]')`), 'start menu: crown icon + Crown Shop and Profile tiles; the suggestion box only at the top');
+ok(await ev(`!!document.querySelector('.title .labtile[data-act=art-lab]')`), 'start menu: the Art Lab at the bottom');
 await click('.homeicons [data-act=my-profile]'); await sleep(400);
 ok(await ev(`/first run/.test(document.querySelector('#modal').textContent)`), 'profile before the first run: explains when it starts');
 await click('[data-act=close]'); await sleep(100);
@@ -328,6 +329,42 @@ if (REMOTE) {
   // somebody else's update ships while this page is open
   await ev(`__bal.poll()`); await sleep(200); await ev(`fetch('/__dev/ship')`); await sleep(50); await ev(`__bal.poll()`); await sleep(300);
   ok(await ev(`/just updated/.test(document.querySelector('#notice').textContent)`), 'other players get "the game was just updated"');
+}
+
+// ---- Art Lab (owner, 2026-09-29): attach a splash and a pose sheet, see them on the cards and in a test fight
+if (!REMOTE) {
+  const pic = async (file, js) => { const u = await ev(js); fs.writeFileSync(OUT + file, Buffer.from(u.split(',')[1], 'base64')); return OUT + file; };
+  const sheet = await pic('art-sheet.png', `(() => { const c = document.createElement('canvas'); c.width = 880; c.height = 280; const x = c.getContext('2d'); x.fillStyle = '#ff00ff'; x.fillRect(0, 0, 880, 280);
+    ['#2a6', '#26a', '#a62', '#aa2'].forEach((col, i) => { x.fillStyle = col; x.fillRect(50 + i * 210, 80, 90, 170); x.beginPath(); x.arc(95 + i * 210, 60, 34, 0, 7); x.fill(); if (i === 2) x.fillRect(140 + i * 210, 120, 60, 16); });
+    return c.toDataURL('image/png'); })()`);
+  const splashPic = await pic('art-splash.png', `(() => { const c = document.createElement('canvas'); c.width = 900; c.height = 600; const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 900, 600); g.addColorStop(0, '#f84'); g.addColorStop(1, '#48f'); x.fillStyle = g; x.fillRect(0, 0, 900, 600);
+    x.fillStyle = '#fde'; x.beginPath(); x.arc(450, 200, 90, 0, 7); x.fill(); x.fillStyle = '#333'; x.fillRect(360, 300, 180, 300); return c.toDataURL('image/png'); })()`);
+  const setFile = async (sel, file) => { const d = await send('DOM.getDocument', { depth: 0 }); const n = await send('DOM.querySelector', { nodeId: d.result.root.nodeId, selector: sel }); await send('DOM.setFileInputFiles', { nodeId: n.result.nodeId, files: [file] }); };
+  await ev(`__bal.ACT['art-lab']('rook')`); await sleep(400);
+  ok(await ev(`!!document.querySelector('.artlab') && document.querySelector('#alHero').value === 'rook' && !!document.querySelector('#alBoard')`), 'Art Lab opens on the chosen hero, with a test board');
+  await setFile('#alSheet', sheet); await sleep(900);
+  ok(await ev(`document.querySelectorAll('.alposes img').length === 4 && /Found 4 figures/.test(document.querySelector('#alSheetView').textContent)`), 'the pose sheet is cut into 4 poses (the detached bit joins its figure)');
+  ok(await ev(`!!B.Art.sprite('rook') && B.Art.sprite('rook').poses.cast.naturalWidth > 0`), 'the poses are live on the board right away');
+  const tpx = await ev(`(() => { const im = B.Art.sprite('rook').poses.idle, c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, 3, 3).data; return [d[3], x.getImageData(im.naturalWidth >> 1, im.naturalHeight - 5, 1, 1).data[3]]; })()`);
+  ok(tpx[0] === 0 && tpx[1] === 255, 'the flat background turns transparent, the figure stays solid');
+  await sleep(900);
+  ok(await ev(`B.ArtLab.state.fight && B.ArtLab.state.fight.W.t > 5`), 'the test fight runs');
+  await setFile('#alSplash', splashPic); await sleep(900);
+  ok(await ev(`document.querySelectorAll('.alcards img').length === 3 && [...document.querySelectorAll('.alcards img')].every(i => i.src.startsWith('data:image/jpeg'))`), 'the splash shows as list portrait, card and banner');
+  const before = await ev(`document.querySelectorAll('.alcards img')[1].src.length`);
+  await ev(`(() => { const r = document.querySelector('#alCz'); r.value = 200; r.dispatchEvent(new Event('input', { bubbles: true })); })()`); await sleep(200);
+  ok(await ev(`document.querySelectorAll('.alcards img')[1].src.length !== ${before} && !!document.querySelector('#alCz')`), 'the zoom slider reframes the card and stays in place');
+  await noHScroll('art lab');
+  await shot('16-art-lab');
+  await click('[data-act=al-keep]'); await sleep(200);
+  ok(await ev(`!!JSON.parse(localStorage.getItem('balance.artlab')).rook.poses.idle`), '"Use in my game" keeps it on this device');
+  await ev(`document.querySelector('#alName').value = 'David'; document.querySelector('#alNote').value = 'Rook with my art'`);
+  await click('[data-act=al-send]'); await sleep(900);
+  ok(await ev(`/Sent! Review #[0-9]+/.test(document.querySelector('#toast').textContent)`), 'the pictures are sent for review with a note');
+  await click('[data-act=close]'); await sleep(300);
+  ok(await ev(`!!B.Art.sprite('rook') && B.Splash.image('rook', 44, 44, 'bust').startsWith('data:image/jpeg')`), 'after closing the lab the kept art is used across the game');
+  await ev(`__bal.ACT['art-lab']('rook')`); await sleep(300); await click('[data-act=al-drop]'); await sleep(200); await click('[data-act=close]'); await sleep(200);
+  ok(await ev(`!B.Art.sprite('rook') && !JSON.parse(localStorage.getItem('balance.artlab') || '{}').rook && !B.Splash.image('rook', 44, 44, 'bust').startsWith('data:image/jpeg')`), '"Remove from my game" brings the drawn art back');
 }
 
 ok(errors.length === 0, 'no JS errors / CSP violations' + (errors.length ? ': ' + errors.slice(0, 5).join(' || ') : ''));

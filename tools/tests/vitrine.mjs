@@ -63,6 +63,26 @@ for (const d of SIZES) {
   await shot('08-event');
   await ev(`__bal.ACT.team()`); await sleep(300); await shot('09-team'); await ev(`__bal.ACT.close()`);
   await ev(`__bal.ACT.shop()`); await sleep(500); await shot('10-crown-shop'); await ev(`__bal.ACT.close()`);
+  // Art Lab (owner, 2026-09-29): a splash picture (the owner's sample when it is on this PC) and a pose sheet made from
+  // the drawn model on magenta, cut by the lab, then the test fight
+  {
+    const setFile = async (sel, file) => { const dd = await send('DOM.getDocument', { depth: 0 }); const n = await send('DOM.querySelector', { nodeId: dd.result.root.nodeId, selector: sel }); await send('DOM.setFileInputFiles', { nodeId: n.result.nodeId, files: [file] }); };
+    const sample = 'C:/Users/davi_/.claude/uploads/681d121e-0bd6-48d0-9b04-0a67c1e91cf5/13c6b00b-image.jpg';
+    const sheetU = await ev(`(() => { const c = document.createElement('canvas'); c.width = 1200; c.height = 380; const x = c.getContext('2d'); x.fillStyle = '#ff00ff'; x.fillRect(0, 0, 1200, 380);
+      [{ t: 0.3, face: 1 }, { t: 0.3, face: 1, walk: 0.25 }, { t: 0.3, face: 1, atk: 0.55 }, { t: 0.3, face: 1, atk: 0.95 }].forEach((p, i) => B.Models.draw(x, 'barley', 150 + i * 300, 345, 200, p, '#b8792a'));
+      x.fillStyle = '#ff00ff'; x.fillRect(0, 347, 1200, 40); return c.toDataURL('image/png'); })()`);
+    fs.writeFileSync(OUT + 'vit-sheet.png', Buffer.from(sheetU.split(',')[1], 'base64'));
+    await ev(`__bal.ACT['art-lab']('barley')`); await sleep(400);
+    if (fs.existsSync(sample)) { await setFile('#alSplash', sample); await sleep(900); }
+    await setFile('#alSheet', OUT + 'vit-sheet.png'); await sleep(1200);
+    ok(await ev(`document.querySelectorAll('.alposes img').length === 4`), `${d.name}: the lab cuts the 4 poses`);
+    await shot('11-art-lab');
+    await ev(`(() => { const m = document.querySelector('#modal .sheet'), t = document.querySelector('#alSheetView'); m.scrollTop = t.closest('.alsec').offsetTop - 10; })()`); await sleep(1500);
+    await shot('12-art-lab-poses');
+    await ev(`(() => { const m = document.querySelector('#modal .sheet'); m.scrollTop = document.querySelector('#alBoard').closest('.alsec').offsetTop - 10; })()`); await sleep(2500);
+    await shot('13-art-lab-fight');
+    await ev(`__bal.ACT.close()`);
+  }
   await ev(`__bal.ACT.menu()`); await sleep(200);
 }
 ok(errors.length === 0, 'no JS errors' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));

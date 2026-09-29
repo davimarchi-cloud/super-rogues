@@ -31,16 +31,18 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `js/models.js` | modelos 2.5D desenhados em código (humanoide, fera, bomba, golem, serpente, espectro, torre) com poses parado/andando/ataque/habilidade/morte; `portrait()` gera os retratos dos menus |
 | `js/splash.js` | splash art de cada unidade (fora da luta): pose heroica com o modelo em modo `detail`, luz na cor do herói, raios, bokeh, névoa, luz de contorno e brilho; `B.Splash.image(key, w, h, 'bust'|'full')`, cache em data: URL |
 | `js/icons.js` | ícones de itens e relíquias desenhados em código (~60 desenhos; cada item/relíquia mapeado em `IT`/`RE`), moldura na cor da raridade (lendário com brilho, mítico com moldura dupla), `B.Icons.slot(tipo)` = espaço vazio, cache em data: URL |
+| `js/art.js` | arte em IMAGEM (v31, Art Lab): splash (recorte busto/banner por foco x/y + zoom) e 4 poses de batalha (parado/andando/ataque/habilidade; o movimento entre elas é feito em código). `OFFICIAL` lista a arte publicada em `art/<herói>/`; o teste do Art Lab fica só no aparelho (`localStorage balance.artlab`). Sem arte = modelo desenhado. `cutSheet` recorta a folha de poses (fundo = cor mais comum na borda) |
+| `js/artlab.js` | tela do Art Lab (botão no fim do menu inicial e link na caixa de sugestões): escolher herói, subir splash e folha de poses, ver nas cartas e numa luta de teste, "Use in my game" (só o aparelho) e **Send for review** (vai junto com um lote normal) |
 | `js/render.js` | canvas 2.5D: tabuleiro achatado (K=0.6) com espessura, unidades pelos modelos, barras, efeitos. Interpola posição entre hexes |
 | `js/ui.js` | telas DOM + loop da batalha. Sem handler inline (CSP): todo botão tem `data-act` |
 | `js/net.js` | cliente JSON de `/api` |
-| `api/suggest.js` | GET fila pública (agrupada por envio) + status do revisor; POST `{items: [...até 10], name}` = 1 envio (lote). Limite por IP: 3 envios/10 min, 12 envios e 40 mudanças/dia; fila máx 300 |
+| `api/suggest.js` | GET fila pública (agrupada por envio) + status do revisor; POST `{items: [...até 10], name}` = 1 envio (lote). v31: pode levar `art` (herói, splash, poses em data: URL PNG/JPG/WEBP; splash ≤ 900 KB, pose ≤ 300 KB; 6 envios de arte por IP/dia, 60 no total/dia), guardado na tabela `art`, NUNCA servido de volta. Limite por IP: 3 envios/10 min, 12 envios e 40 mudanças/dia; fila máx 300 |
 | `api/elo.js` | Elo por jogador (id aleatório guardado no navegador) + Gauntlet PvP: `fail`, `enter`, `result` (Elo 1v1 K=32 contra o Elo do fantasma; o Elo do jogador só mexe nos duelos desde a v26), `boss`; GET = ladder, `?peak=1`. Elo de conteúdo (lote 14): cada herói/item/relíquia/chefe tem Elo próprio (K=16, tabela `ratings`), só o que agiu na luta (`usedIn`); a leitura (`?ratings=1`) virou desbloqueio da loja (v27) |
 | `api/player.js` | v27: loja de Coroas (`buy`), troca de nome paga (`rename`), perfil público (`profile`; Rei vê mais), `me` (carteira, sem criar jogador), `ratings` (só com Content Elo) |
 | `api/_player.js` | v27: temporadas, pagamento de Coroas por liga (`payLeagues`, atômico via `sreach`), indicação (`linkRef`, 1% mín. 1), jogos por herói (`phero`), visões do perfil |
 | `api/_store.js` | Neon em produção, memória no dev/teste. Tabelas `suggestions`, `kv`, `scores`, `players`, `teams`, `ratings`, `phero` |
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
-| `tools/sugestoes.js` | fila do meu lado: listar (por lote), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma` |
+| `tools/sugestoes.js` | fila do meu lado: listar (por lote; avisa "📎 arte"), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma`, `arte <lote>` (salva as imagens em `art-inbox/`, fora do git) |
 | `tools/sim-run.js`, `tools/boss-matrix.js` | robô joga runs inteiras / todos os 220 times de 3 contra os 2 chefes |
 | `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `vitrine.mjs` (fotos de todas as telas no celular e em 3 PCs, v29), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
 
@@ -122,6 +124,17 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v31 (2026-09-29), pedido do dono: Art Lab** ("bota no acesso do David pra ele anexar as imagens e testar como ficam
+  os bonecos"). Botão no fim do menu inicial (para todos; o nome digitado não é login). O David sobe uma splash e uma
+  folha de poses (4 figuras lado a lado num fundo de cor lisa, sem chão/sombra/barra/efeito), o lab recorta, mostra nas
+  cartas e numa luta de teste; "Use in my game" vale só naquele aparelho; **Send for review** cria um lote normal com
+  as imagens anexadas. **Lote com arte**: `node tools/sugestoes.js arte <lote>` → olhar as imagens (Read) → mesma regra
+  de aprovação (David/PC boy direto; outro nome = avisar o dono) e recusar personagem de terceiros, conteúdo sexual ou
+  sangrento demais para o tema infantil → aprovada: copiar para `art/<herói>/` (splash.jpg, idle/move/attack/cast.webp),
+  pôr a entrada em `OFFICIAL` do `js/art.js` com o `meta.json` (crop, flip, scale, ax), testar, publicar (o deploy já
+  copia `art/`). Um herói com imagem no tabuleiro e outros desenhados fica misturado: avisar o dono quando for trocar
+  só alguns.
 
 - **v30 (2026-09-29), lotes 27 e 28 do PC boy** (o dono liberou o PC boy como o David). (#37) **Gauntlet**: o andar s
   (depois de s vitórias) é o grupo dos fantasmas que PERDERAM naquele andar (terminaram com s vitórias); o topo tem

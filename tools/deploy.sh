@@ -9,6 +9,7 @@ STAGE="$G/balance"           # the folder name is the project name on the first 
 mkdir -p "$STAGE"
 find "$STAGE" -mindepth 1 -maxdepth 1 ! -name .vercel -exec rm -rf {} +
 cp -r index.html style.css js fonts api package.json vercel.json "$STAGE"/
+[ -d art ] && cp -r art "$STAGE"/
 [ -f package-lock.json ] && cp package-lock.json "$STAGE"/
 if [ -f .vercel/project.json ]; then mkdir -p "$STAGE/.vercel" && cp .vercel/project.json "$STAGE/.vercel/"; fi
 ROOT="$PWD"
