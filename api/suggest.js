@@ -3,8 +3,9 @@
 // GET: public queue + reviewer status. GET ?batch=N: that batch's items + how many reviews are ahead of it (the page
 // polls this while "waiting for my review"). GET ?lite=1: reviewer status only (lastRun = "an update just shipped").
 // POST {items: [text...], name}. ({text} alone also works = batch of 1.)
-// Art Lab (owner, 2026-09-29): a POST can carry `art` = {hero, splash, poses: {idle, move, attack, cast}, meta}: pictures
-// as data: URLs, checked here, kept in the `art` table for Claude's review and never served back by the API.
+// Art Lab (owner, 2026-09-29): a POST can carry `art` = {hero, splash, anims: {idle: [frames], move, attack, cast, death},
+// meta}: pictures as data: URLs, checked here, kept in the `art` table for Claude's review and never served back by the
+// API. (The first version sent `poses` = one frame per pose; still accepted.)
 const { send, body, sameOrigin, ipHash, clean } = require('./_http');
 const getStore = require('./_store');
 require('../js/hex.js'); require('../js/data.js');
@@ -19,17 +20,22 @@ function artOf(a) {
   if (!Object.prototype.hasOwnProperty.call(B.HEROES, hero)) return { error: 'Unknown hero.' };
   const splash = a.splash == null || a.splash === '' ? null : String(a.splash);
   if (splash && (splash.length > 1200000 || !PIC.test(splash))) return { error: 'The splash must be a PNG, JPG or WEBP picture under 900 KB.' };
-  const poses = {};
-  for (const k of ['idle', 'move', 'attack', 'cast']) {
-    const p = a.poses && a.poses[k]; if (p == null || p === '') continue;
-    const s = String(p); if (s.length > 400000 || !PIC.test(s)) return { error: 'Each battle pose must be a picture under 300 KB.' };
-    poses[k] = s;
+  // review #43: whole animations (a list of frames each); the old one-frame poses become one-frame animations
+  const src = a.anims && typeof a.anims === 'object' ? a.anims : Object.fromEntries(Object.entries(a.poses && typeof a.poses === 'object' ? a.poses : {}).map(([k, v]) => [k, [v]]));
+  const anims = {}; let total = 0;
+  for (const k of ['idle', 'move', 'attack', 'cast', 'death']) {
+    const list = Array.isArray(src[k]) ? src[k].filter(v => v != null && v !== '') : [];
+    if (!list.length) continue;
+    if (list.length > 16) return { error: 'Up to 16 frames per animation.' };
+    for (const v of list) { const s = String(v); if (s.length > 250000 || !PIC.test(s)) return { error: 'Each animation frame must be a picture under 180 KB.' }; total += s.length; }
+    anims[k] = list.map(String);
   }
-  if (!splash && !poses.idle) return { error: 'Add a splash picture or a pose sheet first.' };
-  const m = a.meta || {}, cr = m.crop || {}, ax = {};
-  for (const k of Object.keys(poses)) ax[k] = num(m.ax && m.ax[k], 0, 1, 0.5);
-  const meta = { crop: { x: num(cr.x, 0, 1, 0.5), y: num(cr.y, 0, 1, 0.3), z: num(cr.z, 0.3, 4, 1) }, flip: !!m.flip, scale: num(m.scale, 0.4, 2.5, 1), ax };
-  return { hero, splash, poses: JSON.stringify(poses), meta: JSON.stringify(meta) };
+  if (total > 2200000) return { error: 'The animation frames are too big together (1.6 MB at most).' };
+  if (!splash && !anims.idle) return { error: 'Add a splash picture or an animation sheet first.' };
+  const m = a.meta || {}, cr = m.crop || {}, axs = {};
+  for (const k of Object.keys(anims)) axs[k] = anims[k].map((_, i) => num(m.axs && m.axs[k] && m.axs[k][i], 0, 1, num(m.ax && m.ax[k], 0, 1, 0.5)));
+  const meta = { crop: { x: num(cr.x, 0, 1, 0.5), y: num(cr.y, 0, 1, 0.3), z: num(cr.z, 0.3, 4, 1) }, flip: !!m.flip, scale: num(m.scale, 0.4, 2.5, 1), axs };
+  return { hero, splash, poses: JSON.stringify(anims), meta: JSON.stringify(meta) };
 }
 
 async function status(st) {

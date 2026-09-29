@@ -343,12 +343,24 @@ if (!REMOTE) {
   await ev(`__bal.ACT['art-lab']('rook')`); await sleep(400);
   ok(await ev(`!!document.querySelector('.artlab') && document.querySelector('#alHero').value === 'rook' && !!document.querySelector('#alBoard')`), 'Art Lab opens on the chosen hero, with a test board');
   await setFile('#alSheet', sheet); await sleep(900);
-  ok(await ev(`document.querySelectorAll('.alposes img').length === 4 && /Found 4 figures/.test(document.querySelector('#alSheetView').textContent)`), 'the pose sheet is cut into 4 poses (the detached bit joins its figure)');
-  ok(await ev(`!!B.Art.sprite('rook') && B.Art.sprite('rook').poses.cast.naturalWidth > 0`), 'the poses are live on the board right away');
-  const tpx = await ev(`(() => { const im = B.Art.sprite('rook').poses.idle, c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, 3, 3).data; return [d[3], x.getImageData(im.naturalWidth >> 1, im.naturalHeight - 5, 1, 1).data[3]]; })()`);
+  ok(await ev(`document.querySelectorAll('.alframes img').length === 4 && /One row: 4 poses/.test(document.querySelector('#alSheetView').textContent)`), 'a one-row sheet is cut into 4 poses (the detached bit joins its figure)');
+  ok(await ev(`!!B.Art.sprite('rook') && B.Art.sprite('rook').anims.cast[0].naturalWidth > 0`), 'the poses are live on the board right away');
+  const tpx = await ev(`(() => { const im = B.Art.sprite('rook').anims.idle[0], c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, 3, 3).data; return [d[3], x.getImageData(im.naturalWidth >> 1, im.naturalHeight - 5, 1, 1).data[3]]; })()`);
   ok(tpx[0] === 0 && tpx[1] === 255, 'the flat background turns transparent, the figure stays solid');
   await sleep(900);
   ok(await ev(`B.ArtLab.state.fight && B.ArtLab.state.fight.W.t > 5`), 'the test fight runs');
+  // review #43 (David): an animation sheet, a labelled row per animation with several frames; every frame is used
+  const anim = await pic('art-anim.png', `(() => { const c = document.createElement('canvas'); c.width = 1100; c.height = 760; const x = c.getContext('2d'); x.fillStyle = '#ff00ff'; x.fillRect(0, 0, 1100, 760);
+    const rows = [['IDLE', 5], ['WALK', 6], ['ATTACK', 4], ['SPIN', 3]];
+    rows.forEach(([label, n], r) => { x.fillStyle = '#fff'; x.font = 'bold 22px sans-serif'; x.fillText(label, 10, 60 + r * 185);
+      for (let i = 0; i < n; i++) { const X = 150 + i * 150, Y = 20 + r * 185; x.fillStyle = 'hsl(' + (r * 90) + ',60%,45%)'; x.fillRect(X, Y + 40, 60, 110 - (i % 2) * 8); x.beginPath(); x.arc(X + 30, Y + 22, 22, 0, 7); x.fill(); x.fillRect(X + 60, Y + 60 + i * 6, 30, 12); } });
+    return c.toDataURL('image/png'); })()`);
+  await setFile('#alSheet', anim); await sleep(1200);
+  ok(await ev(`(() => { const a = B.Art.sprite('rook'); return !!a && a.anims.idle.length === 5 && a.anims.move.length === 6 && a.anims.attack.length === 4 && a.anims.cast.length === 3 && !a.anims.death; })()`), 'an animation sheet: 4 rows = idle 5, walk 6, attack 4, ability 3 frames, all kept');
+  ok(await ev(`/4 animations, 18 frames; 4 labels or specks left out/.test(document.querySelector('#alSheetView').textContent) && document.querySelectorAll('.alframes img').length === 18`), 'the row labels are left out and every frame is shown');
+  ok(await ev(`(() => { const a = B.Art.sprite('rook'), f = t => B.Art.frameOf(a, { t }); const s = new Set(); for (let t = 0; t < 1; t += 0.05) s.add(f(t).i); const m = B.Art.frameOf(a, { walk: 0.55 }), at = B.Art.frameOf(a, { atk: 0.99 }), mid = [0.05, 0.15, 0.25].map(t => f(t).blend); return s.size === 5 && m.k === 'move' && at.k === 'attack' && at.i >= 2 && mid.some(b => b > 0) && mid.some(b => b === 0); })()`), 'idle cycles through all its frames, walk and attack play theirs, frames hold then blend into the next');
+  await ev(`B.ArtLab.state.fight = null`); await sleep(900);
+  ok(await ev(`B.ArtLab.state.fight && B.ArtLab.state.fight.W.t > 5`), 'the test fight runs with the animated hero');
   await setFile('#alSplash', splashPic); await sleep(900);
   ok(await ev(`document.querySelectorAll('.alcards img').length === 3 && [...document.querySelectorAll('.alcards img')].every(i => i.src.startsWith('data:image/jpeg'))`), 'the splash shows as list portrait, card and banner');
   const before = await ev(`document.querySelectorAll('.alcards img')[1].src.length`);
@@ -357,7 +369,7 @@ if (!REMOTE) {
   await noHScroll('art lab');
   await shot('16-art-lab');
   await click('[data-act=al-keep]'); await sleep(200);
-  ok(await ev(`!!JSON.parse(localStorage.getItem('balance.artlab')).rook.poses.idle`), '"Use in my game" keeps it on this device');
+  ok(await ev(`JSON.parse(localStorage.getItem('balance.artlab')).rook.anims.idle.length === 5`), '"Use in my game" keeps it on this device');
   await ev(`document.querySelector('#alName').value = 'David'; document.querySelector('#alNote').value = 'Rook with my art'`);
   await click('[data-act=al-send]'); await sleep(900);
   ok(await ev(`/Sent! Review #[0-9]+/.test(document.querySelector('#toast').textContent)`), 'the pictures are sent for review with a note');

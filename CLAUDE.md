@@ -125,6 +125,16 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v35 (2026-09-29), lote 32 do David (#43): Art Lab com animações inteiras.** O David mandou a arte do Redhand
+  (thorne, hoje Ulfrik) com uma folha de animação (várias linhas com rótulo, vários quadros por linha), mas o lab da v31
+  só pegava as 4 primeiras figuras (vieram 4 quadros do "parado" + o rótulo IDLE grudado). Ele pediu para NÃO aplicar sem
+  usar todos os quadros → recusado com explicação e o lab refeito: cada linha da folha = uma animação (parado, andando,
+  ataque, habilidade, morte), até 16 quadros por linha; rótulos e ciscos pequenos e baixos são descartados; os quadros
+  tocam em ordem (parado e andando em loop; ataque/habilidade/morte do 1º ao último durante a ação) e cada quadro segura
+  e depois se mistura no próximo (40% final, mistura linear num canvas auxiliar, pés alinhados). Folha de 1 linha = o
+  formato antigo de 4 poses. Arte guardada como `anims: {idle: [quadros]}` + `axs` (pé de cada quadro); `sugestoes.js
+  arte` exporta `idle-1.webp`, `idle-2.webp`... Esperando o David reenviar.
+
 - **v34 (2026-09-29), lote 31 do David.** (#41) Heróis com nomes de várias culturas (só o nome exibido; ids iguais):
   Bjornar, Sica, Feuer, Snezhana, Brutus, Brigid, Strela, Koschei, Tordis, Krok, Sarab, Gizmund, Ulfrik, Licht, Umbra,
   Leshy, Orfeo, Pólvora, Hyppolita, Sokol, Carmina, Kagero, Garm, Luna, Pimples, Pivo, Azgoth, Kivi, Khepri, Leonteus,

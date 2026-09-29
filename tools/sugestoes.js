@@ -37,7 +37,9 @@ const fmt = ms => new Date(Number(ms)).toLocaleString('pt-BR');
       const dir = path.join(__dirname, '..', 'art-inbox', `${b}-${r.hero}-${r.id}`); fs.mkdirSync(dir, { recursive: true });
       const out = [];
       if (r.splash) out.push(save(dir, 'splash', r.splash));
-      const poses = JSON.parse(r.poses || '{}'); for (const k of Object.keys(poses)) out.push(save(dir, k, poses[k]));
+      // animations: a list of frames each (idle-1, idle-2...); the first Art Lab sent one picture per pose
+      const anims = JSON.parse(r.poses || '{}');
+      for (const k of Object.keys(anims)) (Array.isArray(anims[k]) ? anims[k] : [anims[k]]).forEach((u, i, l) => out.push(save(dir, l.length > 1 || Array.isArray(anims[k]) ? `${k}-${i + 1}` : k, u)));
       fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(Object.assign({ hero: r.hero, batch: b }, JSON.parse(r.meta || '{}')), null, 2));
       console.log(`${r.hero}: ${out.length} imagem(ns) em ${dir}`);
     }

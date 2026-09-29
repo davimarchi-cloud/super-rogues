@@ -1340,3 +1340,12 @@ body.desk .title .labtile { grid-area: lab; margin: 12px 0 0; }
 .formline { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; } .formline .fr { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .formline .ico { width: 18px; height: 18px; }
 .formline .fr { display: inline; } .formline .ico { vertical-align: -4px; margin-right: 2px; }
+/* review #43: animation sheets in the Art Lab (a row per animation, every frame shown) */
+.alanims { display: grid; gap: 6px; }
+.alanim { display: grid; grid-template-columns: 64px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 6px; border-radius: 12px;
+  background: repeating-conic-gradient(#ffffff1f 0 25%, #ffffff08 0 50%) 0 0 / 14px 14px; }
+.alanim b { font-family: var(--fun); font-size: 13px; } .alanim > span { grid-column: 1; font-size: 11px; }
+.alanim .alframes { grid-column: 2; grid-row: 1 / 3; display: flex; gap: 4px; overflow-x: auto; align-items: flex-end; min-height: 56px; }
+.alanim .alframes img { height: 64px; width: auto; flex: 0 0 auto; }
+.alanim.miss { opacity: .6; }
+.artlab .alsliders .alchk input[type=checkbox] { width: 22px; height: 22px; min-width: 0; min-height: 0; padding: 0; margin: 0; border: 0; box-shadow: none; appearance: auto; -webkit-appearance: checkbox; }

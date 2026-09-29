@@ -19,8 +19,8 @@
           <p class="small dim">One big picture of the hero. Move the sliders to frame the face on the small cards.</p>
           <label class="alfile">🖼 Choose picture<input type="file" accept="image/png,image/jpeg,image/webp" id="alSplash"></label>
           <div id="alSplashView"></div></section>
-        <section class="alsec"><h3>2 · Pose sheet</h3>
-          <p class="small dim">Idle, walk, attack and ability side by side, full body, on one flat colour (magenta works best). No floor, shadow, bars or effects: the game adds those.</p>
+        <section class="alsec"><h3>2 · Animation sheet</h3>
+          <p class="small dim">One row per animation, top to bottom: <b>idle</b>, <b>walk</b>, <b>attack</b>, <b>ability</b> (and <b>death</b> if you have it), up to ${B.Art.MAX_FRAMES} frames per row, left to right. Or a single row with 4 poses. Full body, on one flat colour (magenta works best), with no floor, shadow, bars or effects: the game adds those. Row labels like "IDLE" are ignored. Frames play in order and blend into each other.</p>
           <label class="alfile">🧍 Choose picture<input type="file" accept="image/png,image/jpeg,image/webp" id="alSheet"></label>
           <div id="alSheetView"></div></section>
       </div>
@@ -55,13 +55,17 @@
         <label>Up ↕ down<input type="range" id="alCy" min="0" max="100" value="${pct(cr.y)}"></label>
         <label>Zoom<input type="range" id="alCz" min="50" max="300" value="${pct(cr.z)}"></label></div>` : '<p class="small dim">Loading…</p>';
   }
+  const NAMES = { idle: 'Idle', move: 'Walk', attack: 'Attack', cast: 'Ability', death: 'Death' };
   function sheetView() {
     const el = U.$('#alSheetView'); if (!el) return;
-    const d = S.def || {}, P = d.poses || {};
+    const d = S.def || {}, P = B.Art.animsOf(d).anims;
     if (!P.idle) { el.innerHTML = '<p class="small dim">Now: the drawn figure.</p>'; return; }
-    const names = { idle: 'idle', move: 'walk', attack: 'attack', cast: 'ability' };
-    el.innerHTML = `<div class="alposes">${B.Art.POSES.map(p => `<figure class="${P[p] ? '' : 'miss'}">${P[p] ? `<img src="${P[p]}" alt="">` : '<span>—</span>'}<figcaption>${names[p]}</figcaption></figure>`).join('')}</div>
-      ${S.sheet ? `<p class="small ${S.found >= 1 && S.found <= 4 ? 'dim' : 'warn'}">Found ${S.found} figure${S.found === 1 ? '' : 's'}${S.found > 4 ? ' (the first 4 are used; leave more space between the poses)' : S.found < 4 ? ' (missing poses reuse idle or attack)' : ''}. Background <span class="alsw" style="background:${S.bg}"></span></p>` : ''}
+    const frames = Object.values(P).reduce((n, f) => n + f.length, 0);
+    const note = !S.sheet ? '' : S.rows === 1 ? (S.found > 4 ? `One row with ${S.found} figures: the first 4 are idle, walk, attack and ability. For whole animations put each one on its own row.` : `One row: ${S.found} pose${S.found === 1 ? '' : 's'}${S.found < 4 ? ' (the missing ones reuse idle or attack)' : ''}.`)
+      : `${S.rows} animation${S.rows === 1 ? '' : 's'}, ${frames} frames${S.dropped ? `; ${S.dropped} label${S.dropped === 1 ? '' : 's'} or speck${S.dropped === 1 ? '' : 's'} left out` : ''}.`;
+    el.innerHTML = `<div class="alanims">${B.Art.ANIMS.filter(k => P[k] || k !== 'death').map(k => `<div class="alanim ${P[k] ? '' : 'miss'}"><b>${NAMES[k]}</b><span class="dim small">${P[k] ? `${P[k].length} frame${P[k].length === 1 ? '' : 's'}` : k === 'move' || k === 'cast' ? 'uses ' + (k === 'move' ? 'idle' : 'attack') : 'uses idle'}</span>
+        <div class="alframes">${(P[k] || []).map(u => `<img src="${u}" alt="">`).join('')}</div></div>`).join('')}</div>
+      ${S.sheet ? `<p class="small dim">${note} Background <span class="alsw" style="background:${S.bg}"></span></p>` : ''}
       <div class="alsliders">
         ${S.sheet ? `<label>Background cut<input type="range" id="alTol" min="15" max="160" value="${S.tol}"></label>` : ''}
         <label>Size on the board<input type="range" id="alScale" min="50" max="180" value="${pct(d.scale || 1)}"></label>
@@ -70,7 +74,7 @@
   function refresh() { B.Art.preview(S.key, S.def); }
   function load(key) {
     if (S.key && S.key !== key) B.Art.reset(S.key);
-    S.key = key; S.sheet = null; S.found = 0;
+    S.key = key; S.sheet = null; S.found = 0; S.rows = 0; S.dropped = 0;
     const saved = B.Art.saved(key) || B.Art.official(key);
     S.def = saved ? JSON.parse(JSON.stringify(saved)) : null;
     if (S.def) refresh();
@@ -84,9 +88,9 @@
   }
   function cut() {
     const res = B.Art.cutSheet(S.sheet, S.tol);
-    S.found = res.found; S.bg = res.bg;
-    if (!res.poses.length) { U.toast('No figure found: use one flat background colour'); return; }
-    S.def = Object.assign(S.def || {}, B.Art.posesDef(res.poses)); refresh();
+    S.found = res.found; S.bg = res.bg; S.rows = res.rows.length; S.dropped = res.dropped;
+    if (!res.rows.length) { U.toast('No figure found: use one flat background colour'); return; }
+    S.def = Object.assign(S.def || {}, B.Art.animsDef(res)); delete S.def.poses; delete S.def.ax; refresh();
   }
 
   // the test fight: the hero with its art + a random ally against a medium fight, restarting when it ends
@@ -106,6 +110,7 @@
   }
   function loop(now) {
     S.raf = 0; if (!S.open || !U.$('#alBoard')) return;
+    if (!S.fight) newFight();
     const f = S.fight, TICK = 1000 / B.Sim.TPS, dt = Math.min(100, now - f.last); f.last = now;
     if (!f.W.over) { f.acc += dt; let n = 0; while (f.acc >= TICK && !f.W.over && n++ < 30) { B.Sim.step(f.W); f.acc -= TICK; } }
     else if (!f.endAt) f.endAt = now + 1500;
@@ -148,21 +153,21 @@
   const actions = {
     'al-restart': () => { S.fight = null; mountBoard(); },
     'al-keep': () => {
-      if (!S.def || (!S.def.splash && !(S.def.poses && S.def.poses.idle))) { U.toast('Add a splash picture or a pose sheet first'); return; }
+      if (!S.def || (!S.def.splash && !B.Art.animsOf(S.def).anims.idle)) { U.toast('Add a splash picture or an animation sheet first'); return; }
       if (B.Art.keep(S.key, S.def)) { U.toast(`${B.HEROES[S.key].name} uses your art on this device`); }
       else U.toast('This device is out of space for pictures: remove the art of another hero first');
     },
     'al-drop': () => { B.Art.drop(S.key); load(S.key); splashView(); sheetView(); U.toast(`${B.HEROES[S.key].name} is back to the drawn art on this device`); },
     'al-send': async (_, btn) => {
-      const d = S.def || {}, poses = d.poses || {};
-      if (!d.splash && !poses.idle) { U.toast('Add a splash picture or a pose sheet first'); return; }
+      const d = S.def || {}, { anims, axs } = B.Art.animsOf(d), nF = Object.values(anims).reduce((n, f) => n + f.length, 0);
+      if (!d.splash && !anims.idle) { U.toast('Add a splash picture or an animation sheet first'); return; }
       const name = (U.$('#alName').value || '').trim(), note = (U.$('#alNote').value || '').trim().replace(/\s+/g, ' ');
       U.store.set('balance.name', name);
-      const parts = [d.splash && 'a splash', poses.idle && `${Object.keys(poses).length} battle pose${Object.keys(poses).length > 1 ? 's' : ''}`].filter(Boolean).join(' and ');
+      const parts = [d.splash && 'a splash', anims.idle && `${Object.keys(anims).length} battle animation${Object.keys(anims).length > 1 ? 's' : ''}, ${nF} frame${nF > 1 ? 's' : ''}`].filter(Boolean).join(' and ');
       const text = `🎨 Art Lab: new art for ${B.HEROES[S.key].name} (${parts}).${note ? ' ' + note : ''}`;
       btn.disabled = true;
       try {
-        const r = await U.Net.post('suggest', { items: [text], name, art: { hero: S.key, splash: d.splash || null, poses, meta: { crop: d.crop, flip: !!d.flip, scale: d.scale || 1, ax: d.ax || {} } } });
+        const r = await U.Net.post('suggest', { items: [text], name, art: { hero: S.key, splash: d.splash || null, anims, meta: { crop: d.crop, flip: !!d.flip, scale: d.scale || 1, axs } } });
         U.toast(`Sent! Review #${r.batch}: Claude gets your pictures for ${B.HEROES[S.key].name}.`); U.trackBatch(r.batch); U.$('#alNote').value = '';
       } catch (err) { U.toast(err.message); }
       btn.disabled = false;

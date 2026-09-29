@@ -72,14 +72,18 @@ for (const d of SIZES) {
   {
     const setFile = async (sel, file) => { const dd = await send('DOM.getDocument', { depth: 0 }); const n = await send('DOM.querySelector', { nodeId: dd.result.root.nodeId, selector: sel }); await send('DOM.setFileInputFiles', { nodeId: n.result.nodeId, files: [file] }); };
     const sample = 'C:/Users/davi_/.claude/uploads/681d121e-0bd6-48d0-9b04-0a67c1e91cf5/13c6b00b-image.jpg';
-    const sheetU = await ev(`(() => { const c = document.createElement('canvas'); c.width = 1200; c.height = 380; const x = c.getContext('2d'); x.fillStyle = '#ff00ff'; x.fillRect(0, 0, 1200, 380);
-      [{ t: 0.3, face: 1 }, { t: 0.3, face: 1, walk: 0.25 }, { t: 0.3, face: 1, atk: 0.55 }, { t: 0.3, face: 1, atk: 0.95 }].forEach((p, i) => B.Models.draw(x, 'barley', 150 + i * 300, 345, 200, p, '#b8792a'));
-      x.fillStyle = '#ff00ff'; x.fillRect(0, 347, 1200, 40); return c.toDataURL('image/png'); })()`);
+    const sheetU = await ev(`(() => { const c = document.createElement('canvas'); c.width = 1500; c.height = 1000; const x = c.getContext('2d'); x.fillStyle = '#ff00ff'; x.fillRect(0, 0, 1500, 1000);
+      // review #43: an animation sheet made from the drawn model, a labelled row per animation (idle, walk, attack, ability)
+      const rows = [['IDLE', [0, 0.25, 0.5, 0.75].map(t => ({ t, face: 1 }))], ['WALK', [0, 0.17, 0.33, 0.5, 0.67, 0.83].map(w => ({ t: 0.3, face: 1, walk: w }))],
+        ['ATTACK', [0.1, 0.35, 0.6, 0.85].map(a => ({ t: 0.3, face: 1, atk: a }))], ['ABILITY', [0.15, 0.4, 0.65, 0.9].map(a => ({ t: 0.3, face: 1, atk: a }))]];
+      rows.forEach(([label, poses], r) => { x.fillStyle = '#fff'; x.font = 'bold 26px sans-serif'; x.fillText(label, 12, 140 + r * 245);
+        poses.forEach((p, i) => B.Models.draw(x, 'barley', 260 + i * 200, 225 + r * 245, 150, p, '#b8792a')); x.fillStyle = '#ff00ff'; x.fillRect(150, 227 + r * 245, 1350, 30); });
+      return c.toDataURL('image/png'); })()`);
     fs.writeFileSync(OUT + 'vit-sheet.png', Buffer.from(sheetU.split(',')[1], 'base64'));
     await ev(`__bal.ACT['art-lab']('barley')`); await sleep(400);
     if (fs.existsSync(sample)) { await setFile('#alSplash', sample); await sleep(900); }
     await setFile('#alSheet', OUT + 'vit-sheet.png'); await sleep(1200);
-    ok(await ev(`document.querySelectorAll('.alposes img').length === 4`), `${d.name}: the lab cuts the 4 poses`);
+    ok(await ev(`document.querySelectorAll('.alframes img').length === 18`), `${d.name}: the lab cuts the 4 animations (18 frames)`);
     await shot('11-art-lab');
     await ev(`(() => { const m = document.querySelector('#modal .sheet'), t = document.querySelector('#alSheetView'); m.scrollTop = t.closest('.alsec').offsetTop - 10; })()`); await sleep(1500);
     await shot('12-art-lab-poses');
