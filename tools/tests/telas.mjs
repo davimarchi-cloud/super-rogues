@@ -358,6 +358,10 @@ if (!REMOTE) {
   await setFile('#alSheet', anim); await sleep(1200);
   ok(await ev(`(() => { const a = B.Art.sprite('rook'); return !!a && a.anims.idle.length === 5 && a.anims.move.length === 6 && a.anims.attack.length === 4 && a.anims.cast.length === 3 && !a.anims.death; })()`), 'an animation sheet: 4 rows = idle 5, walk 6, attack 4, ability 3 frames, all kept');
   ok(await ev(`/4 animations, 18 frames; 4 labels or specks left out/.test(document.querySelector('#alSheetView').textContent) && document.querySelectorAll('.alframes img').length === 18`), 'the row labels are left out and every frame is shown');
+  // review #45: each row can be told what it is; two rows can make one animation (a charge + a spin = the ability)
+  await ev(`(() => { const s = document.querySelectorAll('.alrowsel'); s[3].value = 'attack'; s[3].dispatchEvent(new Event('change', { bubbles: true })); })()`); await sleep(500);
+  ok(await ev(`(() => { const a = B.Art.sprite('rook'); return document.querySelectorAll('.alrowsel').length === 4 && a.anims.attack.length === 7 && !a.anims.cast && /Attack<.b> 7/.test(document.querySelector('#alSheetView').innerHTML); })()`), 'Art Lab: a row can be set to another animation, rows of the same animation are joined');
+  await ev(`(() => { const s = document.querySelectorAll('.alrowsel'); s[3].value = 'cast'; s[3].dispatchEvent(new Event('change', { bubbles: true })); })()`); await sleep(500);
   ok(await ev(`(() => { const a = B.Art.sprite('rook'), f = t => B.Art.frameOf(a, { t }); const s = new Set(); for (let t = 0; t < 1; t += 0.05) s.add(f(t).i); const m = B.Art.frameOf(a, { walk: 0.55 }), at = B.Art.frameOf(a, { atk: 0.99 }), mid = [0.05, 0.15, 0.25].map(t => f(t).blend); return s.size === 5 && m.k === 'move' && at.k === 'attack' && at.i >= 2 && mid.some(b => b > 0) && mid.some(b => b === 0); })()`), 'idle cycles through all its frames, walk and attack play theirs, frames hold then blend into the next');
   await ev(`B.ArtLab.state.fight = null`); await sleep(900);
   ok(await ev(`B.ArtLab.state.fight && B.ArtLab.state.fight.W.t > 5`), 'the test fight runs with the animated hero');

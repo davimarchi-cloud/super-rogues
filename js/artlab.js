@@ -59,13 +59,22 @@
   function sheetView() {
     const el = U.$('#alSheetView'); if (!el) return;
     const d = S.def || {}, P = B.Art.animsOf(d).anims;
-    if (!P.idle) { el.innerHTML = '<p class="small dim">Now: the drawn figure.</p>'; return; }
+    if (!P.idle && !(S.res && S.res.rows.length > 1)) { el.innerHTML = '<p class="small dim">Now: the drawn figure.</p>'; return; }
     const frames = Object.values(P).reduce((n, f) => n + f.length, 0);
     const note = !S.sheet ? '' : S.rows === 1 ? (S.found > 4 ? `One row with ${S.found} figures: the first 4 are idle, walk, attack and ability. For whole animations put each one on its own row.` : `One row: ${S.found} pose${S.found === 1 ? '' : 's'}${S.found < 4 ? ' (the missing ones reuse idle or attack)' : ''}.`)
       : `${S.rows} animation${S.rows === 1 ? '' : 's'}, ${frames} frames${S.dropped ? `; ${S.dropped} label${S.dropped === 1 ? '' : 's'} or speck${S.dropped === 1 ? '' : 's'} left out` : ''}.`;
-    el.innerHTML = `<div class="alanims">${B.Art.ANIMS.filter(k => P[k] || k !== 'death').map(k => `<div class="alanim ${P[k] ? '' : 'miss'}"><b>${NAMES[k]}</b><span class="dim small">${P[k] ? `${P[k].length} frame${P[k].length === 1 ? '' : 's'}` : k === 'move' || k === 'cast' ? 'uses ' + (k === 'move' ? 'idle' : 'attack') : 'uses idle'}</span>
+    // review #45: an animation sheet shows its rows, each with "Use as" (a spin row can be the ability, two rows can
+    // make one animation, a row can be left out); the summary says what plays
+    const R = S.res && S.res.rows.length > 1 ? S.res.rows : null;
+    const rowsHTML = R ? `<div class="alanims">${R.map((row, i) => `<div class="alanim"><select class="alrowsel" data-row="${i}" aria-label="Row ${i + 1} is">${[...B.Art.ANIMS, 'none'].map(k => `<option value="${k}" ${S.map[i] === k ? 'selected' : ''}>${k === 'none' ? 'Not used' : NAMES[k]}</option>`).join('')}</select>
+        <span class="dim small">row ${i + 1} · ${row.length}</span><div class="alframes">${row.map(f => `<img src="${f.url}" alt="">`).join('')}</div></div>`).join('')}</div>
+      <p class="small">Plays as: ${B.Art.ANIMS.filter(k => P[k]).map(k => `<b>${NAMES[k]}</b> ${P[k].length}`).join(' · ')}${P.death ? '' : ' · Death: fades out'}</p>` : '';
+    el.innerHTML = R ? rowsHTML + sheetFoot(d, note) : `<div class="alanims">${B.Art.ANIMS.filter(k => P[k] || k !== 'death').map(k => `<div class="alanim ${P[k] ? '' : 'miss'}"><b>${NAMES[k]}</b><span class="dim small">${P[k] ? `${P[k].length} frame${P[k].length === 1 ? '' : 's'}` : k === 'move' || k === 'cast' ? 'uses ' + (k === 'move' ? 'idle' : 'attack') : 'uses idle'}</span>
         <div class="alframes">${(P[k] || []).map(u => `<img src="${u}" alt="">`).join('')}</div></div>`).join('')}</div>
-      ${S.sheet ? `<p class="small dim">${note} Background <span class="alsw" style="background:${S.bg}"></span></p>` : ''}
+${sheetFoot(d, note)}`;
+  }
+  function sheetFoot(d, note) {
+    return `${S.sheet ? `<p class="small dim">${note} Background <span class="alsw" style="background:${S.bg}"></span></p>` : ''}
       <div class="alsliders">
         ${S.sheet ? `<label>Background cut<input type="range" id="alTol" min="15" max="160" value="${S.tol}"></label>` : ''}
         <label>Size on the board<input type="range" id="alScale" min="50" max="180" value="${pct(d.scale || 1)}"></label>
@@ -74,7 +83,7 @@
   function refresh() { B.Art.preview(S.key, S.def); }
   function load(key) {
     if (S.key && S.key !== key) B.Art.reset(S.key);
-    S.key = key; S.sheet = null; S.found = 0; S.rows = 0; S.dropped = 0;
+    S.key = key; S.sheet = null; S.found = 0; S.rows = 0; S.dropped = 0; S.res = null; S.map = [];
     const saved = B.Art.saved(key) || B.Art.official(key);
     S.def = saved ? JSON.parse(JSON.stringify(saved)) : null;
     if (S.def) refresh();
@@ -90,7 +99,13 @@
     const res = B.Art.cutSheet(S.sheet, S.tol);
     S.found = res.found; S.bg = res.bg; S.rows = res.rows.length; S.dropped = res.dropped;
     if (!res.rows.length) { U.toast('No figure found: use one flat background colour'); return; }
-    S.def = Object.assign(S.def || {}, B.Art.animsDef(res)); delete S.def.poses; delete S.def.ax; refresh();
+    if (!S.res || S.map.length !== res.rows.length) S.map = B.Art.defaultMap(res);
+    S.res = res; applyMap();
+  }
+  function applyMap() {
+    S.def = Object.assign(S.def || {}, B.Art.animsDef(S.res, S.map)); delete S.def.poses; delete S.def.ax;
+    if (!B.Art.animsOf(S.def).anims.idle) U.toast('Pick one row as Idle: it is the figure that stands on the board');
+    refresh();
   }
 
   // the test fight: the hero with its art + a random ally against a medium fight, restarting when it ends
@@ -148,6 +163,7 @@
     else if (t.id === 'alSplash') readFile(t, im => { S.def = Object.assign(S.def || {}, { splash: B.Art.shrink(im, 1400, 'image/jpeg', 0.9) }); if (!S.def.crop) S.def.crop = { x: 0.5, y: 0.3, z: 1 }; refresh(); splashView(); });
     else if (t.id === 'alSheet') readFile(t, im => { S.sheet = im; cut(); sheetView(); });
     else if (t.id === 'alTol') { S.tol = +t.value; cut(); }
+    else if (t.classList.contains('alrowsel') && S.res) { S.map[+t.dataset.row] = t.value; applyMap(); sheetView(); }
     else if (t.id === 'alFlip') (S.def = S.def || {}).flip = t.checked;
   }
   const actions = {

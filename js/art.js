@@ -12,7 +12,14 @@
   const IDLE_FPS = 5, MAX_FRAMES = 16;
   // key: { splash: 'art/<key>/splash.jpg', crop: { x, y, z }, anims: { idle: ['art/<key>/idle-1.webp', ...], ... },
   //        axs: { idle: [0.5, ...] }, flip, scale }
-  const OFFICIAL = {};
+  const seq = (key, k, n) => Array.from({ length: n }, (_, i) => `art/${key}/${k}-${i + 1}.webp`);
+  const OFFICIAL = {
+    // review #45 (David): Ulfrik (the "Red-Hand" art). His sheet had 5 rows: idle 5, walk 8, attack 7, a charge 6 and a
+    // spin 7 frames; his ability (Crimson Spin) plays the charge and then the spin, so every frame is used
+    thorne: { splash: 'art/thorne/splash.jpg', crop: { x: 0.52, y: 0.3, z: 1 }, flip: false, scale: 1,
+      anims: { idle: seq('thorne', 'idle', 5), move: seq('thorne', 'move', 8), attack: seq('thorne', 'attack', 7), cast: seq('thorne', 'cast', 13) },
+      axs: { idle: [0.552, 0.506, 0.534, 0.54, 0.499], move: [0.547, 0.565, 0.57, 0.584, 0.561, 0.552, 0.565, 0.52], attack: [0.457, 0.455, 0.487, 0.479, 0.493, 0.504, 0.469], cast: [0.568, 0.495, 0.543, 0.52, 0.519, 0.468, 0.488, 0.477, 0.494, 0.485, 0.551, 0.544, 0.48] } },
+  };
   const LOCAL = 'balance.artlab';
   const live = {}, subs = [], cache = {};
   let ver = 0;
@@ -25,7 +32,7 @@
   function animsOf(def) {
     const anims = {}, axs = {};
     if (def && def.anims) {
-      for (const k of ANIMS) if (Array.isArray(def.anims[k]) && def.anims[k].length) { anims[k] = def.anims[k].slice(0, MAX_FRAMES); axs[k] = ((def.axs && def.axs[k]) || []).slice(0, MAX_FRAMES); }
+      for (const k of ANIMS) if (Array.isArray(def.anims[k]) && def.anims[k].length) { anims[k] = def.anims[k].slice(0, MAX_FRAMES * 2); axs[k] = ((def.axs && def.axs[k]) || []).slice(0, MAX_FRAMES * 2); }
     } else if (def && def.poses) {
       for (const k of POSES) if (def.poses[k]) { anims[k] = [def.poses[k]]; axs[k] = [def.ax && def.ax[k] != null ? def.ax[k] : 0.5]; }
     }
@@ -191,8 +198,8 @@
       const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1, o = document.createElement('canvas');
       o.width = Math.max(1, Math.round(bw * sc)); o.height = Math.max(1, Math.round(bh * sc));
       const oc = o.getContext('2d'); oc.imageSmoothingQuality = 'high'; oc.drawImage(cv, b.x0, b.y0, bw, bh, 0, 0, o.width, o.height);
-      // where the feet are: the middle of the lowest rows
-      let fx = 0, fn = 0; for (let y = Math.max(b.y0, b.y1 - Math.round(bh * 0.12)); y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (A[y * W + x]) { fx += x; fn++; }
+      // the anchor over the hex: the figure's centre of mass (steadier from frame to frame than the feet)
+      let fx = 0, fn = 0; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (A[y * W + x]) { fx += x; fn++; }
       let url = o.toDataURL('image/webp', 0.9); if (!url.startsWith('data:image/webp')) url = o.toDataURL('image/png');
       return { url, w: o.width, h: o.height, ax: fn ? clamp((fx / fn - b.x0) / bw, 0, 1) : 0.5 };
     };
@@ -200,12 +207,20 @@
   }
   // what was cut -> the def's animations. Several rows: row 1 idle, 2 walk, 3 attack, 4 ability, 5 death, every frame
   // kept. A single row: the old pose sheet (idle, walk, attack, ability, one frame each).
-  function animsDef(res) {
+  // `map` (review #45) says what each row is ('idle', 'move', 'attack', 'cast', 'death' or 'none'); rows given the same
+  // animation are joined in order (a charge row + a spin row = one ability)
+  function defaultMap(res) { return res.rows.map((_, i) => ANIMS[i] || 'none'); }
+  function animsDef(res, map) {
     const o = { anims: {}, axs: {} }, r3 = v => Math.round(v * 1000) / 1000;
     if (res.rows.length === 1) res.rows[0].slice(0, 4).forEach((f, i) => { o.anims[POSES[i]] = [f.url]; o.axs[POSES[i]] = [r3(f.ax)]; });
-    else res.rows.forEach((row, i) => { o.anims[ANIMS[i]] = row.map(f => f.url); o.axs[ANIMS[i]] = row.map(f => r3(f.ax)); });
+    else res.rows.forEach((row, i) => {
+      const k = (map || defaultMap(res))[i]; if (!ANIMS.includes(k)) return;
+      o.anims[k] = (o.anims[k] || []).concat(row.map(f => f.url)).slice(0, MAX_FRAMES * 2); o.axs[k] = (o.axs[k] || []).concat(row.map(f => r3(f.ax))).slice(0, MAX_FRAMES * 2);
+    });
     return o;
   }
+  // a long ability animation plays for longer (2 ticks per frame) than the drawn model's 14-tick cast
+  function castTicks(key) { const a = sprite(key), n = a && a.anims.cast ? a.anims.cast.length : 0; return n > 7 ? n * 2 : 14; }
   // a picture file -> a data URL no bigger than `max` px on its long side
   function shrink(im, max, type, q) {
     const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight)), cv = document.createElement('canvas');
@@ -215,7 +230,7 @@
   }
 
   B.Art = {
-    POSES, ANIMS, MAX_FRAMES, boot, get, sprite, splash, draw, frameOf, cutSheet, animsDef, animsOf, shrink, reset,
+    POSES, ANIMS, MAX_FRAMES, OFFICIAL, boot, get, sprite, splash, draw, frameOf, cutSheet, animsDef, defaultMap, animsOf, castTicks, shrink, reset,
     preview(key, def) { mount(key, def, 'preview'); },
     // the def was changed in place (crop, size, mirror): the cropped splash pictures are made again
     touch(key) { const a = live[key]; if (a) a.v = ++ver; },

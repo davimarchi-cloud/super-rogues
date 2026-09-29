@@ -446,5 +446,14 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(G.units[1].shield > 0 && !G.units[2].shield && !G.units[0].shield, "a ghost's Vanguard shields its own front row");
   ok(Sim.formation(mk(['shieldwall'], [[3, 4], [4, 4], [0, 7]], { noStart: true }), 0).length === 2, 'the deploy screen can list the bonuses before the fight');
 }
+// ---- review #45: every official hero art file ships (art/<hero>/...), with an anchor per frame
+{
+  require('../../js/art.js'); const fs = require('fs'), path = require('path');
+  for (const [key, o] of Object.entries(B.Art.OFFICIAL)) {
+    const files = [o.splash, ...Object.values(o.anims).flat()].filter(Boolean);
+    ok(!!B.HEROES[key] && files.every(f => fs.existsSync(path.join(__dirname, '..', '..', f))), `${B.HEROES[key] ? B.HEROES[key].name : key}: all ${files.length} art files exist`);
+    ok(Object.keys(o.anims).every(k => o.axs[k] && o.axs[k].length === o.anims[k].length) && o.anims.idle && o.anims.idle.length, `${key}: an anchor for every frame, and an idle animation`);
+  }
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

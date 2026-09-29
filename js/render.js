@@ -149,7 +149,8 @@
     else pose.face = u.side === 0 ? 1 : -1;
     if (u.m1t > u.m0t && T >= u.m0t && T < u.m1t && u.ms > 0) pose.walk = ((T - u.m0t) / Math.max(1, u.m1t - u.m0t)) % 1;
     const a = u.anim; if (a && a.k === 'atk' && T >= a.t0 && T <= a.t1) pose.atk = (T - a.t0) / Math.max(1, a.t1 - a.t0);
-    if (T - u.castT >= 0 && T - u.castT < 14) pose.cast = (T - u.castT) / 14;
+    const cd = B.Art && B.Art.castTicks ? B.Art.castTicks(u.key === 'clone' ? 'mirage' : u.key) : 14;   // review #45: long art animations
+    if (T - u.castT >= 0 && T - u.castT < cd) pose.cast = (T - u.castT) / cd;
     if (u.dead) pose.dead = Math.min(1, (W.t - u.deathT) / 12);
     void s; return pose;
   }

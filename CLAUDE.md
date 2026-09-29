@@ -125,6 +125,15 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v37 (2026-09-29), lote 34 do David (#45): 1ª arte oficial, Ulfrik (thorne).** A folha reenviada tinha 5 linhas: parado
+  5, andando 8, ataque 7, investida 6 e giro 7 quadros (a 5ª linha NÃO era morte: era o giro). A habilidade dele (Crimson
+  Spin) toca investida + giro = 13 quadros; morte usa o efeito padrão. Arquivos em `art/thorne/` (splash.jpg, idle-1..5,
+  move-1..8, attack-1..7, cast-1..13 .webp, 452 KB) e entrada em `OFFICIAL` do `js/art.js` com um ponto de apoio por
+  quadro (centro de massa da figura, mais estável que o pé). Animação de habilidade longa dura 2 ticks por quadro
+  (`B.Art.castTicks`). O Art Lab ganhou "Use as" por linha (parado/andando/ataque/habilidade/morte/não usar; linhas
+  iguais se juntam) e o ponto de apoio passou a ser o centro de massa. Só o Ulfrik tem arte pintada: o resto continua
+  desenhado (estilos misturados até chegarem as outras).
+
 - **v36 (2026-09-29), lote 33 do David (#44): passada de design** (mesmas cores e tema, nada novo): camada v36 no fim
   do style.css com tokens (espaço 4/8/12/16/24, um raio, uma sombra suave de cartão, texto secundário mais claro);
   botões secundários viram "vidro" claro e o amarelo primário fica dominante; barra de status com chips da mesma altura;

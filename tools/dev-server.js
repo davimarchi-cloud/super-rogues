@@ -26,7 +26,7 @@ http.createServer(async (req, res) => {
     return;
   }
   let p = decodeURIComponent(u.pathname); if (p === '/') p = '/index.html';
-  if (!/^\/(index\.html|style\.css|js\/[a-z]+\.js|fonts\/[a-z]+\.woff2|art\/[a-z_]+\/[a-z]+\.(webp|jpg|png))$/.test(p)) { res.statusCode = 404; return res.end('not found'); }
+  if (!/^\/(index\.html|style\.css|js\/[a-z]+\.js|fonts\/[a-z]+\.woff2|art\/[a-z_]+\/[a-z0-9-]+\.(webp|jpg|png))$/.test(p)) { res.statusCode = 404; return res.end('not found'); }
   const f = path.join(ROOT, p);
   if (!fs.existsSync(f)) { res.statusCode = 404; return res.end('not found'); }
   res.setHeader('Content-Type', TYPES[path.extname(f)] || 'application/octet-stream');
