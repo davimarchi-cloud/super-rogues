@@ -850,7 +850,7 @@
     return true;
   };
   // v30 (review #28): the three heroes unlocked by the account level
-  A.hive = (W, u) => {   // Buzzwell: a hive of stinging bees (AP damage over time) and honey for the weakest ally
+  A.hive = (W, u) => {   // Melissa: a hive of stinging bees (AP damage over time) and honey for the weakest ally
     const ab = u.ab, t = bestCluster(W, u, ab.radius); if (!t) return false;
     const drop = h => {
       W.zones.push({ c: h.c, r: h.r, rad: ab.radius, until: W.t + sec(ab.dur), dps: ab.dps * apOf(u), side: u.side, src: u.id, color: '#ffc21a' });
@@ -863,7 +863,7 @@
     if (a) { heal(W, a, ab.honey * apOf(u), true); fxRing(W, a.c, a.r, 0, '#ffe066', 8); }
     return true;
   };
-  A.wave = (W, u) => {   // Coralie: a wave that hits, pushes back and slows a group
+  A.wave = (W, u) => {   // Nerina: a wave that hits, pushes back and slows a group
     const ab = u.ab, t = bestCluster(W, u, ab.radius); if (!t) return false;
     const hit = mult => {
       fxRing(W, t.c, t.r, ab.radius, '#2fb8d8', 14);
@@ -878,7 +878,7 @@
     if (ab.foam) for (const a of allies(W, u)) if (Hx.dist(a, u) <= 1) shield(W, a, a.maxHp * ab.foam, 4);
     return true;
   };
-  A.starfall = (W, u) => {   // Stellan: a star that lands after a short delay (AD + AP) and stuns
+  A.starfall = (W, u) => {   // Astrid: a star that lands after a short delay (AD + AP) and stuns
     const ab = u.ab, t = bestCluster(W, u, ab.radius); if (!t) return false;
     const c = t.c, r = t.r, delay = Math.max(0.3, ab.delay);
     fxRing(W, c, r, ab.radius, '#b8a8ff', sec(delay));

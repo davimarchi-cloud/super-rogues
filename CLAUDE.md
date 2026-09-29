@@ -43,7 +43,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `api/_store.js` | Neon em produção, memória no dev/teste. Tabelas `suggestions`, `kv`, `scores`, `players`, `teams`, `ratings`, `phero` |
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote; avisa "📎 arte"), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma`, `arte <lote>` (salva as imagens em `art-inbox/`, fora do git) |
-| `tools/sim-run.js`, `tools/boss-matrix.js` | robô joga runs inteiras / todos os 220 times de 3 contra os 2 chefes |
+| `tools/sim-run.js`, `tools/boss-matrix.js`, `tools/tune-heroes.js` | robô joga runs inteiras / todos os times de 3 contra os 2 chefes / vitória contra chefe por herói e ajuste automático (v34) |
 | `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `vitrine.mjs` (fotos de todas as telas no celular e em 3 PCs, v29), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
 
 ## Regras do jogo que vieram do briefing (ponto de partida: os jogadores podem mudar qualquer uma)
@@ -124,6 +124,18 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v34 (2026-09-29), lote 31 do David.** (#41) Heróis com nomes de várias culturas (só o nome exibido; ids iguais):
+  Bjornar, Sica, Feuer, Snezhana, Brutus, Brigid, Strela, Koschei, Tordis, Krok, Sarab, Gizmund, Ulfrik, Licht, Umbra,
+  Leshy, Orfeo, Pólvora, Hyppolita, Sokol, Carmina, Kagero, Garm, Luna, Pimples, Pivo, Azgoth, Kivi, Khepri, Leonteus,
+  Serra, Mercurio, Feng, Melissa, Nerina, Astrid (evitei "Stark": Marvel/Game of Thrones). (#42) Rebalanceamento de PvE
+  com `tools/tune-heroes.js` (cada herói no 1º espaço + 2 parceiros aleatórios e itens, contra os 2 chefes; as lutas
+  difíceis ~95% todo mundo vence, não discriminam): um botão de força por herói (HP e ataque × p, mana ÷ p), iterado
+  para puxar quem está abaixo de média-8 e aparar quem está acima de média+14. Vitória contra chefe por herói: 12–76%
+  → ~20–48%. Mais fortes aparados (Sarab/mirage, Koschei/morrow, Hyppolita, Brutus/brakk 0,82–0,83; Strela, Brigid,
+  Kagero, Pivo ~0,9); mais fracos ajudados (Snezhana 1,5, Feuer 1,41, Khepri 1,3, Tordis 1,29, Umbra 1,27, Luna 1,26,
+  Serra/Feng 1,24, Nerina 1,23, Leshy 1,21...). Matriz: chefe 1 44% → 55% (times que vencem ao menos 1×: 67% → 88%),
+  chefe 2 31% → 31%; robô igual.
 
 - **v33 (2026-09-29), lote 30 do David (#40): relíquias de formação** (`form: true`, `Sim.formation`, aplicadas no
   `start()` pela posição inicial; linha de frente = 4 para o jogador e 3 para o fantasma, fundo = 7 / 0): Shieldwall
