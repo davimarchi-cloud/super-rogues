@@ -340,6 +340,10 @@ if (!REMOTE) {
   const splashPic = await pic('art-splash.png', `(() => { const c = document.createElement('canvas'); c.width = 900; c.height = 600; const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 900, 600); g.addColorStop(0, '#f84'); g.addColorStop(1, '#48f'); x.fillStyle = g; x.fillRect(0, 0, 900, 600);
     x.fillStyle = '#fde'; x.beginPath(); x.arc(450, 200, 90, 0, 7); x.fill(); x.fillStyle = '#333'; x.fillRect(360, 300, 180, 300); return c.toDataURL('image/png'); })()`);
   const setFile = async (sel, file) => { const d = await send('DOM.getDocument', { depth: 0 }); const n = await send('DOM.querySelector', { nodeId: d.result.root.nodeId, selector: sel }); await send('DOM.setFileInputFiles', { nodeId: n.result.nodeId, files: [file] }); };
+  // review #47: the lab starts with no hero picked, so art can't go to the wrong hero by accident
+  await ev(`__bal.ACT['art-lab']()`); await sleep(400);
+  ok(await ev(`document.querySelector('#alHero').value === '' && /Choose the hero first/.test(document.querySelector('#alSplashView').textContent) && !B.ArtLab.state.fight`), 'Art Lab: no hero is picked for you');
+  await click('[data-act=close]'); await sleep(200);
   await ev(`__bal.ACT['art-lab']('rook')`); await sleep(400);
   ok(await ev(`!!document.querySelector('.artlab') && document.querySelector('#alHero').value === 'rook' && !!document.querySelector('#alBoard')`), 'Art Lab opens on the chosen hero, with a test board');
   await setFile('#alSheet', sheet); await sleep(900);
@@ -364,6 +368,13 @@ if (!REMOTE) {
   ok(await ev(`(() => { const a = B.Art.sprite('rook'); return document.querySelectorAll('.alrowsel').length === 4 && a.anims.attack.length === 7 && !a.anims.cast && /Attack<.b> 7/.test(document.querySelector('#alSheetView').innerHTML); })()`), 'Art Lab: a row can be set to another animation, rows of the same animation are joined');
   await ev(`(() => { const s = document.querySelectorAll('.alrowsel'); s[3].value = 'cast'; s[3].dispatchEvent(new Event('change', { bubbles: true })); })()`); await sleep(500);
   ok(await ev(`(() => { const a = B.Art.sprite('rook'), f = t => B.Art.frameOf(a, { t }); const s = new Set(); for (let t = 0; t < 1; t += 0.05) s.add(f(t).i); const m = B.Art.frameOf(a, { walk: 0.55 }), at = B.Art.frameOf(a, { atk: 0.99 }), mid = [0.05, 0.15, 0.25].map(t => f(t).blend); return s.size === 5 && m.k === 'move' && at.k === 'attack' && at.i >= 2 && mid.some(b => b > 0) && mid.some(b => b === 0); })()`), 'idle cycles through all its frames, walk and attack play theirs, frames hold then blend into the next');
+  // review #47: frames packed with no space between them (each row one long strip) are cut by their pitch
+  const packed = await pic('art-packed.png', `(() => { const c = document.createElement('canvas'); c.width = 900; c.height = 430; const x = c.getContext('2d'); x.fillStyle = '#ff00ff'; x.fillRect(0, 0, 900, 430);
+    [[9, 60], [7, 75]].forEach(([n, p], r) => { for (let i = 0; i < n; i++) { const X = 20 + i * p, Y = 20 + r * 210; x.fillStyle = 'hsl(' + (40 + r * 150) + ',60%,45%)'; x.beginPath(); x.arc(X + p / 2, Y + 28, 26, 0, 7); x.fill(); x.fillRect(X + 6, Y + 50, p - 10, 90); x.fillRect(X + 2, Y + 140, 14, 40); x.fillRect(X + p - 16, Y + 140, 14, 40); x.fillRect(X + p - 8, Y + 70, 10, 10); } });
+    return c.toDataURL('image/png'); })()`);
+  await setFile('#alSheet', packed); await sleep(1200);
+  ok(await ev(`(() => { const a = B.Art.sprite('rook'); return !!a && a.anims.idle.length === 9 && a.anims.move.length === 7; })()`), 'a sheet with no space between the frames: 9 and 7 frames found by their pitch');
+  await setFile('#alSheet', anim); await sleep(1200);
   await ev(`B.ArtLab.state.fight = null`); await sleep(900);
   ok(await ev(`B.ArtLab.state.fight && B.ArtLab.state.fight.W.t > 5`), 'the test fight runs with the animated hero');
   await setFile('#alSplash', splashPic); await sleep(900);

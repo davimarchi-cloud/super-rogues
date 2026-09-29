@@ -13,7 +13,7 @@
     return `<div class="artlab">
       <div class="shead"><b>🎨 Art Lab</b><button data-act="close">✕</button></div>
       <p class="small">Try your own pictures on a hero: a <b>splash</b> for the cards and a <b>pose sheet</b> for the battle. Only this device sees them until you send them for review.</p>
-      <label class="alhero"><span>Hero</span><select id="alHero">${heroes().map(x => `<option value="${x}" ${x === k ? 'selected' : ''}>${e(H[x].name)} · ${H[x].role}</option>`).join('')}</select></label>
+      <label class="alhero"><span>Hero</span><select id="alHero"><option value="" disabled ${k ? '' : 'selected'}>Choose the hero this art is for…</option>${heroes().map(x => `<option value="${x}" ${x === k ? 'selected' : ''}>${e(H[x].name)} · ${H[x].role}</option>`).join('')}</select></label>
       <div class="algrid">
         <section class="alsec"><h3>1 · Splash picture</h3>
           <p class="small dim">One big picture of the hero. Move the sliders to frame the face on the small cards.</p>
@@ -42,6 +42,7 @@
   }
   function splashView() {
     const el = U.$('#alSplashView'); if (!el) return;
+    if (!S.key) { el.innerHTML = '<p class="small warn">Choose the hero first (top of this window).</p>'; return; }
     if (el.querySelector('.alcards') && S.def && S.def.splash && B.Art.get(S.key) && B.Art.get(S.key).splash) { splashCards(); return; }
     const d = S.def || {}, k = S.key, cr = Object.assign({ x: 0.5, y: 0.3, z: 1 }, d.crop);
     if (!d.splash) { el.innerHTML = `<div class="alnow"><img src="${B.Splash.image(k, 72, 72, 'bust')}" alt=""><span class="small dim">Now: the drawn splash.</span></div>`; return; }
@@ -58,6 +59,7 @@
   const NAMES = { idle: 'Idle', move: 'Walk', attack: 'Attack', cast: 'Ability', death: 'Death' };
   function sheetView() {
     const el = U.$('#alSheetView'); if (!el) return;
+    if (!S.key) { el.innerHTML = ''; return; }
     const d = S.def || {}, P = B.Art.animsOf(d).anims;
     if (!P.idle && !(S.res && S.res.rows.length > 1)) { el.innerHTML = '<p class="small dim">Now: the drawn figure.</p>'; return; }
     const frames = Object.values(P).reduce((n, f) => n + f.length, 0);
@@ -83,6 +85,7 @@ ${sheetFoot(d, note)}`;
   function refresh() { B.Art.preview(S.key, S.def); }
   function load(key) {
     if (S.key && S.key !== key) B.Art.reset(S.key);
+    if (!key) { S.key = null; S.def = null; S.sheet = null; S.res = null; S.map = []; return; }
     S.key = key; S.sheet = null; S.found = 0; S.rows = 0; S.dropped = 0; S.res = null; S.map = [];
     const saved = B.Art.saved(key) || B.Art.official(key);
     S.def = saved ? JSON.parse(JSON.stringify(saved)) : null;
@@ -118,7 +121,7 @@ ${sheetFoot(d, note)}`;
     S.fight = { W: R.fightWorld(run), acc: 0, last: performance.now(), endAt: 0 };
   }
   function mountBoard() {
-    const cv = U.$('#alBoard'); if (!cv) return;
+    const cv = U.$('#alBoard'); if (!cv || !S.key) return;
     S.view = B.Render.setup(cv, Math.min(cv.parentElement.clientWidth || 340, 620));
     if (!S.fight) newFight();
     if (!S.raf) S.raf = requestAnimationFrame(loop);
@@ -136,7 +139,8 @@ ${sheetFoot(d, note)}`;
 
   function open(ui, key) {
     U = ui; S.open = true; S.fight = null;
-    load(key && B.HEROES[key] ? key : S.key && B.HEROES[S.key] ? S.key : heroes()[0]);
+    // review #47: no hero is picked for you (art for Melissa went out as "Astrid", the first of the list)
+    load(key && B.HEROES[key] ? key : S.key && B.HEROES[S.key] ? S.key : null);
     U.openModal(html()); U.ui.modal = 'artlab'; U.$('#modal .sheet').classList.add('wide');
     splashView(); sheetView(); mountBoard();
   }
@@ -160,6 +164,7 @@ ${sheetFoot(d, note)}`;
     if (!S.open) return;
     const t = e.target;
     if (t.id === 'alHero') { load(t.value); S.fight = null; splashView(); sheetView(); mountBoard(); }
+    else if ((t.id === 'alSplash' || t.id === 'alSheet') && !S.key) { t.value = ''; U.toast('Choose the hero this art is for first'); }
     else if (t.id === 'alSplash') readFile(t, im => { S.def = Object.assign(S.def || {}, { splash: B.Art.shrink(im, 1400, 'image/jpeg', 0.9) }); if (!S.def.crop) S.def.crop = { x: 0.5, y: 0.3, z: 1 }; refresh(); splashView(); });
     else if (t.id === 'alSheet') readFile(t, im => { S.sheet = im; cut(); sheetView(); });
     else if (t.id === 'alTol') { S.tol = +t.value; cut(); }
@@ -173,7 +178,8 @@ ${sheetFoot(d, note)}`;
       if (B.Art.keep(S.key, S.def)) { U.toast(`${B.HEROES[S.key].name} uses your art on this device`); }
       else U.toast('This device is out of space for pictures: remove the art of another hero first');
     },
-    'al-drop': () => { B.Art.drop(S.key); load(S.key); splashView(); sheetView(); U.toast(`${B.HEROES[S.key].name} is back to the drawn art on this device`); },
+    'al-drop': () => {
+      if (!S.key) return; B.Art.drop(S.key); load(S.key); splashView(); sheetView(); U.toast(`${B.HEROES[S.key].name} is back to the drawn art on this device`); },
     'al-send': async (_, btn) => {
       const d = S.def || {}, { anims, axs } = B.Art.animsOf(d), nF = Object.values(anims).reduce((n, f) => n + f.length, 0);
       if (!d.splash && !anims.idle) { U.toast('Add a splash picture or an animation sheet first'); return; }

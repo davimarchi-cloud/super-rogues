@@ -125,6 +125,15 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v39 (2026-09-29), lote 36 do David (#47): arte da Melissa (buzzwell).** Veio marcada como "Astrid" porque o lab abria
+  no 1º herói da lista; a arte é claramente a apicultora → aplicada na Melissa e o lab agora abre SEM herói escolhido.
+  A folha tinha as figuras coladas (sem espaço), o lab achou 1 quadro por linha: montada à mão (`art/buzzwell/`, 66
+  quadros: parado 16, andando 15, ataque 5 = os arremessos pequenos ampliados, habilidade 19 = 7 da colmeia + 12 do
+  enxame, morte 11). `cutSheet` agora acha o passo dos quadros de cada linha (repetição mais forte do contorno da metade
+  de baixo, preferindo o período base ao dobro) e corta qualquer caixa com mais de 1,5 passo; pedacinhos só se juntam a
+  caixas da mesma linha. Na reconstrução da folha dele o lab acha 16/15/12/11 quadros (a linha de ataque, misturada com
+  projéteis e figuras menores, precisou de corte à mão). Animação de morte fica no tabuleiro 2 ticks por quadro (máx. 30).
+
 - **v38 (2026-09-29), lote 35 do David (#46): arte do Brutus (brakk).** O "bug no ataque" era do recorte: os arcos rosa
   dos golpes ligavam figuras vizinhas e o lab juntava 3 quadros do ataque (e 2 da habilidade) numa imagem só. Separado à
   mão (`art/brakk/`: parado 7, andando 8, ataque 7, habilidade 6 + splash) e corrigido no `cutSheet`: caixa com mais de

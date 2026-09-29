@@ -140,6 +140,8 @@
   }
 
   // ------------------------------------------------------------------ units
+  // review #47: a hero with a death animation stays on the board while it plays
+  const deadTicks = u => B.Art && B.Art.deathTicks ? B.Art.deathTicks(u.key) : 12;
   function poseOf(W, u, T) {
     const s = W.t, pose = { t: T / 20 + u.id * 0.37, face: 1 };
     // facing: toward the target, else toward the enemy side
@@ -151,7 +153,7 @@
     const a = u.anim; if (a && a.k === 'atk' && T >= a.t0 && T <= a.t1) pose.atk = (T - a.t0) / Math.max(1, a.t1 - a.t0);
     const cd = B.Art && B.Art.castTicks ? B.Art.castTicks(u.key === 'clone' ? 'mirage' : u.key) : 14;   // review #45: long art animations
     if (T - u.castT >= 0 && T - u.castT < cd) pose.cast = (T - u.castT) / cd;
-    if (u.dead) pose.dead = Math.min(1, (W.t - u.deathT) / 12);
+    if (u.dead) pose.dead = Math.min(1, (W.t - u.deathT) / deadTicks(u));
     void s; return pose;
   }
   function drawUnit(v, W, u, p, T, o) {
@@ -230,7 +232,7 @@
     if (!o.deploy) spawnFromFx(v, W, T, S);
     // ambient embers drifting up
     if (!o.deploy && Math.random() < dt * 6 && S.parts.length < MAXP) S.parts.push({ x: Math.random() * v.w, y: v.h + 4, vx: (Math.random() - 0.5) * 10, vy: -20 - Math.random() * 25, g: 0, life: 4 + Math.random() * 3, t: 0, r: 1 + Math.random() * 1.2, col: Math.random() < 0.5 ? '#ffb347' : '#e8b84a', glow: true });
-    const us = W.units.filter(u => !u.dead || W.t - u.deathT < 12).map(u => ({ u, p: unitPos(v, W, u, T) }));
+    const us = W.units.filter(u => !u.dead || W.t - u.deathT < deadTicks(u)).map(u => ({ u, p: unitPos(v, W, u, T) }));
     // standing terrain joins the depth sort; it turns see-through while a unit stands right behind it
     for (const x of (W.terrain || [])) if (x.k !== 'pond') us.push({ x, p: hexScreen(v, x.c, x.r), fade: x.k !== 'rock' && W.units.some(u => !u.dead && u.r === x.r - 1 && Hx.dist(u, x) === 1) });
     us.sort((a, b) => a.p.y - b.p.y);

@@ -24,6 +24,13 @@
     brakk: { splash: 'art/brakk/splash.jpg', crop: { x: 0.63, y: 0.34, z: 1.26 }, flip: false, scale: 1,
       anims: { idle: seq('brakk', 'idle', 7), move: seq('brakk', 'move', 8), attack: seq('brakk', 'attack', 7), cast: seq('brakk', 'cast', 6) },
       axs: { idle: [0.523, 0.507, 0.508, 0.51, 0.507, 0.514, 0.509], move: [0.561, 0.561, 0.555, 0.525, 0.525, 0.559, 0.508, 0.52], attack: [0.427, 0.436, 0.46, 0.457, 0.479, 0.46, 0.479], cast: [0.492, 0.471, 0.524, 0.5, 0.494, 0.458] } },
+    // review #47 (David): Melissa, sent as "Astrid" (the lab opened on the first hero of the list). Her sheet had no space
+    // between the frames; cut by the frame pitch here and in cutSheet. Idle 16, walk 15; the attack is her 5 quick
+    // throws (drawn smaller, scaled up); the ability (Honey Hive) is the 7 hive-throw frames then the 12 swarm frames;
+    // death 11 frames
+    buzzwell: { splash: 'art/buzzwell/splash.jpg', crop: { x: 0.52, y: 0.3, z: 1 }, flip: false, scale: 1,
+      anims: { idle: seq('buzzwell', 'idle', 16), move: seq('buzzwell', 'move', 15), attack: seq('buzzwell', 'attack', 5), cast: seq('buzzwell', 'cast', 19), death: seq('buzzwell', 'death', 11) },
+      axs: { idle: [0.55, 0.662, 0.663, 0.67, 0.657, 0.64, 0.592, 0.61, 0.642, 0.64, 0.642, 0.641, 0.642, 0.632, 0.607, 0.602], move: [0.476, 0.529, 0.462, 0.526, 0.463, 0.533, 0.513, 0.447, 0.443, 0.507, 0.548, 0.572, 0.537, 0.525, 0.549], attack: [0.467, 0.46, 0.431, 0.528, 0.496], cast: [0.449, 0.442, 0.464, 0.501, 0.538, 0.5, 0.581, 0.472, 0.459, 0.586, 0.571, 0.591, 0.53, 0.589, 0.618, 0.614, 0.663, 0.64, 0.655], death: [0.496, 0.504, 0.541, 0.585, 0.582, 0.508, 0.52, 0.467, 0.491, 0.48, 0.515] } },
   };
   const LOCAL = 'balance.artlab';
   const live = {}, subs = [], cache = {};
@@ -201,28 +208,48 @@
       const rest = boxes.filter(b => b !== sm); if (!rest.length) break;
       boxes = rest;
       if (sm.y1 - sm.y0 + 1 < medH * 0.45) { dropped++; continue; }   // short and small: a text label or a speck
-      const cx = (sm.x0 + sm.x1) / 2, cy = (sm.y0 + sm.y1) / 2;
-      const to = rest.reduce((p, q) => Math.hypot((q.x0 + q.x1) / 2 - cx, (q.y0 + q.y1) / 2 - cy) < Math.hypot((p.x0 + p.x1) / 2 - cx, (p.y0 + p.y1) / 2 - cy) ? q : p);
+      // (only within its own row: a whole frame standing apart from a packed row must not join another row)
+      const cx = (sm.x0 + sm.x1) / 2, cy = (sm.y0 + sm.y1) / 2, same = rest.filter(q => q.band === sm.band);
+      if (!same.length) { boxes.push(sm); continue; }
+      const to = same.reduce((p, q) => Math.hypot((q.x0 + q.x1) / 2 - cx, (q.y0 + q.y1) / 2 - cy) < Math.hypot((p.x0 + p.x1) / 2 - cx, (p.y0 + p.y1) / 2 - cy) ? q : p);
       to.x0 = Math.min(to.x0, sm.x0); to.x1 = Math.max(to.x1, sm.x1); to.y0 = Math.min(to.y0, sm.y0); to.y1 = Math.max(to.y1, sm.y1); to.n += sm.n;
     }
-    // review #46: frames glued together by an effect (a swoosh arc reaching the next frame) make a box much wider than
-    // the others in its row: cut it into as many frames as it is wide, at the emptiest columns
-    const split = [];
+    // reviews #46/#47: frames glued together (a swoosh reaching the next frame) or packed with no space between them
+    // make boxes wider than one frame. Each row's frame pitch is the shortest strong repeat of the figures' outline
+    // along the row (lower half, so effects above don't count); a box wider than 1.5 pitches is cut at the emptiest
+    // column near every pitch step. Rows with nothing wide are left as they are.
+    const split = [], pitches = [];
     for (const y of new Set(boxes.map(b => b.band))) {
-      const row = boxes.filter(b => b.band === y).sort((p, q) => p.x0 - q.x0), medW = mid(row.map(b => b.x1 - b.x0 + 1));
-      const gapW = row.length > 1 ? Math.max(0, mid(row.slice(1).map((b, i) => b.x0 - row[i].x1 - 1))) : 0;   // usual space between frames
+      const row = boxes.filter(b => b.band === y).sort((p, q) => p.x0 - q.x0);
+      const bh = Math.max(...row.map(b => b.y1 - b.y0 + 1)), y0 = Math.min(...row.map(b => b.y0)), y1 = Math.max(...row.map(b => b.y1));
+      const X0 = row[0].x0, X1 = Math.max(...row.map(b => b.x1)), bw = X1 - X0 + 1, yb = y0 + Math.round((y1 - y0) * 0.45), col = new Float64Array(bw);
+      for (let x = 0; x < bw; x++) { let n = 0; for (let yy = yb; yy <= y1; yy++) if (A[yy * W + X0 + x]) n++; col[x] = n; }
+      const mean = col.reduce((p, q) => p + q, 0) / bw, lo = Math.max(8, Math.round(bh * 0.25)), hi = Math.min(bw >> 1, Math.round(bh * 1.4));
+      // (the shortest repeat that is nearly as strong as the best one: twice the pitch repeats too)
+      const acs = []; let bestAc = -Infinity, pitch = 0;
+      for (let l = lo; l <= hi; l++) { let ac = 0; for (let x = 0; x + l < bw; x++) ac += (col[x] - mean) * (col[x + l] - mean); acs[l] = ac / (bw - l); if (acs[l] > bestAc) bestAc = acs[l]; }
+      const bestL = acs.indexOf(bestAc);
+      for (let l = lo + 1; l < hi && bestAc > 0; l++) {
+        if (!(acs[l] >= acs[l - 1] && acs[l] >= acs[l + 1])) continue;
+        const harmonic = [2, 3].some(m => Math.abs(bestL - m * l) <= l * 0.12);   // the best repeat is 2 or 3 of these
+        if (acs[l] >= bestAc * 0.8 || (harmonic && acs[l] >= bestAc * 0.3)) { pitch = l; break; }
+      }
+      if (!pitch && row.length > 1) { const medW = mid(row.map(b => b.x1 - b.x0 + 1)), gapW = Math.max(0, mid(row.slice(1).map((b, i) => b.x0 - row[i].x1 - 1))); pitch = medW + gapW; }
+      pitches.push(pitch);
       for (const b of row) {
-        const bw = b.x1 - b.x0 + 1, k = row.length > 1 && bw > medW * 1.7 ? Math.max(2, Math.round((bw + gapW) / (medW + gapW))) : 1;
-        if (k < 2) { split.push(b); continue; }
-        const col = x => { let n = 0; for (let yy = b.y0; yy <= b.y1; yy++) if (A[yy * W + x]) n++; return n; };
-        const cuts = [b.x0];
-        for (let i = 1; i < k; i++) { const e = b.x0 + Math.round(bw * i / k), r = Math.round(bw / k * 0.25); let bx = e, bn = 1e9; for (let x = e - r; x <= e + r; x++) { const n = col(x); if (n < bn) { bn = n; bx = x; } } cuts.push(bx); }
+        const w = b.x1 - b.x0 + 1;
+        if (!pitch || w <= pitch * 1.5 || w < bh * 0.6) { split.push(b); continue; }
+        const c = x => col[x - X0], cuts = [b.x0]; let x = b.x0;
+        while (x + pitch * 1.3 < b.x1) { const a0 = Math.round(x + pitch * 0.7), a1 = Math.round(Math.min(b.x1, x + pitch * 1.3)); let bx = a0; for (let xx = a0; xx <= a1; xx++) if (c(xx) < c(bx)) bx = xx; cuts.push(bx); x = bx; }
         cuts.push(b.x1 + 1);
-        for (let i = 0; i < k; i++) {
-          let t = H, bt = -1, n = 0, l = W, rr = -1;
-          for (let yy = b.y0; yy <= b.y1; yy++) for (let x = cuts[i]; x < cuts[i + 1]; x++) if (A[yy * W + x]) { n++; if (yy < t) t = yy; bt = yy; if (x < l) l = x; if (x > rr) rr = x; }
-          if (n) split.push({ x0: l, x1: rr, y0: t, y1: bt, n, band: b.band });
+        const parts = [];
+        for (let i = 0; i < cuts.length - 1; i++) {
+          let t = H, bt = -1, n = 0, l = W, r = -1;
+          for (let yy = b.y0; yy <= b.y1; yy++) for (let xx = cuts[i]; xx < cuts[i + 1]; xx++) if (A[yy * W + xx]) { n++; if (yy < t) t = yy; bt = yy; if (xx < l) l = xx; if (xx > r) r = xx; }
+          if (n) parts.push({ x0: l, x1: r, y0: t, y1: bt, n, band: b.band });
         }
+        const medN = mid(parts.map(q => q.n));
+        split.push(...parts.filter(q => q.n >= medN * 0.25));   // a sliver of an effect is not a frame (a lying body is)
       }
     }
     boxes = split;
@@ -240,7 +267,7 @@
       let url = o.toDataURL('image/webp', 0.9); if (!url.startsWith('data:image/webp')) url = o.toDataURL('image/png');
       return { url, w: o.width, h: o.height, ax: fn ? clamp((fx / fn - b.x0) / bw, 0, 1) : 0.5 };
     };
-    return { rows: rowsB.map(r => r.map(cut)), found, dropped, bg: `rgb(${Math.round(br)},${Math.round(bgc)},${Math.round(bb)})` };
+    return { rows: rowsB.map(r => r.map(cut)), found, dropped, pitches, bg: `rgb(${Math.round(br)},${Math.round(bgc)},${Math.round(bb)})` };
   }
   // what was cut -> the def's animations. Several rows: row 1 idle, 2 walk, 3 attack, 4 ability, 5 death, every frame
   // kept. A single row: the old pose sheet (idle, walk, attack, ability, one frame each).
@@ -257,7 +284,9 @@
     return o;
   }
   // a long ability animation plays for longer (2 ticks per frame) than the drawn model's 14-tick cast
-  function castTicks(key) { const a = sprite(key), n = a && a.anims.cast ? a.anims.cast.length : 0; return n > 7 ? n * 2 : 14; }
+  function castTicks(key) { const a = sprite(key), n = a && a.anims.cast ? a.anims.cast.length : 0; return n > 7 ? Math.min(32, n * 2) : 14; }
+  // a death animation keeps the fallen figure on the board a little longer (the drawn model fades in 12 ticks)
+  function deathTicks(key) { const a = sprite(key), n = a && a.anims.death ? a.anims.death.length : 0; return n > 1 ? Math.min(30, Math.max(12, n * 2)) : 12; }
   // a picture file -> a data URL no bigger than `max` px on its long side
   function shrink(im, max, type, q) {
     const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight)), cv = document.createElement('canvas');
@@ -267,7 +296,7 @@
   }
 
   B.Art = {
-    POSES, ANIMS, MAX_FRAMES, OFFICIAL, boot, get, sprite, splash, draw, frameOf, cutSheet, animsDef, defaultMap, animsOf, castTicks, shrink, reset,
+    POSES, ANIMS, MAX_FRAMES, OFFICIAL, boot, get, sprite, splash, draw, frameOf, cutSheet, animsDef, defaultMap, animsOf, castTicks, deathTicks, shrink, reset,
     preview(key, def) { mount(key, def, 'preview'); },
     // the def was changed in place (crop, size, mirror): the cropped splash pictures are made again
     touch(key) { const a = live[key]; if (a) a.v = ++ver; },
