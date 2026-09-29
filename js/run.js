@@ -126,15 +126,43 @@
     const pair = B.HEROES[h.key].specs[p.lvl - 2]; h.specs.push(pair[idx ? 1 : 0].id);
   }
 
+  // ------------------------------------------------------------------ terrain maps (review #39, David)
+  // Fight 1 = Open Meadow, bosses = Standing Stones, every other fight and Gauntlet floor = the next map of
+  // B.MAP_ROTATION (its start depends on the run's seed; the two fights offered on a step get different maps). A map
+  // is only used if none of its terrain sits on a hero's current hex or an enemy's starting hex; otherwise the next
+  // map of the rotation is tried, and the Open Meadow is the last resort.
+  const DIFF_I = { easy: 0, medium: 1, hard: 2 };
+  const blockedOf = id => new Set(((B.MAP && B.MAP[id]) || { cells: [] }).cells.map(x => Hx.key(x.c, x.r)));
+  function pickMap(order, avoid) {
+    for (const id of order) if (!B.MAP[id].cells.some(x => avoid.has(Hx.key(x.c, x.r)))) return id;
+    return 'meadow';
+  }
+  function rotation(run, n) { const R = B.MAP_ROTATION, i = ((((run.seed >>> 0) % 97) + n) % R.length + R.length) % R.length; return R.slice(i).concat(R.slice(0, i)); }
+  const heroHexes = run => new Set(run.heroes.filter(h => h.pos).map(h => Hx.key(h.pos.c, h.pos.r)));
+  // the map of the fight being played (or about to be): null = no terrain (old saves, onslaught)
+  function mapOf(run) {
+    const c = run.cur, id = c && c.type === 'fight' ? c.map : c && c.type === 'gauntlet' && run.g ? run.g.map : null;
+    return id && B.MAP[id] ? B.MAP[id] : null;
+  }
+  function blockedAt(run, c, r) { const m = mapOf(run); return !!m && m.cells.some(x => x.c === c && x.r === r); }
+  function terrainOf(run) { const m = mapOf(run); return m ? m.cells : []; }
+  // the Gauntlet floor's map: both formations (theirs mirrored) stay clear
+  function gauntletMap(run, opp, round) {
+    const avoid = heroHexes(run);
+    for (const h of (opp && opp.team) || []) if (h.pos) avoid.add(Hx.key(7 - h.pos.c, 7 - h.pos.r));
+    return pickMap(rotation(run, 11 + (round | 0)).concat(['stones']), avoid);
+  }
+
   // ------------------------------------------------------------------ deploy positions (rows 4..7 are the player's)
   function autoPlace(run, h) {
     const b = B.HEROES[h.key], taken = new Set(run.heroes.filter(x => x !== h && x.pos).map(x => Hx.key(x.pos.c, x.pos.r)));
+    for (const k of blockedOf((mapOf(run) || {}).id)) taken.add(k);
     const rows = b.range <= 1 ? [4, 5, 6, 7] : [7, 6, 5, 4];
     const cols = [3, 4, 2, 5, 1, 6, 0, 7];
     for (const r of rows) for (const c of cols) if (!taken.has(Hx.key(c, r))) { h.pos = { c, r }; return; }
   }
   function setPos(run, uid, c, r) {
-    if (r < 4 || r > 7 || !Hx.inside(c, r)) return;
+    if (r < 4 || r > 7 || !Hx.inside(c, r) || blockedAt(run, c, r)) return;
     const h = run.heroes.find(x => x.uid === uid); if (!h) return;
     const other = run.heroes.find(x => x !== h && x.pos && x.pos.c === c && x.pos.r === r);
     if (other) other.pos = h.pos ? { c: h.pos.c, r: h.pos.r } : null;
@@ -158,8 +186,12 @@
       const nElite = d.elites + (fightNo > bossFight(run, 1) && diff !== 'easy' ? 1 : 0);
       for (const e of pickN(run, enemies, nElite)) e.elite = pick(run, B.ELITES).id;
     }
-    // formation: melee in front (rows 2-3), ranged behind (rows 0-1)
+    // review #39: the map (fight 1 open, bosses at the Standing Stones), clear of the heroes and of the boss
+    const avoid = heroHexes(run); for (const e of enemies) if (e.c != null) avoid.add(Hx.key(e.c, e.r));
+    const map = fightNo <= 1 && diff !== 'boss' ? 'meadow' : diff === 'boss' ? pickMap(['stones'], avoid) : pickMap(rotation(run, fightNo * 3 + (DIFF_I[diff] || 0)), avoid);
+    // formation: melee in front (rows 2-3), ranged behind (rows 0-1); never on terrain
     const taken = new Set(enemies.filter(e => e.c != null).map(e => Hx.key(e.c, e.r)));
+    for (const k of blockedOf(map)) taken.add(k);
     for (const e of enemies) {
       if (e.c != null) continue;
       const def = B.MOBS[e.key];
@@ -169,7 +201,7 @@
       const h = pick(run, spots); e.c = h.c; e.r = h.r; taken.add(Hx.key(h.c, h.r));
     }
     const gold = diff === 'boss' ? C.gold.boss : C.gold[diff];
-    return { type: 'fight', diff, fightNo, scale, enemies, gold };
+    return { type: 'fight', diff, fightNo, scale, enemies, gold, map };
   }
   function enemyDefs(run, fight) {
     return fight.enemies.map(e => {
@@ -184,8 +216,10 @@
   // preview = the static board shown while deploying (no rng used, no start-of-fight effects)
   function fightWorld(run, preview) {
     const f = run.cur;
+    for (const h of run.heroes) if (h.pos && blockedAt(run, h.pos.c, h.pos.r)) h.pos = null;
     for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
     return B.Sim.create({
+      terrain: terrainOf(run),
       mode: 'fight', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: f.fightNo, relics: run.relics,
       heroes: run.heroes.map(h => ({ def: withMod(heroDef(run, h), f.mod), c: h.pos.c, r: h.pos.r })),
       enemies: enemyDefs(run, f),
@@ -240,8 +274,11 @@
   }
   function gauntletWorld(run, preview) {
     const o = run.g.opp, ghost = { relics: o.relics || [], heroes: [] };
+    if (!run.g.map) run.g.map = gauntletMap(run, o, run.g.round);
+    for (const h of run.heroes) if (h.pos && blockedAt(run, h.pos.c, h.pos.r)) h.pos = null;
     for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
     return B.Sim.create({
+      terrain: terrainOf(run),
       // review #15: the ghost fights with its own relics too (stat relics via heroDef, team effects via enemyRelics)
       mode: 'fight', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: 7, relics: run.relics, enemyRelics: o.relics || [],
       heroes: run.heroes.map(h => ({ def: heroDef(run, h), c: h.pos.c, r: h.pos.r })),
@@ -259,7 +296,7 @@
     if (r.lg) { g.lgGain = (g.lgGain || 0) + r.lg.delta; g.lgNow = r.lg; g.lgPromoted = g.lgPromoted || r.lg.promoted; }  // review #21
     g.elo = r.elo; g.teamId = r.teamId; g.wins = r.wins || 0;
     if (r.delta != null && g.opp) g.history.push({ name: g.opp.name, code: g.opp.code || null, elo: g.opp.elo, win: !!r.win, delta: r.delta, key: g.opp.team && g.opp.team[0] && g.opp.team[0].key, ghost: r.ghost || null });
-    if (r.opponent) { g.opp = r.opponent; g.round = r.round; g.status = 'match'; run.cur = { type: 'gauntlet' }; }
+    if (r.opponent) { g.opp = r.opponent; g.round = r.round; g.status = 'match'; run.cur = { type: 'gauntlet' }; g.map = gauntletMap(run, g.opp, g.round); }
     if (r.over) { g.status = r.champion ? 'champion' : 'lost'; g.opp = null; run.cur = null; run.phase = 'over'; run.result = 'gauntlet'; }
   }
 
@@ -478,7 +515,7 @@
     run.cur.done = msg; return msg;
   }
 
-  B.Run = { newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
+  B.Run = { mapOf, blockedAt, gauntletMap, newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
     finishFight, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
     eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate, canEquip, setCounts, setBonuses, seqOf, bossFight,
     eventChoices, eventTargets, canChoose, itemRefs, upgradedOf };

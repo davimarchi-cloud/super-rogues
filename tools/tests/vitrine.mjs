@@ -47,12 +47,16 @@ for (const d of SIZES) {
   await ev(`document.querySelector('[data-act=start-go]').click()`); await sleep(200);
   await ev(`(() => { const r = __bal.run; B.Run.addHero(r, 'lumen'); B.Run.addHero(r, 'kestrel'); r.relics.push('drum'); r.heroes[0].items = ['longsword']; __bal.render(); })()`);
   await shot('03-map');
+  // review #39: show a map with terrain (trees and boulders) instead of fight 1's open meadow
+  await ev(`(() => { for (const o of __bal.run.opts) if (o.type === 'fight') o.map = 'oaks'; __bal.render(); })()`);
   await ev(`(() => { const b = [...document.querySelectorAll('[data-act=choose]')].find(x => /fight/i.test(x.textContent)) || document.querySelector('[data-act=choose]'); b.click(); })()`); await sleep(500);
   if (await ev(`!!document.querySelector('#board')`)) {
     const r = await ev(`(() => { const b = document.querySelector('#board').getBoundingClientRect(); return { right: b.right, bottom: b.bottom, w: b.width, h: b.height }; })()`);
     ok(r.right <= d.w + 1 && r.bottom <= d.h + 1, `${d.name} deploy: the board fits (${Math.round(r.w)}x${Math.round(r.h)}, bottom ${Math.round(r.bottom)} of ${d.h})`);
     if (!d.mobile) ok(r.h >= d.h * 0.6, `${d.name} deploy: the board uses most of the height (${Math.round(r.h)} of ${d.h})`);
     await shot('04-deploy');
+    await ev(`(() => { __bal.run.cur.map = 'pond'; __bal.render(); })()`); await sleep(300); await shot('04b-deploy-pond');
+    await ev(`(() => { __bal.run.cur.map = 'ridge'; __bal.render(); })()`); await sleep(300);
     await ev(`document.querySelector('[data-act=fight]').click()`); await sleep(2600); await shot('05-battle');
     await ev(`__bal.skipBattle()`); await sleep(1800); await shot('06-result');
   }

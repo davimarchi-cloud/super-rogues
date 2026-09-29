@@ -370,5 +370,58 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
     ok(cast && !W.units.some(u => !Number.isFinite(u.hp)), `${B.HEROES[k].name} casts ${B.HEROES[k].abName} with every spec, no NaN`);
   }
 }
+// ---- review #39 (David): terrain maps
+{
+  const key = (c, r) => Hex.key(c, r);
+  for (const m of B.MAPS) {
+    const bl = new Set(m.cells.map(x => key(x.c, x.r)));
+    ok(m.cells.every(x => B.TERRAIN[x.k] && Hex.inside(x.c, x.r)) && bl.size === m.cells.length, `${m.name}: known terrain, inside the board, no hex twice`);
+    ok(m.cells.every(x => bl.has(key(7 - x.c, 7 - x.r))), `${m.name}: point-symmetric, fair to both sides`);
+    const free = Hex.all().filter(h => !bl.has(key(h.c, h.r))), seen = new Set([key(free[0].c, free[0].r)]), q = [free[0]];
+    while (q.length) { const h = q.pop(); for (const n of Hex.neighbors(h.c, h.r)) { const k = key(n.c, n.r); if (!bl.has(k) && !seen.has(k)) { seen.add(k); q.push(n); } } }
+    ok(seen.size === free.length, `${m.name}: every open hex can reach every other`);
+  }
+  // across many runs and fights: fight 1 open, bosses at the Standing Stones, the rest from the rotation; never terrain
+  // on an enemy's start or a hero's hex; both fights of a step can differ
+  let bad = 0, varied = 0, rot = new Set(), n = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const run = Run.newRun(seed * 7919); Run.pickStart(run, [run.startOffer[0]]); Run.addHero(run, 'rook'); Run.addHero(run, 'kestrel');
+    if (seed % 2) { run.heroes[0].pos = { c: 3, r: 6 }; run.heroes[1].pos = { c: 2, r: 7 }; run.heroes[2].pos = { c: 5, r: 7 }; }  // back rows: any map fits
+    else { run.heroes[1].pos = { c: 2, r: 4 }; run.heroes[2].pos = { c: 5, r: 4 }; }                                        // front row: some maps are skipped
+    for (const [diff, fightNo] of [['easy', 1], ['medium', 2], ['hard', 3], ['boss', 4], ['medium', 5], ['hard', 6], ['easy', 7], ['boss', 8]]) {
+      const f = Run.makeFight(run, diff, fightNo), bl = new Set((B.MAP[f.map] || { cells: [] }).cells.map(x => key(x.c, x.r))); n++;
+      if (fightNo === 1 && f.map !== 'meadow') bad++;
+      if (diff === 'boss' && f.map !== 'stones') bad++;
+      if (diff !== 'boss' && fightNo > 1) rot.add(f.map);
+      if (f.enemies.some(e => bl.has(key(e.c, e.r))) || run.heroes.some(h => bl.has(key(h.pos.c, h.pos.r)))) bad++;
+      if (diff === 'medium' && Run.makeFight(run, 'hard', fightNo).map !== f.map) varied++;
+    }
+  }
+  ok(bad === 0, `maps: fight 1 open, bosses at the Standing Stones, never on a starting hex (${bad} bad of ${n})`);
+  ok(rot.size >= 5, `the other fights rotate through the maps (${rot.size} seen)`);
+  ok(varied > 20, `the two fights of a step can be on different maps (${varied})`);
+  // no unit ever stands on terrain; a unit walks around it; placing a hero there is refused
+  const run = Run.newRun(424242); Run.pickStart(run, ['brakk']); Run.addHero(run, 'kestrel'); Run.addHero(run, 'lumen');
+  run.cur = Run.makeFight(run, 'medium', 3); run.cur.map = 'pond';
+  const tile = B.MAP.pond.cells.find(x => x.r >= 4);
+  const before = JSON.stringify(run.heroes.map(h => h.pos)); Run.setPos(run, run.heroes[0].uid, tile.c, tile.r);
+  ok(JSON.stringify(run.heroes.map(h => h.pos)) === before && Run.blockedAt(run, tile.c, tile.r), 'a hero cannot be placed on terrain');
+  run.heroes[0].pos = { c: tile.c, r: tile.r };
+  const W = Run.fightWorld(run);
+  ok(!run.heroes.some(h => Run.blockedAt(run, h.pos.c, h.pos.r)) && W.terrain.length === B.MAP.pond.cells.length, 'a hero left on terrain (old save) is moved off before the fight');
+  let onTerrain = 0; const bl = new Set(W.terrain.map(x => key(x.c, x.r)));
+  while (!W.over && W.t < 20 * 150) { Sim.step(W); if (W.units.some(u => !u.dead && bl.has(key(u.c, u.r)))) onTerrain++; }
+  ok(onTerrain === 0 && finite(W), 'nobody walks, blinks or is pushed onto terrain during a whole fight');
+  // a push into a boulder slams: stun + damage
+  const W2 = Sim.create({ mode: 'fight', seed: 3, noStart: true, terrain: [{ c: 3, r: 1, k: 'rock' }],
+    heroes: [{ def: Run.heroDef(run, run.heroes[0]), c: 3, r: 3 }], enemies: [{ def: Sim.mobScaleDef('brute', 1), c: 3, r: 2 }] });
+  ok(W2.occ[Hex.key(3, 1)] === -1 && W2.tk[Hex.key(3, 1)] === 'rock', 'terrain is blocked in the occupancy grid');
+  const behind = Hex.neighbors(3, 2).filter(h => Hex.dist(h, { c: 3, r: 3 }) === 2).map(h => ({ c: h.c, r: h.r, k: 'rock' }));
+  const run3 = Run.newRun(5); Run.pickStart(run3, ['zephyr']);
+  const W3 = Sim.create({ mode: 'fight', seed: 3, noStart: true, terrain: behind, heroes: [{ def: Run.heroDef(run3, run3.heroes[0]), c: 3, r: 3 }], enemies: [{ def: Sim.mobScaleDef('brute', 1), c: 3, r: 2 }] });
+  const kicker = W3.units[0], brute = W3.units[1];
+  Sim.abilities.galekick(W3, kicker);
+  ok(brute.c === 3 && brute.r === 2 && brute.st.stun > W3.t && W3.fx.some(f => f.text === 'SLAM'), 'a push into a boulder slams: the unit stays and is stunned');
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

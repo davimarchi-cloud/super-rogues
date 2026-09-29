@@ -944,5 +944,38 @@
   B.lockedFor = lvl => B.UNLOCKS.filter(u => u.lvl > lvl).map(u => u.id);
   B.hasPerk = (perks, id) => (perks || []).includes(id) || ((id === 'speed4' || id === 'elo') && (perks || []).includes('king'));
 
+  // ---------------------------------------------------------------- terrain (review #39, David)
+  // "Add some interesting features to the hex map so the fights aren't all the same ... an impassable ridge, a tree ...
+  // a preset rotation that never puts an obstruction on the starting hero/enemy deployment; make those hexes
+  // undeployable". Every terrain hex blocks movement and deployment (ranged attacks and spells still fly over it); a
+  // push that drives a unit into one slams it (stun + damage). Each map is point-symmetric (c, r) <-> (7-c, 7-r), the
+  // same mirror the Gauntlet uses for ghosts, so both sides get the same board.
+  B.TERRAIN = {
+    tree: { name: 'Tree', icon: '🌳', desc: 'A big leafy tree. Nobody can walk through it or stand on it.' },
+    rock: { name: 'Boulder', icon: '🪨', desc: 'A heavy boulder. It blocks the way; units pushed into it are slammed and stunned.' },
+    ridge: { name: 'Ridge', icon: '⛰️', desc: 'A rocky ridge. It blocks the way; units pushed into it are slammed and stunned.' },
+    pond: { name: 'Pond', icon: '💧', desc: 'Deep water. Nobody can wade through it, but arrows and spells fly over.' },
+  };
+  const MAP = (id, name, desc, half) => {
+    const cells = [];
+    for (const [c, r, k] of half) { cells.push({ c, r, k }); if (!(7 - c === c && 7 - r === r)) cells.push({ c: 7 - c, r: 7 - r, k }); }
+    return { id, name, desc, cells };
+  };
+  B.MAPS = [
+    MAP('meadow', 'Open Meadow', 'Nothing in the way: a straight fight.', []),
+    MAP('oaks', 'Twin Oaks', 'Two old oaks and two boulders split the middle.', [[2, 3, 'tree'], [6, 2, 'rock']]),
+    MAP('ridge', 'The Ridge', 'Two ridges leave three lanes: the flanks and a narrow middle.', [[1, 3, 'ridge'], [2, 3, 'ridge']]),
+    MAP('boulders', 'Boulder Field', 'Boulders scattered across the field.', [[3, 2, 'rock'], [6, 3, 'rock'], [0, 3, 'rock']]),
+    MAP('pond', 'Lily Pond', 'A pond in the centre: the fight goes around it.', [[3, 3, 'pond'], [4, 3, 'pond'], [0, 2, 'tree']]),
+    MAP('forest', 'Forest Edge', 'Trees close the sides and push everyone to the middle.', [[0, 3, 'tree'], [0, 4, 'tree'], [1, 2, 'tree']]),
+    MAP('choke', 'The Pass', 'A broken ridge with one pass in the middle.', [[0, 3, 'ridge'], [1, 3, 'ridge'], [2, 3, 'ridge']]),
+    MAP('cross', 'Crossroads', 'Four boulders make three lanes.', [[2, 3, 'rock'], [5, 3, 'rock']]),
+    MAP('stones', 'Standing Stones', 'An old stone circle: open in the middle, stones on the sides.', [[1, 2, 'rock'], [6, 2, 'rock']]),
+  ];
+  B.MAP = Object.fromEntries(B.MAPS.map(m => [m.id, m]));
+  // fight 1 is the Open Meadow; bosses fight at the Standing Stones; the other fights and the Gauntlet floors take the
+  // next map of this rotation (where it starts depends on the run)
+  B.MAP_ROTATION = ['oaks', 'ridge', 'boulders', 'pond', 'forest', 'choke', 'cross'];
+
   if (typeof module !== 'undefined') module.exports = B;
 })(typeof window !== 'undefined' ? window : globalThis);

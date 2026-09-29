@@ -288,7 +288,8 @@
   function optHTML(o, i) {
     if (o.type === 'fight') {
       if (o.diff === 'boss') { const b = o.enemies.map(e => B.BOSSES[e.key]).find(Boolean); return bannerHTML(i, 'boss', img(b.key, 72, 'por emb-img'), esc(b.name), `<span class="small">${fmt(b.desc)}</span><span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold'); }
-      return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔️⚔️' : o.diff === 'medium' ? '🗡️' : '⚔️', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold' + (o.enemies.some(e => e.elite) ? ' · ★ elite' : ''));
+      const mp = o.map && B.MAP[o.map] ? `<span class="small mapline">🗺 ${esc(B.MAP[o.map].name)}${B.MAP[o.map].cells.length ? ' · ' + [...new Set(B.MAP[o.map].cells.map(x => B.TERRAIN[x.k].icon))].join('') : ''}</span>` : '';
+      return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔️⚔️' : o.diff === 'medium' ? '🗡️' : '⚔️', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>${mp}`, '+' + o.gold + ' gold' + (o.enemies.some(e => e.elite) ? ' · ★ elite' : ''));
     }
     if (o.type === 'shop') return bannerHTML(i, 'shop', o.kind === 'heroShop' ? '🦸' : o.kind === 'itemShop' ? '🛡️' : '💎', SHOP_NAME[o.kind] + (o.final ? ' (last)' : ''), `<span class="small">${SHOP_DESC[o.kind]}</span>`);
     if (o.type === 'event') return bannerHTML(i, 'event', '❓', esc(EVENT[o.id].name), `<span class="small">${esc(EVENT[o.id].text)}</span>`);
@@ -364,8 +365,9 @@
   function deployHTML() {
     const gau = run.cur && run.cur.type === 'gauntlet';
     const f = run.cur;
+    const map = Run.mapOf(run);
     return `<section class="deploy">
-      <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
+      <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy${map ? ` <span class="mapchip" title="${esc(map.desc)}">🗺 ${esc(map.name)}</span>` : ''}</div>
       <p class="hint tight">${!gau && f.mod ? `<span class="nextmod">⚑ ${fmt(modText(f.mod))}</span>` : 'Drag heroes within the blue rows: tanks in front, ranged behind. Tap a unit for details.'}</p>
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
@@ -593,6 +595,7 @@
   function infoHTML() {
     const W = battle ? battle.W : preview;
     if (!W || !ui.info) return '<span class="dim">Tap a unit to see its stats.</span>';
+    if (typeof ui.info === 'string') { const T = B.TERRAIN[ui.info]; return T ? `<div class="hrow"><span class="ticon">${T.icon}</span><b>${T.name}</b><span class="dim small">terrain</span></div><div class="small">${esc(T.desc)}</div>` : ''; }
     const u = W.byId[ui.info]; if (!u) return '';
     const hd = HEROES[u.key];
     const abil = hd ? `<b class="abname">${esc(hd.abName)}</b> ${fmt(hd.abDesc)}` : u.boss ? fmt(B.BOSSES[u.key].desc) : u.abil ? fmt(MOB_ABIL[u.abil] || '') : u.fl.has('dive') ? 'Leaps to your back line at the start.' : u.kind === 'summon' ? 'Summoned unit.' : 'No special ability.';
@@ -641,17 +644,20 @@
   function unitAt(W, h) { return h && W ? W.units.find(u => !u.dead && u.c === h.c && u.r === h.r) : null; }
   function onDown(e) {
     const { h } = evHex(e); const W = battle ? battle.W : preview; const u = unitAt(W, h);
-    if (u) { ui.info = u.id; const el = $('#info'); if (el) { el.innerHTML = infoHTML(); el.classList.remove('empty'); } }
+    const tk = !u && h && W && W.tk ? W.tk[B.Hex.key(h.c, h.r)] : null;
+    if (u || tk) { ui.info = u ? u.id : tk; const el = $('#info'); if (el) { el.innerHTML = infoHTML(); el.classList.remove('empty'); } }
     if (battle || !h) return;
     if (u && u.side === 0 && u.uid) { ui.drag = { uid: u.uid, from: h, key: u.key }; view.canvas.setPointerCapture(e.pointerId); }
   }
-  function onMove(e) { if (!ui.drag || battle) return; const { x, y, h } = evHex(e); drawPreview({ drop: h && h.r >= 4 ? h : null, dragGhost: { x, y, key: ui.drag.key } }); }
+  function onMove(e) { if (!ui.drag || battle) return; const { x, y, h } = evHex(e); drawPreview({ drop: h && h.r >= 4 && !Run.blockedAt(run, h.c, h.r) ? h : null, dragGhost: { x, y, key: ui.drag.key } }); }
+  // review #39: a hero can't be placed on a tree, boulder, ridge or pond
+  function onTerrain(h) { const x = h && (Run.mapOf(run) || { cells: [] }).cells.find(t => t.c === h.c && t.r === h.r); if (x) toast(`${B.TERRAIN[x.k].icon} ${B.TERRAIN[x.k].name}: heroes can't stand here`); return !!x; }
   function onUp(e) {
     if (battle) return;
     const { h } = evHex(e); const d = ui.drag; ui.drag = null;
-    if (d && h && (h.c !== d.from.c || h.r !== d.from.r)) { if (h.r >= 4) { Run.setPos(run, d.uid, h.c, h.r); ui.selUid = 0; save(); } }
+    if (d && h && (h.c !== d.from.c || h.r !== d.from.r)) { if (h.r >= 4 && !onTerrain(h)) { Run.setPos(run, d.uid, h.c, h.r); ui.selUid = 0; save(); } }
     else if (d) ui.selUid = ui.selUid === d.uid ? 0 : d.uid;
-    else if (ui.selUid && h && h.r >= 4) { Run.setPos(run, ui.selUid, h.c, h.r); ui.selUid = 0; save(); }
+    else if (ui.selUid && h && h.r >= 4 && !onTerrain(h)) { Run.setPos(run, ui.selUid, h.c, h.r); ui.selUid = 0; save(); }
     preview = worldFor(true);
     drawPreview();
   }
@@ -1016,6 +1022,7 @@
       <li>Start with 1 hero and 1 relic (3 of each offered). Each hero has a unique ability that fires when its blue mana bar is full. Recruit up to 3 heroes in the Hero Shop.</li>
       <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 4 and 8 are bosses.</li>
       <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
+      <li>🗺 Every fight after the first is on a map with terrain: 🌳 trees, 🪨 boulders, ⛰️ ridges and 💧 ponds block the way (nobody can stand on them or walk through; arrows and spells fly over). Units pushed into a tree, boulder or ridge are slammed and stunned. Bosses fight at the Standing Stones.</li>
       <li>How abilities scale: every ability names its stat. <b>AD</b> = attack (⚔). <b>AP</b> = ability power (✦): 100 at Lv 1, +30 per level, more from items. <span class="kw-atk">Physical</span> abilities deal a % of AD; <span class="kw-ap">magic</span> abilities deal a % of AP, of AD, or of both added together (like "40% AD + 20% AP"); heals scale with AP; shields are a % of max HP. AP never multiplies AD. Tap a hero (in battle or in Team) to see its numbers.</li>
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
       <li>Items have a type (weapon, off-hand, helmet, armor, gloves, boots, trinket) and a rarity: <span class="r-common">common</span>, <span class="r-uncommon">uncommon</span>, <span class="r-rare">rare</span>, <span class="r-epic">epic</span>, <span class="r-set">set</span>, <span class="r-legendary">legendary</span> and <span class="r-mythic">mythic</span>. A hero wears one item of each type, up to their slot count. Two or three pieces of a set on the same hero unlock set bonuses.</li>

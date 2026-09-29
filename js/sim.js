@@ -14,12 +14,17 @@
   }
 
   // ------------------------------------------------------------------ world
+  const BLOCK = -1; // occupancy value of a terrain hex (units have ids > 0)
   function create(o) {
     const W = {
       t: 0, nid: 0, units: [], byId: {}, occ: new Array(Hx.COLS * Hx.ROWS).fill(0), q: [], fx: [], zones: [],
       rng: rngOf(o.seed || 1), mode: o.mode || 'fight', over: false, winner: -1, kills: 0, wave: 0,
       sd: 0, fightNo: o.fightNo || 1, fl: {}, fl1: {}, once: {}, log: [],
     };
+    // review #39 (David): terrain hexes (trees, boulders, ridges, ponds) are blocked in the occupancy grid, so movement,
+    // spawns, blinks and pushes all go around them; ranged attacks and spells ignore them
+    W.terrain = (o.terrain || []).filter(x => Hx.inside(x.c, x.r)).map(x => ({ c: x.c, r: x.r, k: x.k }));
+    W.tk = {}; for (const x of W.terrain) { W.occ[Hx.key(x.c, x.r)] = BLOCK; W.tk[Hx.key(x.c, x.r)] = x.k; }
     // team relic effects per side: W.fl = the player's relics, W.fl1 = the enemy's (a gauntlet ghost's, review #15)
     for (const id of (o.relics || [])) { const r = B.RELIC[id]; if (r && r.fl) W.fl[r.fl] = 1; }
     for (const id of (o.enemyRelics || [])) { const r = B.RELIC[id]; if (r && r.fl) W.fl1[r.fl] = 1; }
@@ -631,6 +636,8 @@
       const free = away.filter(h => !W.occ[Hx.key(h.c, h.r)]).sort((a, b) => Hx.dist(b, src) - Hx.dist(a, src))[0];
       if (!free) {
         const blk = away.map(h => W.byId[W.occ[Hx.key(h.c, h.r)]]).find(v => v && !v.dead && v !== t && v.side !== src.side);
+        // review #39: driven into a tree, boulder or ridge (not a pond) = slammed (stunned 1 s, half an attack of damage)
+        if (!blk && away.some(h => W.tk[Hx.key(h.c, h.r)] && W.tk[Hx.key(h.c, h.r)] !== 'pond')) { fxText(W, t, 'SLAM', '#e8d9b0'); deal(W, src, t, atkOf(W, src) * 0.5, 'phys', {}); cc(W, t, 'stun', 1); break; }
         if (blk) { fxRing(W, blk.c, blk.r, 0, '#bff4ff', 8); deal(W, src, blk, atkOf(W, src), 'phys', { ability: true }); cc(W, blk, 'stun', 1); deal(W, src, t, atkOf(W, src) * 0.5, 'phys', {}); }
         break;
       }

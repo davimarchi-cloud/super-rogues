@@ -1332,3 +1332,7 @@ body.desk .title .labtile { grid-area: lab; margin: 12px 0 0; }
 .alsec p { text-align: left; }
 .alsliders .alchk { display: flex; align-items: center; gap: 10px; grid-template-columns: none; cursor: pointer; }
 .alsliders .alchk input { width: 22px; height: 22px; min-height: 0; flex: 0 0 auto; margin: 0; padding: 0; accent-color: var(--gold); }
+/* review #39: terrain maps */
+.mapchip { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #ffffff26; font-size: .85em; white-space: nowrap; }
+.banner .mapline { display: block; margin-top: 2px; opacity: .95; }
+.ticon { font-size: 26px; line-height: 1; }

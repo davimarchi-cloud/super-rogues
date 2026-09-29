@@ -70,8 +70,8 @@
     if (o.deploy) return r >= 4 ? `hsl(205,62%,${58 + n * 5}%)` : `hsl(4,58%,${63 + n * 4}%)`;
     return (c + r) % 2 ? `hsl(104,46%,${50 + n * 5}%)` : `hsl(96,44%,${56 + n * 5}%)`;
   }
-  function drawBoard(v, o) {
-    const { ctx, size } = v, th = v.slab;
+  function drawBoard(v, o, W) {
+    const { ctx, size } = v, th = v.slab, tk = (W && W.tk) || {};
     for (let r = 0; r < Hx.ROWS; r++) for (let c = 0; c < Hx.COLS; c++) {
       const pts = corners(v, c, r, size * 0.985);
       // side faces of the two lower edges (hidden by the next row except at the board's edge)
@@ -82,14 +82,61 @@
       const top = corners(v, c, r, size * 0.94);
       path(ctx, top);
       const drop = o.drop && o.drop.c === c && o.drop.r === r;
-      ctx.fillStyle = drop ? '#ffe066' : tileColor(c, r, o); ctx.fill();
+      // review #39: terrain hexes keep the meadow colour while deploying (nobody can be placed there)
+      ctx.fillStyle = drop ? '#ffe066' : tileColor(c, r, tk[Hx.key(c, r)] ? {} : o); ctx.fill();
       if (v.grit) { ctx.globalAlpha = royal() ? 1 : 0.35; ctx.fillStyle = v.grit; ctx.fill(); ctx.globalAlpha = 1; }
       // bevel: lit upper-left edges, shaded lower-right edges
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = royal() ? 'rgba(255,207,90,0.38)' : 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.moveTo(top[3].x, top[3].y); ctx.lineTo(top[4].x, top[4].y); ctx.lineTo(top[5].x, top[5].y); ctx.lineTo(top[0].x, top[0].y); ctx.stroke();
       ctx.strokeStyle = royal() ? 'rgba(0,0,0,0.45)' : 'rgba(40,70,20,0.35)'; ctx.beginPath(); ctx.moveTo(top[0].x, top[0].y); ctx.lineTo(top[1].x, top[1].y); ctx.lineTo(top[2].x, top[2].y); ctx.lineTo(top[3].x, top[3].y); ctx.stroke();
     }
+    for (const k in tk) if (tk[k] === 'pond') drawPond(v, k % Hx.COLS, (k / Hx.COLS) | 0);
     if (o.deploy) { const y = hexScreen(v, 0, 4).y - size * 0.75 * K; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(v.w, y); ctx.stroke(); ctx.setLineDash([]); }
+  }
+
+  // ------------------------------------------------------------------ terrain (review #39): cartoon trees, boulders,
+  // ridges (standing things, depth-sorted with the units) and ponds (flat, part of the board)
+  function drawPond(v, c, r) {
+    const { ctx, size } = v, p = hexScreen(v, c, r), t = performance.now() / 1000;
+    path(ctx, corners(v, c, r, size * 0.86)); ctx.fillStyle = '#3aa4e0'; ctx.fill();
+    path(ctx, corners(v, c, r, size * 0.7)); ctx.fillStyle = '#5cc2f2'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 2; i++) { const k = (t * 0.35 + i * 0.5 + (c * 0.3 + r * 0.17)) % 1; ctx.globalAlpha = 1 - k; ctx.beginPath(); ctx.ellipse(p.x - size * 0.15, p.y + size * 0.05, size * (0.12 + k * 0.4), size * (0.12 + k * 0.4) * K, 0, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    if ((c + r) % 2) { // a lily pad with a flower
+      const lx = p.x + size * 0.28, ly = p.y - size * 0.05;
+      ctx.fillStyle = '#4caf50'; ctx.beginPath(); ctx.ellipse(lx, ly, size * 0.2, size * 0.2 * K, 0, 0.35, Math.PI * 2 - 0.1); ctx.lineTo(lx, ly); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ff9fd2'; ctx.beginPath(); ctx.arc(lx - size * 0.03, ly - size * 0.03, size * 0.06, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  function blob(ctx, pts) { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); }
+  function drawTerrain(v, x, fade) {
+    const { ctx, size: s } = v, p = hexScreen(v, x.c, x.r), X = p.x, Y = p.y;
+    ctx.save(); ctx.globalAlpha = fade ? 0.5 : 1;
+    const g = ctx.createRadialGradient(X, Y, 0, X, Y, s * 0.7); g.addColorStop(0, 'rgba(20,50,10,0.4)'); g.addColorStop(1, 'rgba(20,50,10,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(X, Y, s * 0.7, s * 0.7 * K * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(1.2, s * 0.05);
+    if (x.k === 'tree') {
+      ctx.fillStyle = '#8a5a2e'; ctx.strokeStyle = '#5a3514'; ctx.beginPath(); ctx.rect(X - s * 0.1, Y - s * 0.7, s * 0.2, s * 0.7); ctx.fill(); ctx.stroke();
+      const leaf = [[-0.3, -0.95, 0.42], [0.3, -0.98, 0.4], [0, -1.35, 0.48]];
+      ctx.fillStyle = '#2e8a3e'; for (const [dx, dy, rr] of leaf) { ctx.beginPath(); ctx.arc(X + dx * s, Y + dy * s + s * 0.05, rr * s, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#49b95a'; for (const [dx, dy, rr] of leaf) { ctx.beginPath(); ctx.arc(X + dx * s - s * 0.04, Y + dy * s - s * 0.03, rr * s * 0.9, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#8be07f'; for (const [dx, dy, rr] of leaf) { ctx.beginPath(); ctx.arc(X + dx * s - rr * s * 0.35, Y + dy * s - rr * s * 0.4, rr * s * 0.28, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#ff6b6b'; for (const [dx, dy] of [[-0.35, -0.85], [0.25, -1.1], [0.05, -1.45]]) { ctx.beginPath(); ctx.arc(X + dx * s, Y + dy * s, s * 0.06, 0, Math.PI * 2); ctx.fill(); }
+    } else if (x.k === 'rock') {
+      const P = [[-0.5, 0], [-0.55, -0.3], [-0.3, -0.62], [0.08, -0.72], [0.42, -0.55], [0.56, -0.2], [0.48, 0]].map(([a, b]) => [X + a * s, Y + b * s]);
+      blob(ctx, P); ctx.fillStyle = '#9ca3ad'; ctx.fill(); ctx.strokeStyle = '#5f6670'; ctx.stroke();
+      blob(ctx, [[X + 0.08 * s, Y - 0.72 * s], [X + 0.42 * s, Y - 0.55 * s], [X + 0.56 * s, Y - 0.2 * s], [X + 0.48 * s, Y], [X + 0.1 * s, Y], [X + 0.05 * s, Y - 0.35 * s]]); ctx.fillStyle = '#7f8792'; ctx.fill();
+      ctx.fillStyle = '#d3d8de'; ctx.beginPath(); ctx.ellipse(X - s * 0.22, Y - s * 0.45, s * 0.14, s * 0.07, -0.5, 0, Math.PI * 2); ctx.fill();
+    } else if (x.k === 'ridge') {
+      const P = [[-0.75, 0], [-0.55, -0.6], [-0.3, -1.2], [-0.05, -0.8], [0.25, -1.45], [0.55, -0.7], [0.75, 0]].map(([a, b]) => [X + a * s, Y + b * s]);
+      blob(ctx, P); ctx.fillStyle = '#b09474'; ctx.fill(); ctx.strokeStyle = '#6e5738'; ctx.stroke();
+      blob(ctx, [[X + 0.25 * s, Y - 1.45 * s], [X + 0.55 * s, Y - 0.7 * s], [X + 0.75 * s, Y], [X + 0.25 * s, Y], [X + 0.15 * s, Y - 0.6 * s]]); ctx.fillStyle = '#8c7254'; ctx.fill();
+      blob(ctx, [[X - 0.3 * s, Y - 1.2 * s], [X - 0.05 * s, Y - 0.8 * s], [X - 0.2 * s, Y - 0.9 * s], [X - 0.42 * s, Y - 0.92 * s]]); ctx.fillStyle = '#f4efe4'; ctx.fill();
+      blob(ctx, [[X + 0.25 * s, Y - 1.45 * s], [X + 0.4 * s, Y - 1.08 * s], [X + 0.22 * s, Y - 1.15 * s], [X + 0.1 * s, Y - 1.1 * s]]); ctx.fillStyle = '#f4efe4'; ctx.fill();
+      ctx.fillStyle = '#6bbf59'; for (const dx of [-0.6, 0.62]) { ctx.beginPath(); ctx.ellipse(X + dx * s, Y - s * 0.04, s * 0.14, s * 0.08, 0, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.restore();
   }
 
   // ------------------------------------------------------------------ units
@@ -154,7 +201,7 @@
     const bg = ctx.createRadialGradient(v.w / 2, v.h * 0.55, v.w * 0.1, v.w / 2, v.h * 0.55, v.w * 0.8);
     if (royal()) { bg.addColorStop(0, '#2c1f40'); bg.addColorStop(1, '#0c0913'); } else { bg.addColorStop(0, '#bfe6ff'); bg.addColorStop(1, '#6fb2f2'); }
     ctx.fillStyle = bg; ctx.fillRect(0, 0, v.w, v.h);
-    drawBoard(v, o);
+    drawBoard(v, o, W);
     if (!W) return;
     for (const z of W.zones) if (z.until > W.t) for (const h of Hx.within(z.c, z.r, z.rad)) {
       path(ctx, corners(v, h.c, h.r, size * 0.88)); ctx.fillStyle = 'rgba(255,122,61,' + (0.2 + 0.08 * Math.sin(T / 3)) + ')'; ctx.fill();
@@ -169,8 +216,11 @@
     if (!o.deploy) spawnFromFx(v, W, T, S);
     // ambient embers drifting up
     if (!o.deploy && Math.random() < dt * 6 && S.parts.length < MAXP) S.parts.push({ x: Math.random() * v.w, y: v.h + 4, vx: (Math.random() - 0.5) * 10, vy: -20 - Math.random() * 25, g: 0, life: 4 + Math.random() * 3, t: 0, r: 1 + Math.random() * 1.2, col: Math.random() < 0.5 ? '#ffb347' : '#e8b84a', glow: true });
-    const us = W.units.filter(u => !u.dead || W.t - u.deathT < 12).map(u => ({ u, p: unitPos(v, W, u, T) })).sort((a, b) => a.p.y - b.p.y);
-    for (const { u, p } of us) drawUnit(v, W, u, p, T, o);
+    const us = W.units.filter(u => !u.dead || W.t - u.deathT < 12).map(u => ({ u, p: unitPos(v, W, u, T) }));
+    // standing terrain joins the depth sort; it turns see-through while a unit stands right behind it
+    for (const x of (W.terrain || [])) if (x.k !== 'pond') us.push({ x, p: hexScreen(v, x.c, x.r), fade: x.k !== 'rock' && W.units.some(u => !u.dead && u.r === x.r - 1 && Hx.dist(u, x) === 1) });
+    us.sort((a, b) => a.p.y - b.p.y);
+    for (const e of us) if (e.x) drawTerrain(v, e.x, e.fade); else drawUnit(v, W, e.u, e.p, T, o);
     for (const f of W.fx) {
       if (f.k === 'ring' || T < f.t0 || T > f.t1 + 0.99) continue;
       const k = Math.min(1, (T - f.t0) / Math.max(1, f.t1 - f.t0));

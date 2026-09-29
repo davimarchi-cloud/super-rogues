@@ -24,7 +24,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 
 | Arquivo | O quê |
 |---|---|
-| `js/hex.js` | grade 8x8 pointy-top "odd-r"; linha 0 = topo (inimigo), linhas 4-7 = deploy do jogador |
+| `js/hex.js` | grade 8x8 (terreno por luta: `B.MAPS` no data.js, `Run.mapOf`), pointy-top "odd-r"; linha 0 = topo (inimigo), linhas 4-7 = deploy do jogador |
 | `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 36 heróis (habilidade + 4 pares de spec; 3 liberados por nível de conta; 6 com escala passiva; habilidade em % de AD e/ou AP, v28), 120 itens com tipo e raridade (`TYPES`, `RARITIES`, `SETS`), 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
 | `js/sim.js` | motor de combate puro e determinístico (20 ticks/s). Roda no navegador e no Node |
 | `js/run.js` | máquina de estados da run (mapa, lutas, lojas, eventos, XP, itens). JSON puro, salvo no localStorage |
@@ -124,6 +124,15 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v32 (2026-09-29), lote 29 do David (#39): terreno no mapa.** `B.TERRAIN` (árvore, pedra, serra, lago) e `B.MAPS`
+  (9 mapas simétricos por (c,r)↔(7-c,7-r), o mesmo espelho dos fantasmas). Luta 1 = Open Meadow (vazio), chefes = Standing
+  Stones, o resto e cada andar do Gauntlet = próximo mapa de `B.MAP_ROTATION` (início pelo seed da run; as 2 lutas de um
+  passo podem ter mapas diferentes). Um mapa só entra se nenhum terreno cair onde um herói está ou onde um inimigo
+  começa (senão o próximo da rotação; último recurso = campo aberto); inimigos nunca nascem em terreno. Terreno bloqueia
+  andar e posicionar (`W.occ` = -1 na sim, `Run.setPos`/`autoPlace` recusam), tiro e magia passam por cima;
+  empurrão contra árvore/pedra/serra = "SLAM" (atordoa 1 s + meio ataque). Tocar no terreno explica o que é; nome do mapa
+  no cabeçalho do posicionamento e nos cartões das lutas. Equilíbrio: matriz dos chefes 44%/31% (antes 44%/29%), robô igual.
 
 - **v31 (2026-09-29), pedido do dono: Art Lab** ("bota no acesso do David pra ele anexar as imagens e testar como ficam
   os bonecos"). Botão no fim do menu inicial (para todos; o nome digitado não é login). O David sobe uma splash e uma
