@@ -42,7 +42,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma` |
 | `tools/sim-run.js`, `tools/boss-matrix.js` | robô joga runs inteiras / todos os 220 times de 3 contra os 2 chefes |
-| `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
+| `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `vitrine.mjs` (fotos de todas as telas no celular e em 3 PCs, v29), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
 
 ## Regras do jogo que vieram do briefing (ponto de partida: os jogadores podem mudar qualquer uma)
 
@@ -122,6 +122,20 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v29 (2026-09-29), pedido direto do dono** ("no telemóvel está bem enquadrado, mas para PC está horrível o
+  enquadramento ... deixar mais child friendly, parece ainda um jogo amador"). (1) **Tema infantil em todas as telas**
+  (camada v29 no fim do `style.css`): céu azul com brilhos coloridos, fontes arredondadas **Fredoka** (títulos e
+  botões) e **Nunito** (texto) servidas de `fonts/` (o CSP só aceita fonte do próprio site; licença OFL em
+  `fonts/README.txt`), botões "de bala" com sombra embaixo, cartões arredondados, escolhas do mapa como cartões
+  coloridos (verde fácil, amarelo médio, vermelho difícil, roxo chefe, azul loja, rosa evento), ícones amigáveis (👹
+  chefe, 🏆 Gauntlet, 💥 abates), raridades mais claras, e o **tabuleiro de grama** com céu (o Royal dos Reis continua
+  roxo e dourado). (2) **Palco de PC** (`body.desk`, tela larga de pelo menos 1024x560): cabeçalho na largura toda,
+  cada tela centralizada no espaço que sobra, **tabuleiro dimensionado pela altura** com o painel de 380 px ao lado
+  (`boardWidth`), grupo e próximo chefe no painel de posicionamento, mapa com o grupo numa coluna à direita, título em 2
+  colunas com os heróis grandes. `tools/tests/vitrine.mjs` fotografa as telas principais no celular e em 3 telas de
+  PC (1366x768, 1440x900, 1920x1080) e copia para `C:\Users\davi_\Downloads\balance-prints\` (o dono não vê
+  cartão de arquivo no chat). Celular com o mesmo enquadramento de antes (testes de caber na tela passam).
 
 - **v28 (2026-09-29), lote 26 do David** (#36): (1) **nomes próprios**, sem copiar outros jogos: os 33 heróis (Bastion
   virou Brannoc, Pyra virou Emberlyn etc.), as habilidades com nome de outro jogo (Fireball → Cinder Comet, Consecrate →
