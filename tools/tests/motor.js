@@ -148,10 +148,10 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   const m0 = Run.heroMods(run, h);
   h.items = ['obs_helm', 'obs_plate'];
   const m2 = Run.heroMods(run, h);
-  ok(Math.round((m2.armor || 0) - (m0.armor || 0)) === 20 + 25 + 25 && Run.setBonuses(h.items).length === 1, 'Obsidian Guard 2 pieces: +25 armor on top of the pieces');
+  ok(Math.round((m2.armor || 0) - (m0.armor || 0)) === 20 + 25 + 25 && Run.setBonuses(h.items).length === 1, 'Nightglass Guard 2 pieces: +25 armor on top of the pieces');
   h.items.push('obs_blade');
   const m3 = Run.heroMods(run, h);
-  ok(m3.shieldStartPct >= 0.2 && m3.thorns >= 0.25 && Run.setBonuses(h.items).length === 2, 'Obsidian Guard 3 pieces: shield, thorns and attack');
+  ok(m3.shieldStartPct >= 0.2 && m3.thorns >= 0.25 && Run.setBonuses(h.items).length === 2, 'Nightglass Guard 3 pieces: shield, thorns and attack');
   h.items = ['lightningrod', 'storm_gloves', 'storm_boots', 'storm_sigil'];
   const ms = Run.heroMods(run, h);
   ok(ms.chainEvery === 3 && ms.chainTargets === 3 && ms.chainDmg === 0.5, `two chain sources keep the best of each part (every ${ms.chainEvery}, ${ms.chainTargets} targets), not the sum`);
@@ -188,8 +188,8 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(ghost.length === 2 && Math.round(ghost.find(u => u.key === 'bastion').maxHp) === Math.round(exp.hp) && ghost.find(u => u.key === 'bastion').m.hp >= 400 + 150, 'ghost heroes wear their items and stat relics (Warmog + Giant Tooth)');
   ok(mine.every(u => u.st.slowU > W.t) && ghost.every(u => u.buffs.some(b => b.s === 'asPct' && b.v === 0.3)) && !mine.some(u => u.buffs.some(b => b.s === 'asPct' && b.v === 0.3)), "the ghost's team relics work for the ghost: its Frost Sigil slows us, its War Horn speeds up its own heroes");
   for (const u of ghost) u.hp = 5;  // so a ghost hero surely dies
-  let phoenix = 0; for (let k = 0; k < 20 * 90 && !W.over; k++) { Sim.step(W); for (const f of W.fx) if (f.k === 'text' && f.text === 'PHOENIX' && W.byId[f.id] && W.byId[f.id].side === 1) phoenix = 1; }
-  ok(phoenix && W.once.feather1 && !W.once.feather, "the ghost's Phoenix Feather revives one of its heroes (ours was not used)");
+  let phoenix = 0; for (let k = 0; k < 20 * 90 && !W.over; k++) { Sim.step(W); for (const f of W.fx) if (f.k === 'text' && f.text === 'ASHEN PLUME' && W.byId[f.id] && W.byId[f.id].side === 1) phoenix = 1; }
+  ok(phoenix && W.once.feather1 && !W.once.feather, "the ghost's Ashen Plume revives one of its heroes (ours was not used)");
   const plain = Run.newRun(323); Run.pickStart(plain, ['brakk', 'lumen']); plain.relics = ['frostsigil']; plain.cur = Run.makeFight(plain, 'easy', 1);
   const P = Run.fightWorld(plain);
   ok(P.units.filter(u => u.side === 1).every(u => u.st.slowU > P.t) && P.units.filter(u => u.side === 0).every(u => !(u.st.slowU > P.t)), 'our Frost Sigil still slows the enemies in normal fights');
@@ -228,7 +228,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(lu.xp === xp0 + 55 && run.heroes[0].xp === bx0, 'Private lessons: the XP goes to the hero you choose');
   // reforge keeps the type and raises the rarity
   run = fresh(5, 'smith'); Run.eventAct(run, 2, 'b:0');
-  ok(B.ITEM[run.bag[0]].type === 'helmet' && B.ITEM[run.bag[0]].tier === 'rare' && run.gold === 45, `Reforge: Leather Cap (uncommon helmet) became ${B.ITEM[run.bag[0]].name} (rare helmet) for 5 gold`);
+  ok(B.ITEM[run.bag[0]].type === 'helmet' && B.ITEM[run.bag[0]].tier === 'rare' && run.gold === 45, `Reforge: Scout's Cap (uncommon helmet) became ${B.ITEM[run.bag[0]].name} (rare helmet) for 5 gold`);
   run = fresh(5, 'smith'); Run.eventAct(run, 2, 'h:' + run.heroes[0].uid + ':0');
   ok(B.ITEM[run.heroes[0].items[0]].type === 'weapon' && B.ITEM[run.heroes[0].items[0]].tier === 'uncommon', 'Reforge works on a worn item too, and it stays equipped');
   // respec swaps the latest specialization for the other one of its pair
@@ -251,7 +251,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   Run.eventAct(run, 2); ok(run.bag.includes(offerItems[2]), 'Armory: you take the one you pick');
   // collector completes a set you started
   run = fresh(11, 'collector'); Run.eventAct(run, 0);
-  ok(['obs_blade', 'obs_plate'].includes(run.bag[run.bag.length - 1]), 'Collector: a missing piece of the set you own (Obsidian Guard)');
+  ok(['obs_blade', 'obs_plate'].includes(run.bag[run.bag.length - 1]), 'Collector: a missing piece of the set you own (Nightglass Guard)');
   // next-fight modifiers reach the fight, then wear off
   run = fresh(12, 'scout'); Run.eventAct(run, 0);
   ok(run.nextMod && run.nextMod.enemyHp === -0.2, 'Scout: the ambush is stored for the next fight');

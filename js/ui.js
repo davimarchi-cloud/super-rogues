@@ -77,7 +77,7 @@
   // review #10 (David): readable at a glance. fmt() colours game terms and bolds numbers in any description;
   // durations ("1.5s") are italic. It tokenises the RAW text and escapes every piece, so it is XSS-safe.
   const KW = [
-    ['kw-atk', 'attack speed|attacks?|physical|damage'], ['kw-ap', 'magic damage|magic|ability power|abilities|ability|AP'],
+    ['kw-atk', 'attack speed|attacks?|physical|damage|AD'], ['kw-ap', 'magic damage|magic|ability power|abilities|ability|AP'],
     ['kw-def', 'magic resist|armor|MR|shields?|invulnerable|untargetable|dodge'], ['kw-hp', 'max HP|HP|heals?|healing|healed|regenerates?|regen|lifesteal|revives?|resurrect\\w*'],
     ['kw-cc', 'stuns?|stunned|stunning|freezes?|frozen|freeze|roots?|slows?|slowed|silence[sd]?|taunts?|pulls?|knock\\w*'],
     ['kw-dot', 'burns?|burning|burn|poisons?|poison|bleed'], ['kw-crit', 'crit chance|crit damage|critical|crits?'],
@@ -98,12 +98,13 @@
   // stat chips: coloured, with a symbol, instead of "HP 600 · ATK 58 · ..."
   function chips(d, full) {
     const c = (cls, sym, v, tip) => `<span class="stat ${cls}" title="${tip}"><i>${sym}</i>${v}</span>`;
-    return `<span class="stats-row">${c('s-hp', '❤', d.hp, 'Health')}${c('s-atk', '⚔', d.atk, 'Attack')}${full ? c('s-ap', '✦', d.ap, 'Ability power: multiplies magic ability damage, burns and heals (100 AP = ×1)') : ''}${c('s-arm', '⛨', d.armor, 'Armor')}${c('s-mr', '◈', d.mr, 'Magic resist')}${c('s-as', '»', d.as, 'Attacks per second')}${c('s-rng', '➶', d.range, 'Range (hexes)')}${d.crit ? c('s-crit', '✸', d.crit, 'Crit chance') : ''}${d.dodge ? c('s-dodge', '↯', d.dodge, 'Dodge') : ''}</span>`;
+    return `<span class="stats-row">${c('s-hp', '❤', d.hp, 'Health')}${c('s-atk', '⚔', d.atk, 'Attack (AD): physical abilities deal a % of it')}${full ? c('s-ap', '✦', d.ap, 'Ability power (AP): magic abilities, burns and heals deal a % of it. 100 at Lv 1, +30 per level') : ''}${c('s-arm', '⛨', d.armor, 'Armor')}${c('s-mr', '◈', d.mr, 'Magic resist')}${c('s-as', '»', d.as, 'Attacks per second')}${c('s-rng', '➶', d.range, 'Range (hexes)')}${d.crit ? c('s-crit', '✸', d.crit, 'Crit chance') : ''}${d.dodge ? c('s-dodge', '↯', d.dodge, 'Dodge') : ''}</span>`;
   }
   const pct = x => Math.round(x * 100) + '%';
-  // review #19 (David: "not clear how hero abilities scale with AP, attack etc."): how every ability is computed in
-  // js/sim.js, part by part. P = % of attack as physical damage; M = % of attack x AP/100 as magic damage; A = % of attack
-  // as magic damage (no AP); B = burn per second, % of attack x AP/100, for 3s; H = heal, % of the ally's max HP x AP/100;
+  // review #19 (David: "not clear how hero abilities scale with AP, attack etc.") and review #26 (David: "abilities
+  // should clearly scale with AD or AP or both, AP not a multiplier"): how every ability is computed in js/sim.js, part
+  // by part. P = % of AD (attack) as physical damage; M = % of AP as magic damage; MX = [% of AD, % of AP] added, as magic
+  // damage; A = % of AD as magic damage; B = burn per second, % of AP, for 3s; BA = the same with AD; H = heal, % of AP;
   // X = heal, % of own max HP; S = shield, % of own max HP; D = % of the target's max HP per second; Z = a sentence.
   const lvF = d => 1 + 0.15 * ((d.lvl || 1) - 1);
   const SCALE = {
@@ -114,58 +115,59 @@
     charge: ab => [['P', ab.dmg, 'to the enemies hit']],
     radiance: ab => [['H', ab.heal, 'the weakest ally'], ['H', ab.splash, 'allies next to it'], ab.smite && ['M', ab.smite, 'smite']],
     volley: ab => [['P', ab.dmg, `per arrow, ${ab.count} arrows, can crit`]],
-    raise: ab => [['Z', d => `each skeleton: ${Math.round(300 * lvF(d) * ab.hpMul * d.ap / 100)} HP and ${Math.round(30 * lvF(d) * d.ap / 100)} attack (300 HP and 30 attack × level × AP)`]],
+    raise: ab => [['Z', d => `each skeleton: ${Math.round(3 * d.ap * ab.hpMul)} HP (${pct(3 * ab.hpMul)} AP) and ${Math.round(0.3 * d.ap)} attack (30% AP)`], ab.explode && ['M', ab.explode, 'when a skeleton dies, 1 hex']],
     chain: ab => [['M', ab.dmg, `per bounce, ${ab.bounces} enemies, ${pct(ab.falloff)} less each bounce`]],
     hook: ab => [['P', ab.dmg, 'to the pulled enemy']],
     mirror: ab => [['Z', d => `each clone: ${pct(ab.stat)} of her HP, attack and armor (${Math.round(d.hp * ab.stat)} HP, ${Math.round(d.atk * ab.stat)} attack)`]],
-    turret: ab => [['Z', d => `each turret: ${Math.round(340 * lvF(d) * ab.hpMul)} HP and 80% of his attack (${Math.round(0.8 * d.atk)})`]],
+    turret: ab => [['Z', d => `each turret: ${Math.round(340 * lvF(d) * ab.hpMul)} HP and 80% of his AD as attack (${Math.round(0.8 * d.atk)})`]],
     whirl: ab => [['P', ab.dmg, 'to every adjacent enemy'], ['Z', `heals ${pct(ab.heal)} of the damage dealt`]],
-    consecrate: ab => [['M', ab.dps, `per second to enemies on the ground, ${ab.dur}s`], ['Z', `allies on it heal ${pct(ab.heal)} of max HP per second`]],
+    consecrate: ab => [['M', ab.dps, `per second to enemies on the ground, ${ab.dur}s`], ['Z', `allies on it heal ${pct(ab.heal)} of their max HP per second`]],
     eclipse: ab => [['A', ab.bonus, `extra on each of the next ${ab.hits} attacks`], ['Z', `heals ${pct(ab.heal)} of that damage`]],
     entangle: ab => [['M', ab.dmg, `to every enemy within ${ab.radius} hexes`]],
     anthem: ab => [['H', ab.heal, 'allies within 2 hexes'], ['Z', `+${pct(ab.atk)} attack for 4s`]],
     fan: ab => [['P', ab.dmg, `per shot, ${ab.shots} shots, can crit`]],
     javelin: ab => [['P', ab.dmg, `per javelin, ${ab.count} javelins, can crit`], ['D', ab.poison, 'poison for 4s']],
     headshot: ab => [['P', ab.dmg, '+8% per hex of distance, can crit']],
-    bloodfeast: ab => [['M', ab.dmg, `to every enemy within ${ab.radius} hexes, heals all of it`]],
+    bloodfeast: ab => [['MX', [ab.dmg, ab.apdmg], `to every enemy within ${ab.radius} hexes, heals all of it`]],
     smoke: ab => [['P', ab.dmg, `per shuriken, ${ab.count} shuriken, can crit`]],
     howl: ab => [['P', ab.dmg, 'pounce, can crit'], ['D', ab.bleed, 'bleed for 3s'], ['Z', `allies get +${pct(ab.buff)} attack and attack speed for 4s`]],
     hypnosis: ab => [['M', ab.dmg, 'to the hypnotized group']],
-    trick: ab => [['P', 1.5, 'pie'], ['H', ab.heal, 'balloons, every ally'], ['P', 1, `per knife, ${ab.knives} knives`], ['M', 0.8, 'confetti']],
-    keg: ab => [['P', ab.dmg, 'to adjacent enemies'], ['X', ab.heal, 'swig']],
-    hellfire: ab => [['M', ab.dmg, `to every enemy within ${ab.radius} hexes`], ['B', ab.burn, 'burn'], ['Z', `costs ${pct(ab.cost)} of his current HP`]],
+    trick: ab => [['P', 1.5, 'pie'], ['H', ab.heal, 'balloons, every ally'], ['P', 1, `per knife, ${ab.knives} knives`], ['MX', [0.4, 0.2], 'confetti']],
+    keg: ab => [['P', ab.dmg, 'to adjacent enemies'], ab.burn && ['BA', ab.burn, 'burn'], ['X', ab.heal, 'swig']],
+    hellfire: ab => [['MX', [ab.dmg, ab.apdmg], `to every enemy within ${ab.radius} hexes`], ['BA', ab.burn, 'burn'], ['Z', `costs ${pct(ab.cost)} of his current HP`]],
     boulder: ab => [['P', ab.dmg, 'to the target'], ['P', 1, 'to enemies next to it']],
     wrap: ab => [['D', ab.decay, `decay on ${ab.count} enemies while rooted`]],
     phalanx: ab => [['P', ab.dmg, `per enemy, ${ab.hits} enemies, can crit`], ['Z', `allies next to him take ${pct(ab.dr)} less damage for 4s`]],
     waltz: ab => [['P', ab.dmg, `per enemy, up to ${ab.hits}, can crit`]],
-    flask: ab => [['M', 1.5, 'acid flask'], ['H', ab.heal, 'healing flask']],
+    flask: ab => [['M', ab.acid, 'acid flask'], ['H', ab.heal, 'healing flask']],
     galekick: ab => [['P', ab.dmg, 'kick, can crit'], ['P', 1, 'to anyone it crashes into']],
   };
   // d = { abil, ab, atk, ap, hp, lvl, name } from Run.heroDef or a unit in the fight
   function scaleParts(d) {
     const S = SCALE[d.abil]; if (!S) return [];
-    const apm = d.ap / 100, n = x => Math.round(x);
+    const n = x => Math.round(x);
     return S(d.ab).filter(Boolean).map(([k, v, note]) => {
       if (k === 'Z') return { k, t: typeof v === 'function' ? v(d) : v };
-      const txt = { P: `<b>${pct(v)}</b> attack → <b class="num">${n(v * d.atk)}</b> physical`, M: `<b>${pct(v)}</b> attack × AP → <b class="num">${n(v * d.atk * apm)}</b> magic`,
-        A: `<b>${pct(v)}</b> attack → <b class="num">${n(v * d.atk)}</b> magic`, B: `burn <b>${pct(v)}</b> attack × AP → <b class="num">${n(v * d.atk * apm)}</b> per second for 3s`,
-        H: `heals <b>${pct(v)}</b> of max HP × AP → <b class="num">${pct(v * apm)}</b>`, X: `heals <b>${pct(v)}</b> of max HP → <b class="num">${n(v * d.hp)}</b>`,
+      const txt = { P: `<b>${pct(v)} AD</b> → <b class="num">${n(v * d.atk)}</b> physical`, M: `<b>${pct(v)} AP</b> → <b class="num">${n(v * d.ap)}</b> magic`,
+        MX: `<b>${pct(v[0])} AD + ${pct(v[1])} AP</b> → <b class="num">${n(v[0] * d.atk + v[1] * d.ap)}</b> magic`, A: `<b>${pct(v)} AD</b> → <b class="num">${n(v * d.atk)}</b> magic`,
+        B: `burn <b>${pct(v)} AP</b> → <b class="num">${n(v * d.ap)}</b> per second for 3s`, BA: `burn <b>${pct(v)} AD</b> → <b class="num">${n(v * d.atk)}</b> per second for 3s`,
+        H: `heals <b>${pct(v)} AP</b> → <b class="num">${n(v * d.ap)}</b> HP`, X: `heals <b>${pct(v)}</b> of max HP → <b class="num">${n(v * d.hp)}</b>`,
         S: `shield <b>${pct(v)}</b> of max HP → <b class="num">${n(v * d.hp)}</b>`, D: `<b>${pct(v)}</b> of the target's max HP per second` }[k];
       return { k, t: txt + (note ? ` <span class="dim">(${note})</span>` : '') };
     });
   }
-  const SCALE_ICON = { P: '⚔', M: '✦', A: '✦', B: '🔥', H: '✚', X: '✚', S: '🛡', D: '☠', Z: '•' };
+  const SCALE_ICON = { P: '⚔', M: '✦', MX: '✦', A: '⚔', B: '🔥', BA: '🔥', H: '✚', X: '✚', S: '🛡', D: '☠', Z: '•' };
   function scalingHTML(d, compact) {
     const parts = scaleParts(d); if (!parts.length) return '';
-    const head = compact ? '' : `<div class="scal-h">How it scales <span class="dim">now: ⚔ ${Math.round(d.atk)} attack · ✦ ${Math.round(d.ap)} AP = ×${(d.ap / 100).toFixed(2)}</span></div>`;
+    const head = compact ? '' : `<div class="scal-h">How it scales <span class="dim">now: ⚔ ${Math.round(d.atk)} AD · ✦ ${Math.round(d.ap)} AP</span></div>`;
     return `<div class="scal ${compact ? 'compact' : ''}">${head}<ul>${parts.map(p => `<li class="sk-${p.k}"><i>${SCALE_ICON[p.k]}</i><span>${p.t}</span></li>`).join('')}</ul></div>`;
   }
-  // "scales with attack · AP" for the hero shop and the start screen (base stats)
+  // "scales with AD · AP · max HP" under a hero's name (shops, start)
   function scaleTag(key) {
     const h = HEROES[key], S = SCALE[h.abil]; if (!S) return '';
     const ks = new Set(S(h.ab).filter(Boolean).map(p => p[0])), w = [];
-    if (['P', 'M', 'A', 'B'].some(k => ks.has(k)) || h.abil === 'turret' || h.abil === 'mirror') w.push('<span class="kw-atk">attack</span>');
-    if (['M', 'B', 'H'].some(k => ks.has(k)) || h.abil === 'raise') w.push('<span class="kw-ap">AP</span>');
+    if (['P', 'A', 'BA', 'MX'].some(k => ks.has(k)) || h.abil === 'turret' || h.abil === 'mirror') w.push('<span class="kw-atk">AD</span>');
+    if (['M', 'B', 'H', 'MX'].some(k => ks.has(k)) || h.abil === 'raise') w.push('<span class="kw-ap">AP</span>');
     if (['S', 'X'].some(k => ks.has(k)) || h.abil === 'mirror') w.push('<span class="kw-hp">max HP</span>');
     return w.length ? `<span class="scaletag">scales with ${w.join(' · ')}</span>` : '';
   }
@@ -324,7 +326,7 @@
     const path = d.specs.map((pr, k) => { const lv = k + 2, chosen = h.specs[k]; return `<div class="sp-row ${lv === p.lvl ? 'now' : lv < p.lvl ? 'done' : 'later'}"><span class="sp-lv">Lv ${lv}</span>${pr.map(sp => `<span class="sp-n ${chosen === sp.id ? 'on' : ''}">${esc(sp.name)}</span>`).join('<i>or</i>')}</div>`; }).join('');
     return `<section class="levelup"><h2 class="sc headline win">Level up!</h2>
       <div class="luhero"><img class="lufull" src="${por(h.key, 104, true)}" alt=""><div><b class="luname">${esc(d.name)}</b><span class="lulv">Lv ${p.lvl - 1} → <b>Lv ${p.lvl}</b></span>
-        <p class="small">${fmt('+15% HP and attack, +10 ability power, +4 armor and MR')}${p.lvl >= 3 ? ', <b class="kw-gold">+1 item slot</b>' : ''}.</p></div></div>
+        <p class="small">${fmt('+15% HP and attack, +30 AP, +4 armor and MR')}${p.lvl >= 3 ? ', <b class="kw-gold">+1 item slot</b>' : ''}.</p></div></div>
       <h3>Choose a specialization</h3>
       <div class="opts spec2">${pair.map((sp, i) => `<button class="card opt" data-act="spec" data-arg="${i}"><div class="ctitle spec">★ ${esc(sp.name)}</div><div class="small">${fmt(sp.desc)}</div></button>`).join('')}</div>
       <div class="sp-path"><div class="bph"><b>Specialization path</b><span class="dim small">one choice at each level</span></div>${path}</div></section>`;
@@ -982,7 +984,7 @@
       <li>Start with 1 hero and 1 relic (3 of each offered). Each hero has a unique ability that fires when its blue mana bar is full. Recruit up to 3 heroes in the Hero Shop.</li>
       <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 4 and 8 are bosses.</li>
       <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
-      <li>How abilities scale: <span class="kw-atk">physical</span> abilities deal a % of <b>attack</b>; <span class="kw-ap">magic</span> abilities deal a % of attack multiplied by <b>ability power</b> (100 AP = ×1, 150 AP = ×1.5), and so do burns and heals; shields are a % of <b>max HP</b>. Tap a hero (in battle or in Team) to see its numbers.</li>
+      <li>How abilities scale: every ability names its stat. <b>AD</b> = attack (⚔). <b>AP</b> = ability power (✦): 100 at Lv 1, +30 per level, more from items. <span class="kw-atk">Physical</span> abilities deal a % of AD; <span class="kw-ap">magic</span> abilities deal a % of AP, of AD, or of both added together (like "40% AD + 20% AP"); heals scale with AP; shields are a % of max HP. AP never multiplies AD. Tap a hero (in battle or in Team) to see its numbers.</li>
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
       <li>Items have a type (weapon, off-hand, helmet, armor, gloves, boots, trinket) and a rarity: <span class="r-common">common</span>, <span class="r-uncommon">uncommon</span>, <span class="r-rare">rare</span>, <span class="r-epic">epic</span>, <span class="r-set">set</span>, <span class="r-legendary">legendary</span> and <span class="r-mythic">mythic</span>. A hero wears one item of each type, up to their slot count. Two or three pieces of a set on the same hero unlock set bonuses.</li>
       <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the run ends (and costs 2 league points). Heroes always heal after a fight.</li>

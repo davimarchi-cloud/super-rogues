@@ -25,7 +25,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | Arquivo | O quê |
 |---|---|
 | `js/hex.js` | grade 8x8 pointy-top "odd-r"; linha 0 = topo (inimigo), linhas 4-7 = deploy do jogador |
-| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 33 heróis (habilidade + 4 pares de spec; 6 com escala passiva), 120 itens com tipo e raridade (`TYPES`, `RARITIES`, `SETS`), 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
+| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 33 heróis (habilidade + 4 pares de spec; 6 com escala passiva; habilidade em % de AD e/ou AP, v28), 120 itens com tipo e raridade (`TYPES`, `RARITIES`, `SETS`), 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
 | `js/sim.js` | motor de combate puro e determinístico (20 ticks/s). Roda no navegador e no Node |
 | `js/run.js` | máquina de estados da run (mapa, lutas, lojas, eventos, XP, itens). JSON puro, salvo no localStorage |
 | `js/models.js` | modelos 2.5D desenhados em código (humanoide, fera, bomba, golem, serpente, espectro, torre) com poses parado/andando/ataque/habilidade/morte; `portrait()` gera os retratos dos menus |
@@ -122,6 +122,20 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v28 (2026-09-29), lote 26 do David** (#36): (1) **nomes próprios**, sem copiar outros jogos: os 33 heróis (Bastion
+  virou Brannoc, Pyra virou Emberlyn etc.), as habilidades com nome de outro jogo (Fireball → Cinder Comet, Consecrate →
+  Hallowed Ground, Keg Smash → Barrel Breaker, Fan the Hammer → Six-Shot Flurry...), as especializações famosas de
+  outros jogos (Rallying Cry, Divine Shield, Corpse Explosion, Death Lotus...), os 120 itens (os do LoL/TFT sumiram),
+  as 34 relíquias, os 5 conjuntos (Obsidian → Nightglass), a Hollow King (→ The Ashen Sovereign) e o Dark Knight
+  (→ Blackguard). **Só o nome exibido mudou: todo id continua igual** (saves, fantasmas e Elo de conteúdo seguem valendo).
+  (2) **Escala AD/AP**: habilidade escala com AD (ataque), AP ou os dois SOMADOS ("70% AD + 40% AP"); o AP nunca mais
+  multiplica o ataque. AP = 100 no Lv 1, +30 por nível, + itens. Magias, queimaduras de magia e curas usam % de AP
+  (valores convertidos de ab.dmg × ataque base); híbridos (Morvaine, Vorthrax, confete do Jumbles) usam `dmg` (AD) +
+  `apdmg` (AP); o escudo do Brannoc virou só % da vida (33%). Todo texto diz o atributo (descrições, painel "How it
+  scales" com os códigos P/M/MX/A/B/BA/H, How to play, dicas dos atributos). Ajuste por herói medido com um script de
+  vitória por herói contra os chefes (média 34,1% antes, 33,5% depois, todos a ±5 pontos); robô 300 runs: 22% / 49%,
+  25 no Gauntlet; matriz 45% / 29%.
 
 - **v27 (2026-09-29), pedido direto do dono = lote 25 do David** (o #35 é o mesmo texto que o dono colou no chat; #34 =
   tela pós-batalha). **Coroas** = moeda da conta (coluna `players.gems`; a coluna antiga `crowns` continua contando

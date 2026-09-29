@@ -98,7 +98,7 @@
       kind: 'hero', uid: h.uid, key: h.key, name: b.name, glyph: b.glyph, color: b.color, lvl: h.lvl,
       hp: (b.hp + (m.hp || 0)) * (1 + 0.15 * L) * (1 + (m.hpPct || 0) + all),
       atk: (b.atk + (m.atk || 0)) * (1 + 0.15 * L) * (1 + (m.atkPct || 0) + all),
-      ap: (100 + 10 * L + (m.ap || 0)) * (1 + all),
+      ap: (100 + 30 * L + (m.ap || 0)) * (1 + all),   // review #26: AP 100 at Lv 1, +30 per level (it now scales abilities on its own)
       armor: (b.armor + 4 * L + (m.armor || 0)) * (1 + all),
       mr: (b.mr + 4 * L + (m.mr || 0)) * (1 + all),
       as: b.as * Math.max(0.3, 1 + (m.asPct || 0)), range: Math.max(1, b.range + (m.range || 0)), ms: b.ms + (m.ms || 0),

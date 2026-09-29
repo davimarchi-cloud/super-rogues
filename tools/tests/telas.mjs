@@ -210,7 +210,7 @@ if (!REMOTE) {
   await shot('16-gauntlet-intro');
   // itemization v16: the team sheet with 3 heroes at Lv 5, a full set and items in the bag still fits the phone
   await click('[data-act=team]'); await sleep(250); await click('[data-act=bag]'); await sleep(150);
-  ok(await ev(`document.querySelectorAll('.eqhero .doll').length === 3 && /Obsidian Guard\\s*3\\/3/.test(document.querySelector('#modal').textContent) && /Mythic weapon/i.test((document.querySelector('.idetail') || {}).textContent || '')`), 'team sheet: paper dolls, set bonus 3/3, the selected mythic item card (best rarity first)');
+  ok(await ev(`document.querySelectorAll('.eqhero .doll').length === 3 && /Nightglass Guard\\s*3\\/3/.test(document.querySelector('#modal').textContent) && /Mythic weapon/i.test((document.querySelector('.idetail') || {}).textContent || '')`), 'team sheet: paper dolls, set bonus 3/3, the selected mythic item card (best rarity first)');
   await shot('16b-team-full'); await noHScroll('team sheet full'); await noVScroll('team sheet, 3 heroes with items');
   await click('[data-act=close]'); await sleep(100);
   await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(900);
@@ -263,7 +263,7 @@ if (!REMOTE) {
     ok(t && t.rows === n && t.rated >= 1 && /\d+%/.test(t.text) && extra(t.text), msg + (t ? ` (${t.rated} rated of ${t.rows})` : ''));
     await noHScroll(k + ' tab');
   };
-  await tab('hero', await ev('Object.keys(B.HEROES).length + Object.keys(B.BOSSES).length'), x => /Bastion/.test(x) && /Gorewarden/.test(x) && /Hollow King/.test(x), 'Heroes tab: every hero and both bosses listed (review #20), the played ones with Elo, fights and win rate');
+  await tab('hero', await ev('Object.keys(B.HEROES).length + Object.keys(B.BOSSES).length'), x => /Brannoc/.test(x) && /Gorewarden/.test(x) && /Ashen Sovereign/.test(x), 'Heroes tab: every hero and both bosses listed (review #20), the played ones with Elo, fights and win rate');
   await shot('20-ladder-heroes');
   await tab('item', await ev('B.ITEMS.length'), x => /no combat effect/.test(x) && /not played yet/.test(x), 'Items tab: every item (no-combat items marked)');
   await tab('relic', await ev('B.RELICS.length'), x => /no combat effect/.test(x), 'Relics tab: every relic');

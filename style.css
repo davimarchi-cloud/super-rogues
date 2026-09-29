@@ -764,7 +764,7 @@ body.side .deploy .bar button { white-space: nowrap; }
 .scal li { display: flex; gap: 6px; align-items: baseline; font-size: 12px; line-height: 1.35; }
 .scal li i { font-style: normal; width: 14px; flex: none; text-align: center; }
 .scal li .num { color: #fff; }
-.scal .sk-P i { color: #ff9a6a; } .scal .sk-M i, .scal .sk-A i { color: #c79bff; } .scal .sk-H i, .scal .sk-X i { color: #7ee08e; } .scal .sk-S i { color: #9fc6ff; }
+.scal .sk-P i { color: #ff9a6a; } .scal .sk-M i, .scal .sk-MX i { color: #c79bff; } .scal .sk-A i { color: #ff9a6a; } .scal .sk-B i, .scal .sk-BA i { color: #ff8a4a; } .scal .sk-H i, .scal .sk-X i { color: #7ee08e; } .scal .sk-S i { color: #9fc6ff; }
 .scal.compact { padding: 3px 6px; margin-top: 3px; } .scal.compact li { font-size: 11px; }
 .scaletag { display: block; margin-top: 4px; font-size: 11px; color: var(--dim); font-style: italic; }
 .hdetail { background: linear-gradient(180deg, #22252f, #181a21); border: 1px solid #5a4a8a; border-left-width: 4px; border-radius: var(--r); padding: 8px; margin: 0 0 6px; }
