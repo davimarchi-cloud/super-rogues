@@ -1336,3 +1336,7 @@ body.desk .title .labtile { grid-area: lab; margin: 12px 0 0; }
 .mapchip { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #ffffff26; font-size: .85em; white-space: nowrap; }
 .banner .mapline { display: block; margin-top: 2px; opacity: .95; }
 .ticon { font-size: 26px; line-height: 1; }
+/* review #40: formation relics while deploying */
+.formline { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; } .formline .fr { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.formline .ico { width: 18px; height: 18px; }
+.formline .fr { display: inline; } .formline .ico { vertical-align: -4px; margin-right: 2px; }

@@ -776,7 +776,21 @@
     R('fireflies', 'Firefly Jar', 'All heroes +10 attack and +10 AP.', { mods: { atk: 10, ap: 10 } }),
     R('pinwheel', 'Pinwheel', 'All heroes +8% attack speed and +1 mana per second.', { mods: { asPct: 0.08, manaRegen: 1 } }),
     R('horseshoe', 'Lucky Horseshoe', 'All heroes +8% dodge and +5% crit chance.', { mods: { dodge: 0.08, crit: 0.05 } }),
+    // v33 (review #40, David: "relics that give bonuses depending on unit formation"): judged from where the heroes stand
+    // when the fight starts (front row = the blue row nearest the enemy, back row = the last one); the deploy screen
+    // shows who gets what while you move them
+    R('shieldwall', 'Shieldwall Banner', 'Formation: each hero gets +10 armor and +10 magic resist for every ally standing next to it when the fight starts.', { fl: 'shieldwall', form: true }),
+    R('lonewolf', 'Lone Wolf Pelt', 'Formation: heroes with no ally next to them when the fight starts get +25% attack speed and +10% crit chance.', { fl: 'lonewolf', form: true }),
+    R('vanguard', 'Vanguard Horn', 'Formation: heroes starting in your front row get a shield of 25% of their max HP for 6s.', { fl: 'vanguard', form: true }),
+    R('rearguard', 'Rearguard Quiver', 'Formation: heroes starting in your back row get +20% attack and +20% AP.', { fl: 'rearguard', form: true }),
+    R('battleline', 'Battle Line Pennant', 'Formation: if all your heroes start in the same row, they all get +15% attack speed and +15% attack.', { fl: 'battleline', form: true }),
+    R('cover', 'Mossy Totem', 'Formation: heroes starting next to a tree, boulder, ridge or pond get +15% dodge and +15 armor.', { fl: 'cover', form: true }),
   ];
+  // what each formation relic gives one hero (n = allies next to it, for the Shieldwall), shown while deploying
+  B.FORMATION = {
+    shieldwall: n => `+${10 * n} armor & MR`, lonewolf: () => '+25% attack speed, +10% crit', vanguard: () => 'shield 25% HP',
+    rearguard: () => '+20% attack & AP', battleline: () => '+15% attack speed & attack', cover: () => '+15% dodge, +15 armor',
+  };
   B.RELIC = {}; for (const r of B.RELICS) B.RELIC[r.id] = r;
   // review #14 (David): content Elo only rates what acts in a fight, so these never get a rating
   B.NONCOMBAT = { item: ['coin', 'charm'], relic: ['idol', 'lens', 'seal', 'dice', 'purse', 'tome', 'treasure', 'bounty'] };

@@ -125,6 +125,13 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v33 (2026-09-29), lote 30 do David (#40): relíquias de formação** (`form: true`, `Sim.formation`, aplicadas no
+  `start()` pela posição inicial; linha de frente = 4 para o jogador e 3 para o fantasma, fundo = 7 / 0): Shieldwall
+  Banner (+10 armadura/RM por aliado vizinho), Lone Wolf Pelt (sozinho: +25% vel. ataque, +10% crítico), Vanguard Horn
+  (linha da frente: escudo 25% HP por 6 s), Rearguard Quiver (linha de trás: +20% ataque e AP), Battle Line Pennant
+  (todos na mesma linha: +15% vel. ataque e ataque), Mossy Totem (ao lado de terreno: +15% esquiva, +15 armadura).
+  O posicionamento mostra, ao vivo, quem ganha o quê; na luta aparece o nome do bônus em cima do herói.
+
 - **v32 (2026-09-29), lote 29 do David (#39): terreno no mapa.** `B.TERRAIN` (árvore, pedra, serra, lago) e `B.MAPS`
   (9 mapas simétricos por (c,r)↔(7-c,7-r), o mesmo espelho dos fantasmas). Luta 1 = Open Meadow (vazio), chefes = Standing
   Stones, o resto e cada andar do Gauntlet = próximo mapa de `B.MAP_ROTATION` (início pelo seed da run; as 2 lutas de um

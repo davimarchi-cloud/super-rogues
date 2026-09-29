@@ -73,11 +73,43 @@
         if (t) { cc(W, t, 'stun', 3); t.st.frozenU = W.t + sec(3); fxRing(W, t.c, t.r, 0, '#8ef', 12); }
       }
     }
+    // review #40: formation relics
+    for (const s of [0, 1]) for (const b of formation(W, s)) {
+      const u = b.u;
+      if (b.fl === 'shieldwall') { u.armor += 10 * b.n; u.mr += 10 * b.n; }
+      else if (b.fl === 'lonewolf') { buff(u, 'asPct', 0.25, 1e9); u.crit += 0.1; }
+      else if (b.fl === 'vanguard') shield(W, u, u.maxHp * 0.25, 6);
+      else if (b.fl === 'rearguard') { buff(u, 'atkPct', 0.2, 1e9); u.ap *= 1.2; }
+      else if (b.fl === 'battleline') { buff(u, 'asPct', 0.15, 1e9); buff(u, 'atkPct', 0.15, 1e9); }
+      else if (b.fl === 'cover') { u.dodge = Math.min(0.6, u.dodge + 0.15); u.armor += 15; }
+      fxText(W, u, FORM_LABEL[b.fl], '#bfe6ff');
+    }
     for (const s of [0, 1]) {
       const F = flOf(W, s);
       if (F.frostsigil) for (const u of W.units) if (u.side !== s) slow(W, u, 0.4, 4);
       if (F.warhorn) for (const u of W.units) if (u.side === s) buff(u, 'asPct', 0.3, sec(5), W);
     }
+  }
+
+  // review #40 (David): formation relics, judged from the heroes' hexes (front row = 4 for the player, 3 for a ghost;
+  // back row = 7 / 0). Pure: start() applies it, the deploy screen lists it.
+  const FORMATION = ['shieldwall', 'lonewolf', 'vanguard', 'rearguard', 'battleline', 'cover'];
+  const FORM_LABEL = { shieldwall: 'SHIELDWALL', lonewolf: 'LONE WOLF', vanguard: 'VANGUARD', rearguard: 'REARGUARD', battleline: 'BATTLE LINE', cover: 'IN COVER' };
+  function formation(W, s) {
+    const F = flOf(W, s), out = [];
+    if (!FORMATION.some(f => F[f])) return out;
+    const team = W.units.filter(u => u.side === s && u.kind === 'hero' && !u.dead);
+    const front = s ? 3 : 4, back = s ? 0 : 7, line = team.length > 1 && team.every(u => u.r === team[0].r);
+    for (const u of team) {
+      const adj = team.filter(v => v !== u && Hx.dist(u, v) === 1).length;
+      if (F.shieldwall && adj) out.push({ u, fl: 'shieldwall', n: adj });
+      if (F.lonewolf && !adj) out.push({ u, fl: 'lonewolf' });
+      if (F.vanguard && u.r === front) out.push({ u, fl: 'vanguard' });
+      if (F.rearguard && u.r === back) out.push({ u, fl: 'rearguard' });
+      if (F.battleline && line) out.push({ u, fl: 'battleline' });
+      if (F.cover && W.tk && Hx.neighbors(u.c, u.r).some(h => W.tk[Hx.key(h.c, h.r)])) out.push({ u, fl: 'cover' });
+    }
+    return out;
   }
 
   // ------------------------------------------------------------------ queries
@@ -983,6 +1015,6 @@
     return { x: a.x + (b.x - a.x) * p, y: a.y + (b.y - a.y) * p };
   }
 
-  B.Sim = { TPS, sec, create, step, run, spawn, posAt, mobScaleDef, applyElite, rngOf, atkOf, asOf, armorOf, mrOf, abilities: A, cc };
+  B.Sim = { formation, TPS, sec, create, step, run, spawn, posAt, mobScaleDef, applyElite, rngOf, atkOf, asOf, armorOf, mrOf, abilities: A, cc };
   if (typeof module !== 'undefined') module.exports = B.Sim;
 })(typeof window !== 'undefined' ? window : globalThis);

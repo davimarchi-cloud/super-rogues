@@ -45,7 +45,7 @@ for (const d of SIZES) {
   await ev(`__bal.ACT['new-run']()`); await sleep(200);
   await ev(`document.querySelector('[data-act=start-pick]').click(); document.querySelector('[data-act=start-relic]').click()`); await shot('02-start');
   await ev(`document.querySelector('[data-act=start-go]').click()`); await sleep(200);
-  await ev(`(() => { const r = __bal.run; B.Run.addHero(r, 'lumen'); B.Run.addHero(r, 'kestrel'); r.relics.push('drum'); r.heroes[0].items = ['longsword']; __bal.render(); })()`);
+  await ev(`(() => { const r = __bal.run; B.Run.addHero(r, 'lumen'); B.Run.addHero(r, 'kestrel'); r.relics.push('drum', 'shieldwall', 'rearguard'); r.heroes[0].items = ['longsword']; __bal.render(); })()`);
   await shot('03-map');
   // review #39: show a map with terrain (trees and boulders) instead of fight 1's open meadow
   await ev(`(() => { for (const o of __bal.run.opts) if (o.type === 'fight') o.map = 'oaks'; __bal.render(); })()`);

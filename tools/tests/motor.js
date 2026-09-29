@@ -423,5 +423,28 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   Sim.abilities.galekick(W3, kicker);
   ok(brute.c === 3 && brute.r === 2 && brute.st.stun > W3.t && W3.fx.some(f => f.text === 'SLAM'), 'a push into a boulder slams: the unit stays and is stunned');
 }
+// ---- review #40 (David): formation relics
+{
+  const run = Run.newRun(77); Run.pickStart(run, ['brakk']); Run.addHero(run, 'kestrel'); Run.addHero(run, 'lumen');
+  const defs = run.heroes.map(h => Run.heroDef(run, h)), foe = { def: Sim.mobScaleDef('brute', 1), c: 3, r: 0 };
+  const mk = (relics, pos, o = {}) => Sim.create(Object.assign({ mode: 'fight', seed: 9, relics, heroes: defs.map((d, i) => ({ def: JSON.parse(JSON.stringify(d)), c: pos[i][0], r: pos[i][1] })), enemies: [foe] }, o));
+  const base = mk([], [[3, 4], [4, 4], [0, 7]]);
+  let W = mk(['shieldwall'], [[3, 4], [4, 4], [0, 7]]);
+  ok(W.units[0].armor === base.units[0].armor + 10 && W.units[1].mr === base.units[1].mr + 10 && W.units[2].armor === base.units[2].armor, 'Shieldwall: +10 armor/MR per ally next to the hero, nothing when alone');
+  W = mk(['lonewolf'], [[3, 4], [4, 4], [0, 7]]);
+  ok(W.units[2].crit === base.units[2].crit + 0.1 && Sim.asOf(W, W.units[2]) > Sim.asOf(base, base.units[2]) && W.units[0].crit === base.units[0].crit, 'Lone Wolf: only the hero with nobody next to it');
+  W = mk(['vanguard'], [[3, 4], [5, 5], [0, 7]]);
+  ok(W.units[0].shield > 0 && !W.units[1].shield && !W.units[2].shield, 'Vanguard: a shield for the front row only');
+  W = mk(['rearguard'], [[3, 4], [5, 5], [0, 7]]);
+  ok(Sim.atkOf(W, W.units[2]) > Sim.atkOf(base, base.units[2]) * 1.19 && W.units[2].ap > base.units[2].ap * 1.19 && Sim.atkOf(W, W.units[0]) === Sim.atkOf(base, base.units[0]), 'Rearguard: +20% attack and AP for the back row only');
+  W = mk(['battleline'], [[1, 5], [3, 5], [6, 5]]); const W2 = mk(['battleline'], [[1, 5], [3, 5], [6, 6]]);
+  ok(W.units.filter(u => u.side === 0).every(u => Sim.atkOf(W, u) > u.atk * 1.14) && W2.units.filter(u => u.side === 0).every(u => Sim.atkOf(W2, u) === u.atk), 'Battle Line: all in one row or nothing');
+  W = mk(['cover'], [[3, 4], [5, 6], [0, 7]], { terrain: [{ c: 3, r: 5, k: 'rock' }] });
+  ok(W.units[0].dodge === Math.min(0.6, base.units[0].dodge + 0.15) && W.units[1].dodge === base.units[1].dodge, 'Mossy Totem: heroes next to terrain');
+  // a ghost's formation relics use its own rows (front 3, back 0)
+  const G = Sim.create({ mode: 'fight', seed: 9, enemyRelics: ['vanguard'], heroes: [{ def: JSON.parse(JSON.stringify(defs[0])), c: 3, r: 7 }], enemies: defs.map((d, i) => ({ def: Object.assign(JSON.parse(JSON.stringify(d)), { uid: 0 }), c: i, r: i ? 0 : 3 })) });
+  ok(G.units[1].shield > 0 && !G.units[2].shield && !G.units[0].shield, "a ghost's Vanguard shields its own front row");
+  ok(Sim.formation(mk(['shieldwall'], [[3, 4], [4, 4], [0, 7]], { noStart: true }), 0).length === 2, 'the deploy screen can list the bonuses before the fight');
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

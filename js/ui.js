@@ -369,12 +369,21 @@
     return `<section class="deploy">
       <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy${map ? ` <span class="mapchip" title="${esc(map.desc)}">🗺 ${esc(map.name)}</span>` : ''}</div>
       <p class="hint tight">${!gau && f.mod ? `<span class="nextmod">⚑ ${fmt(modText(f.mod))}</span>` : 'Drag heroes within the blue rows: tanks in front, ranged behind. Tap a unit for details.'}</p>
+      ${run.relics.some(id => RELIC[id] && RELIC[id].form) ? `<p class="hint tight formline" id="formline">${formHTML(worldFor(true))}</p>` : ''}
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
       ${foesHTML(gau, f)}
       <div class="bar sticky"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${gau ? 'Duel!' : 'Fight!'}</button></div>
       <div class="dparty">${partyHTML()}</div>
     </section>`;
+  }
+  // review #40 (David): who gets what from the formation relics, from where the heroes stand right now
+  function formHTML(W) {
+    const got = W ? Sim.formation(W, 0) : [];
+    return run.relics.filter(id => RELIC[id] && RELIC[id].form).map(id => {
+      const r = RELIC[id], who = got.filter(b => b.fl === r.fl);
+      return `<span class="fr">${ico('relic', id, 18)} <b>${esc(r.name)}</b>: ${who.length ? who.map(b => `${esc(b.u.name)} <span class="kw-gold">${B.FORMATION[b.fl](b.n)}</span>`).join(', ') : '<span class="dim">nobody yet (move your heroes)</span>'}</span>`;
+    }).join(' ');
   }
   // review #18 (David: "another pass of the ui and battle ui ... pretty, functional, visible, engaging"): under the
   // board, a card per hero (HP and shield in numbers, mana bar named after the ability that glows when READY, status
@@ -659,6 +668,7 @@
     else if (d) ui.selUid = ui.selUid === d.uid ? 0 : d.uid;
     else if (ui.selUid && h && h.r >= 4 && !onTerrain(h)) { Run.setPos(run, ui.selUid, h.c, h.r); ui.selUid = 0; save(); }
     preview = worldFor(true);
+    const fl = $('#formline'); if (fl) fl.innerHTML = formHTML(preview);
     drawPreview();
   }
 
@@ -1022,6 +1032,7 @@
       <li>Start with 1 hero and 1 relic (3 of each offered). Each hero has a unique ability that fires when its blue mana bar is full. Recruit up to 3 heroes in the Hero Shop.</li>
       <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 4 and 8 are bosses.</li>
       <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
+      <li>⚑ Formation relics reward where you place your heroes (next to each other, alone, in the front or back row, in one line, next to terrain). While deploying, the line above the board shows who gets what.</li>
       <li>🗺 Every fight after the first is on a map with terrain: 🌳 trees, 🪨 boulders, ⛰️ ridges and 💧 ponds block the way (nobody can stand on them or walk through; arrows and spells fly over). Units pushed into a tree, boulder or ridge are slammed and stunned. Bosses fight at the Standing Stones.</li>
       <li>How abilities scale: every ability names its stat. <b>AD</b> = attack (⚔). <b>AP</b> = ability power (✦): 100 at Lv 1, +30 per level, more from items. <span class="kw-atk">Physical</span> abilities deal a % of AD; <span class="kw-ap">magic</span> abilities deal a % of AP, of AD, or of both added together (like "40% AD + 20% AP"); heals scale with AP; shields are a % of max HP. AP never multiplies AD. Tap a hero (in battle or in Team) to see its numbers.</li>
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
