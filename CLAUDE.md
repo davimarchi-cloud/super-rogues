@@ -125,6 +125,14 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v38 (2026-09-29), lote 35 do David (#46): arte do Brutus (brakk).** O "bug no ataque" era do recorte: os arcos rosa
+  dos golpes ligavam figuras vizinhas e o lab juntava 3 quadros do ataque (e 2 da habilidade) numa imagem só. Separado à
+  mão (`art/brakk/`: parado 7, andando 8, ataque 7, habilidade 6 + splash) e corrigido no `cutSheet`: caixa com mais de
+  1,7× a largura típica da linha é cortada em N quadros (N pela largura + espaço típico entre quadros) nas colunas mais
+  vazias; e o halo da cor do fundo na borda (rosa no magenta) é tirado ("despill" só nos pixels da borda). Andando 2-4
+  vieram com outra cabeça (erro do gerador de imagem, avisado ao David). A splash lembra o Kratos (careca, barba, faixa
+  vermelha no rosto): avisado ao dono.
+
 - **v37 (2026-09-29), lote 34 do David (#45): 1ª arte oficial, Ulfrik (thorne).** A folha reenviada tinha 5 linhas: parado
   5, andando 8, ataque 7, investida 6 e giro 7 quadros (a 5ª linha NÃO era morte: era o giro). A habilidade dele (Crimson
   Spin) toca investida + giro = 13 quadros; morte usa o efeito padrão. Arquivos em `art/thorne/` (splash.jpg, idle-1..5,

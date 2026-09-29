@@ -19,6 +19,11 @@
     thorne: { splash: 'art/thorne/splash.jpg', crop: { x: 0.52, y: 0.3, z: 1 }, flip: false, scale: 1,
       anims: { idle: seq('thorne', 'idle', 5), move: seq('thorne', 'move', 8), attack: seq('thorne', 'attack', 7), cast: seq('thorne', 'cast', 13) },
       axs: { idle: [0.552, 0.506, 0.534, 0.54, 0.499], move: [0.547, 0.565, 0.57, 0.584, 0.561, 0.552, 0.565, 0.52], attack: [0.457, 0.455, 0.487, 0.479, 0.493, 0.504, 0.469], cast: [0.568, 0.495, 0.543, 0.52, 0.519, 0.468, 0.488, 0.477, 0.494, 0.485, 0.551, 0.544, 0.48] } },
+    // review #46 (David): Brutus. Idle 7, walk 8, attack 7 and ability (Ramming Charge) 6 frames; the lab had glued 3
+    // attack frames (and 2 ability frames) together through the swoosh arcs, split here and fixed in cutSheet
+    brakk: { splash: 'art/brakk/splash.jpg', crop: { x: 0.63, y: 0.34, z: 1.26 }, flip: false, scale: 1,
+      anims: { idle: seq('brakk', 'idle', 7), move: seq('brakk', 'move', 8), attack: seq('brakk', 'attack', 7), cast: seq('brakk', 'cast', 6) },
+      axs: { idle: [0.523, 0.507, 0.508, 0.51, 0.507, 0.514, 0.509], move: [0.561, 0.561, 0.555, 0.525, 0.525, 0.559, 0.508, 0.52], attack: [0.427, 0.436, 0.46, 0.457, 0.479, 0.46, 0.479], cast: [0.492, 0.471, 0.524, 0.5, 0.494, 0.458] } },
   };
   const LOCAL = 'balance.artlab';
   const live = {}, subs = [], cache = {};
@@ -165,6 +170,17 @@
       if (a > 0 && a < 1) { px[i] = clamp((px[i] - (1 - a) * br) / a, 0, 255); px[i + 1] = clamp((px[i + 1] - (1 - a) * bgc) / a, 0, 255); px[i + 2] = clamp((px[i + 2] - (1 - a) * bb) / a, 0, 255); }
       px[i + 3] = Math.round(a * 255); A[j] = a > 0.35 ? 1 : 0;
     }
+    // review #46: the key colour bleeds into the outline (a pink halo on magenta). On pixels near the cut-out, take the
+    // spill off the key's strong channels (magenta: red and blue down to green; green: green down to red/blue)
+    const hi = [br, bgc, bb].map(v => v > 128), lo = hi.map(h => !h);
+    if (hi.some(Boolean) && lo.some(Boolean)) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const j = y * W + x, i = j * 4; if (!px[i + 3]) continue;
+      let edge = px[i + 3] < 250;
+      for (let yy = Math.max(0, y - 2); !edge && yy <= Math.min(H - 1, y + 2); yy++) for (let xx = Math.max(0, x - 2); xx <= Math.min(W - 1, x + 2); xx++) if (!px[(yy * W + xx) * 4 + 3]) { edge = true; break; }
+      if (!edge) continue;
+      let mh = 255, ml = 0; for (let ch = 0; ch < 3; ch++) { if (hi[ch]) mh = Math.min(mh, px[i + ch]); else ml = Math.max(ml, px[i + ch]); }
+      const sp = mh - ml; if (sp > 0) for (let ch = 0; ch < 3; ch++) if (hi[ch]) px[i + ch] = Math.round(px[i + ch] - sp * 0.85);
+    }
     c.putImageData(D, 0, 0);
     const gap = Math.max(3, Math.round(Math.min(W, H) * 0.01));
     const spans = (n, has) => { const out = []; let st = -1, last = -1; for (let i = 0; i < n; i++) if (has(i)) { if (st < 0) st = i; else if (i - last > gap) { out.push([st, last]); st = i; } last = i; } if (st >= 0) out.push([st, last]); return out; };
@@ -189,6 +205,27 @@
       const to = rest.reduce((p, q) => Math.hypot((q.x0 + q.x1) / 2 - cx, (q.y0 + q.y1) / 2 - cy) < Math.hypot((p.x0 + p.x1) / 2 - cx, (p.y0 + p.y1) / 2 - cy) ? q : p);
       to.x0 = Math.min(to.x0, sm.x0); to.x1 = Math.max(to.x1, sm.x1); to.y0 = Math.min(to.y0, sm.y0); to.y1 = Math.max(to.y1, sm.y1); to.n += sm.n;
     }
+    // review #46: frames glued together by an effect (a swoosh arc reaching the next frame) make a box much wider than
+    // the others in its row: cut it into as many frames as it is wide, at the emptiest columns
+    const split = [];
+    for (const y of new Set(boxes.map(b => b.band))) {
+      const row = boxes.filter(b => b.band === y).sort((p, q) => p.x0 - q.x0), medW = mid(row.map(b => b.x1 - b.x0 + 1));
+      const gapW = row.length > 1 ? Math.max(0, mid(row.slice(1).map((b, i) => b.x0 - row[i].x1 - 1))) : 0;   // usual space between frames
+      for (const b of row) {
+        const bw = b.x1 - b.x0 + 1, k = row.length > 1 && bw > medW * 1.7 ? Math.max(2, Math.round((bw + gapW) / (medW + gapW))) : 1;
+        if (k < 2) { split.push(b); continue; }
+        const col = x => { let n = 0; for (let yy = b.y0; yy <= b.y1; yy++) if (A[yy * W + x]) n++; return n; };
+        const cuts = [b.x0];
+        for (let i = 1; i < k; i++) { const e = b.x0 + Math.round(bw * i / k), r = Math.round(bw / k * 0.25); let bx = e, bn = 1e9; for (let x = e - r; x <= e + r; x++) { const n = col(x); if (n < bn) { bn = n; bx = x; } } cuts.push(bx); }
+        cuts.push(b.x1 + 1);
+        for (let i = 0; i < k; i++) {
+          let t = H, bt = -1, n = 0, l = W, rr = -1;
+          for (let yy = b.y0; yy <= b.y1; yy++) for (let x = cuts[i]; x < cuts[i + 1]; x++) if (A[yy * W + x]) { n++; if (yy < t) t = yy; bt = yy; if (x < l) l = x; if (x > rr) rr = x; }
+          if (n) split.push({ x0: l, x1: rr, y0: t, y1: bt, n, band: b.band });
+        }
+      }
+    }
+    boxes = split;
     const found = boxes.length;
     // rows = bands, top to bottom; frames left to right
     const bands = [...new Set(boxes.map(b => b.band))].sort((p, q) => p - q).slice(0, ANIMS.length);

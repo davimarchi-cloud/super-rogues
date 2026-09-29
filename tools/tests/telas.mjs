@@ -353,10 +353,11 @@ if (!REMOTE) {
   const anim = await pic('art-anim.png', `(() => { const c = document.createElement('canvas'); c.width = 1100; c.height = 760; const x = c.getContext('2d'); x.fillStyle = '#ff00ff'; x.fillRect(0, 0, 1100, 760);
     const rows = [['IDLE', 5], ['WALK', 6], ['ATTACK', 4], ['SPIN', 3]];
     rows.forEach(([label, n], r) => { x.fillStyle = '#fff'; x.font = 'bold 22px sans-serif'; x.fillText(label, 10, 60 + r * 185);
-      for (let i = 0; i < n; i++) { const X = 150 + i * 150, Y = 20 + r * 185; x.fillStyle = 'hsl(' + (r * 90) + ',60%,45%)'; x.fillRect(X, Y + 40, 60, 110 - (i % 2) * 8); x.beginPath(); x.arc(X + 30, Y + 22, 22, 0, 7); x.fill(); x.fillRect(X + 60, Y + 60 + i * 6, 30, 12); } });
+      for (let i = 0; i < n; i++) { const X = 150 + i * 150, Y = 20 + r * 185; x.fillStyle = 'hsl(' + (r * 90) + ',60%,45%)'; x.fillRect(X, Y + 40, 60, 110 - (i % 2) * 8); x.beginPath(); x.arc(X + 30, Y + 22, 22, 0, 7); x.fill(); x.fillRect(X + 60, Y + 60 + i * 6, 30, 12);
+        if (r === 2 && i === 1) { x.strokeStyle = '#ff9fd2'; x.lineWidth = 9; x.beginPath(); x.arc(X + 110, Y + 90, 95, -2.2, -0.5); x.stroke(); } } });  // a swoosh that reaches the next frame (review #46)
     return c.toDataURL('image/png'); })()`);
   await setFile('#alSheet', anim); await sleep(1200);
-  ok(await ev(`(() => { const a = B.Art.sprite('rook'); return !!a && a.anims.idle.length === 5 && a.anims.move.length === 6 && a.anims.attack.length === 4 && a.anims.cast.length === 3 && !a.anims.death; })()`), 'an animation sheet: 4 rows = idle 5, walk 6, attack 4, ability 3 frames, all kept');
+  ok(await ev(`(() => { const a = B.Art.sprite('rook'); return !!a && a.anims.idle.length === 5 && a.anims.move.length === 6 && a.anims.attack.length === 4 && a.anims.cast.length === 3 && !a.anims.death; })()`), 'an animation sheet: 4 rows = idle 5, walk 6, attack 4, ability 3 frames, all kept (two attack frames glued by a swoosh are cut apart)');
   ok(await ev(`/4 animations, 18 frames; 4 labels or specks left out/.test(document.querySelector('#alSheetView').textContent) && document.querySelectorAll('.alframes img').length === 18`), 'the row labels are left out and every frame is shown');
   // review #45: each row can be told what it is; two rows can make one animation (a charge + a spin = the ability)
   await ev(`(() => { const s = document.querySelectorAll('.alrowsel'); s[3].value = 'attack'; s[3].dispatchEvent(new Event('change', { bubbles: true })); })()`); await sleep(500);
