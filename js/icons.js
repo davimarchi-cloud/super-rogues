@@ -75,6 +75,7 @@
     wind: (c, a) => { c.strokeStyle = a || '#bfe6ff'; c.lineWidth = 6; c.lineCap = 'round'; for (const [y, w] of [[-18, 34], [2, 42], [22, 28]]) { c.beginPath(); c.moveTo(-40, y); c.lineTo(w - 12, y); c.arc(w - 12, y - 8, 8, Math.PI / 2, -Math.PI, true); c.stroke(); } },
   };
   const IT = {
+    honeycomb: ['amulet', '#ffc21a'], starcloak: ['cloak', '#5a4ab8'], tidepearl: ['gem', '#9ff0ff'], moonslippers: ['boots', '#c9d2ff'], comethammer: ['hammer', '#b8a8ff'],  // v30
     longsword: ['sword'], chainmail: ['armor'], belt: ['belt'], recurve: ['bow'], rod: ['rod'], cloak: ['cloak', '#4a5a6a'], tear: ['drop'], boots: ['boots'], gloves: ['glove'], fang: ['fang'],
     buckler: ['shield', '#8a6a3a'], cap: ['helm', leather], whetstone: ['stone'], coin: ['coin'], charm: ['amulet', '#c77dff'], amber: ['ring', '#e8a040'], dagger: ['dagger'], moss: ['leaf'], sling: ['stone', '#a09080'], focus: ['gem', '#5fa8ff'],
     bloodthirster: ['sword', '#e05555'], thornmail: ['armor', '#6a8a4a'], warmog: ['heart'], crossbow: ['crossbow'], deathcap: ['hat'], visage: ['mask', '#bfe6ff'], bluecrystal: ['gem'], infinity: ['sword', '#ffe066'], guardplate: ['shield'],
@@ -102,6 +103,8 @@
   // the empty slot of each item type shows this glyph, faded
   const SLOT = { weapon: 'sword', offhand: 'shield', helmet: 'helm', armor: 'armor', gloves: 'glove', boots: 'boots', trinket: 'ring' };
   const RE = {
+    beehive: ['lantern', '#ffc21a'], seashell: ['horn', '#ffb3c8'], kite: ['feather', '#ff8a5c'], compass: ['seal', '#b8a8ff'], teapot: ['vial', '#7ee08e'],  // v30
+    snowglobe: ['gem', '#dff4ff'], marbles: ['dice', '#6fb6ff'], fireflies: ['lantern', '#e8ff7a'], pinwheel: ['clover', '#ff8ad8'], horseshoe: ['ring', '#c9c9d9'],
     idol: ['idol'], drum: ['drum'], standard: ['banner', '#6a6f7a'], lens: ['lantern'], feather: ['feather'], seal: ['seal'], dice: ['dice'], font: ['drop', '#5fa8ff'], bloodstone: ['gem', '#c43a3a'], tooth: ['fang'],
     wits: ['eye'], clover: ['clover'], backpack: ['backpack'], crest: ['crest'], vengeance: ['skull', '#e05555'], frostsigil: ['snowflake'], thunder: ['bolt'], spring: ['drop', '#5fd47a'], firststrike: ['shield', '#e8b84a'],
     purse: ['purse'], tome: ['book', '#1f2f55'], wind: ['wind'], mark: ['target'], ember: ['flame'], warhorn: ['horn'], ironwill: ['fist', '#9aa0a8'], seed: ['leaf', '#8ac43a'], bounty: ['scroll'], bloodpact: ['drop', '#8a1f24'],

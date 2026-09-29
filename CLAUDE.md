@@ -14,7 +14,7 @@ revisa nada antes: a página da pessoa espera e avisa "Your changes are ready! P
 pedir, se outra pessoa pedir aí você me avise". "Ele" = **David** (nome no envio; o lote 1 foi dele). Envio do David:
 fazer tudo direto. Envio de QUALQUER outro nome: `node tools/sugestoes.js espera <ids>` (a pessoa vê "awaiting
 owner's OK", o vigia ignora), avisar o dono (PushNotification + mensagem com o que foi pedido) e só fazer depois que
-ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo algo muito fora do estilo dele, perguntar.
+ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo algo muito fora do estilo dele, perguntar. **Dono, 2026-09-29: "pode aprovar tudo do pc boy também"** → envios de **PC boy** também são feitos direto, como os do David.
 
 - No ar: ver `tools/publicacoes.log` (última linha) e o domínio de produção do projeto `balance` na Vercel.
 - Texto do jogo em **inglês** (o briefing veio em inglês e o público é externo). Conversa com o dono em português.
@@ -25,7 +25,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | Arquivo | O quê |
 |---|---|
 | `js/hex.js` | grade 8x8 pointy-top "odd-r"; linha 0 = topo (inimigo), linhas 4-7 = deploy do jogador |
-| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 33 heróis (habilidade + 4 pares de spec; 6 com escala passiva; habilidade em % de AD e/ou AP, v28), 120 itens com tipo e raridade (`TYPES`, `RARITIES`, `SETS`), 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
+| `js/data.js` | TODO o conteúdo: `CFG` (economia, XP, sequência de nós, time máx 3), 36 heróis (habilidade + 4 pares de spec; 3 liberados por nível de conta; 6 com escala passiva; habilidade em % de AD e/ou AP, v28), 120 itens com tipo e raridade (`TYPES`, `RARITIES`, `SETS`), 35 relíquias, 14 mobs, 2 chefes, elites, 12 eventos |
 | `js/sim.js` | motor de combate puro e determinístico (20 ticks/s). Roda no navegador e no Node |
 | `js/run.js` | máquina de estados da run (mapa, lutas, lojas, eventos, XP, itens). JSON puro, salvo no localStorage |
 | `js/models.js` | modelos 2.5D desenhados em código (humanoide, fera, bomba, golem, serpente, espectro, torre) com poses parado/andando/ataque/habilidade/morte; `portrait()` gera os retratos dos menus |
@@ -122,6 +122,21 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v30 (2026-09-29), lotes 27 e 28 do PC boy** (o dono liberou o PC boy como o David). (#37) **Gauntlet**: o andar s
+  (depois de s vitórias) é o grupo dos fantasmas que PERDERAM naquele andar (terminaram com s vitórias); o topo tem
+  **um único campeão** (`getChampion`/`demoteChampions`; dados antigos com vários campeões ficam só com o maior). Andar
+  logo abaixo do campeão também guarda quem caiu para o campeão. Quem vence o campeão, ou chega num andar que ninguém
+  alcançou, vira o novo campeão e o antigo vira fantasma comum do seu andar. Com campeão de 0 vitórias, o andar 1 sorteia
+  entre ele e os fantasmas 0-1. Andar vazio → o mais próximo acima → o campeão. Isso substitui a regra do #29 do David
+  (andar f = fantasma que terminou f-1). (#38) **Nível de conta**: XP só por primeiras vezes (1 por herói que passa do
+  PvE pela primeira vez, 5 por andar do Gauntlet novo, 3 por chefe vencido pela primeira vez) e 1 XP a cada 5 coroas
+  gastas; 10 XP por nível (`B.ACCOUNT`); jogadores antigos recebem o XP dos times salvos (`xpInit`, uma vez). Níveis 2 a
+  19 liberam **3 heróis novos** (Buzzwell apicultor: colmeia de AP + mel; Coralie das marés: onda de AP que empurra;
+  Stellan astrônomo: estrela de AD + AP com atordoamento), **5 itens** e **10 relíquias** (`B.UNLOCKS`); o que está
+  travado nunca aparece nas runs do jogador (`run.locked`, dado no `newRun`; bots e saves antigos veem tudo). Estrada de
+  recompensas na aba Player (ligas menores), nível no perfil e no menu, avisos de XP. **Loja**: Double XP 50 e Skip
+  fights 100 (o ⏭ virou vantagem paga). Colunas novas: `axp`, `cleared`, `pfloor`, `bosses`, `xpv`.
 
 - **v29 (2026-09-29), pedido direto do dono** ("no telemóvel está bem enquadrado, mas para PC está horrível o
   enquadramento ... deixar mais child friendly, parece ainda um jogo amador"). (1) **Tema infantil em todas as telas**

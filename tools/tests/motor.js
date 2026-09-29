@@ -352,5 +352,23 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(Run.heroDef({ relics: [] }, { key: 'grok', lvl: 1, specs: [], items: [], bonus: {} }).m.ccResist === 0.5, 'Grok: crowd control resistance');
   ok(Object.keys(HEROES).length >= 33, 'at least 33 heroes');
 }
+// v30 (review #28, PC boy): content locked by the account level never shows up in the player's runs
+{
+  const locked = B.lockedFor(1); let seenLocked = false;
+  for (let sd = 1; sd <= 60 && !seenLocked; sd++) {
+    const r = Run.newRun(sd, { locked });
+    if (r.startOffer.some(k => locked.includes(k)) || r.relicOffer.some(k => locked.includes(k))) seenLocked = true;
+    Run.pickStart(r, [r.startOffer[0]], r.relicOffer[0]);
+    for (const kind of ['heroShop', 'itemShop', 'relicShop']) { r.fightNo = 9; if (Run.makeShop ? false : false) {} }
+  }
+  ok(!seenLocked, 'level 1: the 3 new heroes and the level relics never show up at the start');
+  const r0 = Run.newRun(7); ok(Object.keys(B.HEROES).length === 36 && (r0.locked || []).length === 0, 'without a lock list (bots, old saves) everything is open');
+  for (const k of ['buzzwell', 'coralie', 'stellan']) {
+    const run = Run.newRun(11); Run.pickStart(run, [k]); Run.addHero(run, 'bastion');
+    run.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[1].id); });
+    run.cur = Run.makeFight(run, 'hard', 5); const W = Run.fightWorld(run); let cast = 0; for (let t = 0; t < 20 * 90 && !W.over; t++) { Sim.step(W); if (W.units.some(u => u.key === k && u.castT)) cast = 1; }
+    ok(cast && !W.units.some(u => !Number.isFinite(u.hp)), `${B.HEROES[k].name} casts ${B.HEROES[k].abName} with every spec, no NaN`);
+  }
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

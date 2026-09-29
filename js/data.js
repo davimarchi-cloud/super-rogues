@@ -498,6 +498,49 @@
         [{ id: 'zep5a', name: 'Still Center', desc: 'The kick deals double.', ab: { dmg: 1.7 } },
          { id: 'zep5b', name: 'Seven Winds', desc: 'Kicks 2 targets.', ab: { targets: 1 } }],
       ] }),
+    // v30 (review #28, PC boy): three heroes unlocked by the account level (B.UNLOCKS)
+    buzzwell: H({ name: 'Buzzwell', glyph: '🐝', role: 'Beekeeper', color: '#ffc21a',
+      hp: 560, atk: 36, armor: 18, mr: 28, as: 0.8, range: 3, ms: 2, mana: 75, m0: 25,
+      abil: 'hive', abName: 'Honey Hive', abDesc: 'Drops a honey hive on the densest enemy group: for 4s the bees sting everyone within 1 hex for 30% AP magic damage per second, and the weakest ally eats honey, healing 120% AP.',
+      ab: { radius: 1, dur: 4, dps: 0.3, honey: 1.2, slow: 0, twin: 0 },
+      specs: [
+        [{ id: 'buz2a', name: 'Busy Bees', desc: 'The hive lasts 1s longer.', ab: { dur: 1 } },
+         { id: 'buz2b', name: 'Royal Jelly', desc: 'Honey heals 60% AP more.', ab: { honey: 0.6 } }],
+        [{ id: 'buz3a', name: 'Bigger Hive', desc: 'Hive radius +1.', ab: { radius: 1 } },
+         { id: 'buz3b', name: 'Sticky Honey', desc: 'Enemies in the hive are slowed 30%.', ab: { slow: 0.3 } }],
+        [{ id: 'buz4a', name: 'Angry Bees', desc: 'The bees sting 50% harder.', ab: { dps: 0.15 } },
+         { id: 'buz4b', name: 'Pollen Dust', desc: 'Attacks poison for 1.5% max HP per second (3s).', mods: { poisonOnHit: 0.015 } }],
+        [{ id: 'buz5a', name: 'Twin Hives', desc: 'A second hive lands on another enemy group.', ab: { twin: 1 } },
+         { id: 'buz5b', name: "Queen's Guard", desc: 'Allies within 2 hexes gain +20 armor and MR.', mods: { aura: [{ r: 2, stat: 'armor', val: 20 }, { r: 2, stat: 'mr', val: 20 }] } }],
+      ] }),
+    coralie: H({ name: 'Coralie', glyph: '🌊', role: 'Tidecaller', color: '#2fb8d8',
+      hp: 650, atk: 42, armor: 22, mr: 32, as: 0.75, range: 3, ms: 2, mana: 55, m0: 25,
+      abil: 'wave', abName: 'Tidal Wave', abDesc: 'A wave crashes over the densest enemy group: 75% AP magic damage within 1 hex, pushes them 1 hex back and slows them 30% for 2s.',
+      ab: { radius: 1, dmg: 0.75, push: 1, slow: 0.3, stun: 0, foam: 0, echo: 0 },
+      specs: [
+        [{ id: 'cor2a', name: 'Undertow', desc: 'The wave pushes 1 hex farther.', ab: { push: 1 } },
+         { id: 'cor2b', name: 'Cold Current', desc: 'The slow is 20% stronger.', ab: { slow: 0.2 } }],
+        [{ id: 'cor3a', name: 'Riptide', desc: '+35% wave damage.', ab: { dmg: 0.26 } },
+         { id: 'cor3b', name: 'Sea Foam', desc: 'Casting shields allies next to her for 20% of their max HP.', ab: { foam: 0.2 } }],
+        [{ id: 'cor4a', name: 'High Tide', desc: 'Wave radius +1.', ab: { radius: 1 } },
+         { id: 'cor4b', name: 'Pearl Diver', desc: '+25 AP.', mods: { ap: 25 } }],
+        [{ id: 'cor5a', name: 'Second Swell', desc: 'A second wave hits 1s later for 60% of the damage.', ab: { echo: 0.6 } },
+         { id: 'cor5b', name: 'Whirlpool', desc: 'The wave also stuns for 1s.', ab: { stun: 1 } }],
+      ] }),
+    stellan: H({ name: 'Stellan', glyph: '⭐', role: 'Stargazer', color: '#8a7aff',
+      hp: 660, atk: 54, armor: 24, mr: 26, as: 0.85, range: 3, ms: 2, mana: 65, m0: 25,
+      abil: 'starfall', abName: 'Falling Star', abDesc: 'Calls a star onto the densest enemy group; 0.8s later it crashes: 120% AD + 60% AP magic damage in 1 hex and a 1.2s stun.',
+      ab: { radius: 1, dmg: 1.2, apdmg: 0.6, stun: 1.2, delay: 0.8, shards: 0, blessing: 0, veil: 0 },
+      specs: [
+        [{ id: 'ste2a', name: 'Quick Comet', desc: 'The star lands 0.5s sooner.', ab: { delay: -0.5 } },
+         { id: 'ste2b', name: 'Stardust', desc: '+15% crit chance.', mods: { crit: 0.15 } }],
+        [{ id: 'ste3a', name: 'Bright Star', desc: 'Star radius +1.', ab: { radius: 1 } },
+         { id: 'ste3b', name: 'Guiding Light', desc: 'Casting gives allies within 2 hexes +20% attack for 4s.', ab: { blessing: 0.2 } }],
+        [{ id: 'ste4a', name: 'Shooting Stars', desc: '2 shards hit random enemies for 50% of the damage.', ab: { shards: 2 } },
+         { id: 'ste4b', name: 'Constellation', desc: '+15 attack and +25 AP.', mods: { atk: 15, ap: 25 } }],
+        [{ id: 'ste5a', name: 'Supernova', desc: '+60% star damage.', ab: { dmg: 0.72, apdmg: 0.36 } },
+         { id: 'ste5b', name: 'Starlight Veil', desc: 'When the star lands, allies within 2 hexes get a shield of 15% of their max HP.', ab: { veil: 0.15 } }],
+      ] }),
   };
   for (const k in B.HEROES) B.HEROES[k].key = k;
 
@@ -666,6 +709,12 @@
     N('helmet', 'rg_hood', 'Wildwarden Hood', 'set', { crit: 0.08, asPct: 0.08 }, '+8% crit, +8% attack speed', 'ranger'),
     N('offhand', 'rg_quiver', 'Wildwarden Quiver', 'set', { asPct: 0.15 }, '+15% attack speed', 'ranger'),
     N('boots', 'rg_boots', 'Wildwarden Boots', 'set', { ms: 1, dodge: 0.08 }, '+1 move speed, +8% dodge', 'ranger'),
+    // v30 (review #28): five items unlocked by the account level
+    N('trinket', 'honeycomb', 'Honeycomb Charm', 'rare', { hp: 150, ap: 15, regen: 0.01 }, '+150 HP, +15 AP, regenerates 1% HP per second'),
+    N('armor', 'starcloak', 'Starwoven Cloak', 'rare', { armor: 25, mr: 25, dodge: 0.08 }, '+25 armor and MR, +8% dodge'),
+    N('offhand', 'tidepearl', 'Tide Pearl', 'epic', { ap: 45, manaStart: 20, mr: 20 }, '+45 AP, +20 starting mana, +20 MR'),
+    N('boots', 'moonslippers', 'Moonstep Slippers', 'epic', { ms: 1, dodge: 0.15, manaRegen: 2 }, '+1 move speed, +15% dodge, +2 mana per second'),
+    N('weapon', 'comethammer', 'Comet Hammer', 'legendary', { atk: 35, ap: 30, splash: 0.25 }, '+35 attack, +30 AP, attacks splash 25% to adjacent enemies'),
   );
   // set bonuses count the pieces worn by the SAME hero (Run.heroMods)
   B.SETS = {
@@ -716,6 +765,17 @@
     R('battery', 'Mana Coil', 'Abilities need 15% less mana.', { mods: { manaMaxPct: -0.15 } }),
     R('treasure', 'Faded Chart', 'Item shops stock 2 more items.', { fl: 'treasure' }),
     R('rally', 'Muster Flag', 'Each hero gives +10 armor to adjacent allies.', { mods: { aura: [{ r: 1, stat: 'armor', val: 10 }] } }),
+    // v30 (review #28): ten relics unlocked by the account level
+    R('beehive', 'Tiny Beehive', 'All heroes +10 AP, and their attacks poison for 0.5% max HP per second.', { mods: { ap: 10, poisonOnHit: 0.005 } }),
+    R('seashell', 'Singing Seashell', 'All heroes +15 magic resist and +8% attack speed.', { mods: { mr: 15, asPct: 0.08 } }),
+    R('kite', 'Paper Kite', 'All heroes +1 move speed and +5% dodge.', { mods: { ms: 1, dodge: 0.05 } }),
+    R('compass', 'Star Compass', 'All heroes +8% crit chance and +15% crit damage.', { mods: { crit: 0.08, critDmg: 0.15 } }),
+    R('teapot', 'Warm Teapot', 'All heroes regenerate 1% HP per second.', { mods: { regen: 0.01 } }),
+    R('snowglobe', 'Snow Globe', 'All heroes +10 armor and +100 HP.', { mods: { armor: 10, hp: 100 } }),
+    R('marbles', 'Marble Pouch', 'All heroes start fights with +25 mana.', { mods: { manaStart: 25 } }),
+    R('fireflies', 'Firefly Jar', 'All heroes +10 attack and +10 AP.', { mods: { atk: 10, ap: 10 } }),
+    R('pinwheel', 'Pinwheel', 'All heroes +8% attack speed and +1 mana per second.', { mods: { asPct: 0.08, manaRegen: 1 } }),
+    R('horseshoe', 'Lucky Horseshoe', 'All heroes +8% dodge and +5% crit chance.', { mods: { dodge: 0.08, crit: 0.05 } }),
   ];
   B.RELIC = {}; for (const r of B.RELICS) B.RELIC[r.id] = r;
   // review #14 (David): content Elo only rates what acts in a fight, so these never get a rating
@@ -865,7 +925,23 @@
     { id: 'rename', icon: '✎', name: 'Name change', price: 10, desc: 'Pick a new name. Your ghosts take it too. Pay each time you change it.', use: true },
     { id: 'king', icon: '👑', name: 'King Tier', price: 300, king: true, desc: "The Royal board skin, only for Kings. Deeper profiles, yours and everyone else's: most played heroes, best win rate heroes, and the record of their ghosts. A crown next to your name. Includes 4× speed and Content Elo." },
   ];
+  // v30 (review #28): two more perks
+  B.SHOP.splice(2, 0,
+    { id: 'xp2', icon: '✨', name: 'Double XP', price: 50, desc: 'Every account XP you earn counts twice, so you level up and unlock new heroes, items and relics faster.' },
+    { id: 'skip', icon: '⏭', name: 'Skip fights', price: 100, desc: 'Unlocks the ⏭ button in battle: a fight ends at once with the same result it would have had.' });
   B.SHOP_ITEM = Object.fromEntries(B.SHOP.map(x => [x.id, x]));
+  // v30 (review #28, PC boy): account level. 10 XP per level; XP comes from firsts (each hero's first PvE clear, each
+  // Gauntlet floor reached for the first time, each boss beaten for the first time) and from crowns spent in the shop.
+  // Every level from 2 to 19 unlocks one new hero, item or relic (locked ones never show up in a run before that).
+  B.ACCOUNT = { xpPerLevel: 10, heroClear: 1, floor: 5, boss: 3, crownsPerXp: 5 };
+  B.UNLOCKS = [
+    [2, 'relic', 'beehive'], [3, 'item', 'honeycomb'], [4, 'relic', 'seashell'], [5, 'hero', 'buzzwell'], [6, 'relic', 'kite'],
+    [7, 'item', 'starcloak'], [8, 'relic', 'compass'], [9, 'relic', 'teapot'], [10, 'hero', 'coralie'], [11, 'item', 'tidepearl'],
+    [12, 'relic', 'snowglobe'], [13, 'relic', 'marbles'], [14, 'item', 'moonslippers'], [15, 'hero', 'stellan'], [16, 'relic', 'fireflies'],
+    [17, 'item', 'comethammer'], [18, 'relic', 'pinwheel'], [19, 'relic', 'horseshoe'],
+  ].map(([lvl, kind, id]) => ({ lvl, kind, id }));
+  B.levelOf = xp => 1 + Math.floor(Math.max(0, xp || 0) / B.ACCOUNT.xpPerLevel);
+  B.lockedFor = lvl => B.UNLOCKS.filter(u => u.lvl > lvl).map(u => u.id);
   B.hasPerk = (perks, id) => (perks || []).includes(id) || ((id === 'speed4' || id === 'elo') && (perks || []).includes('king'));
 
   if (typeof module !== 'undefined') module.exports = B;

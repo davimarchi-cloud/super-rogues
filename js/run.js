@@ -10,6 +10,12 @@
     t = Math.imul(t ^ t >>> 15, 1 | t); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296;
   }
   const pick = (run, arr) => arr[Math.floor(rnd(run) * arr.length)];
+  // v30 (review #28, PC boy): content still locked by the player's account level (run.locked, given at newRun) never
+  // shows up in that player's runs: start offer, shops, events, rewards
+  const isOpen = (run, id) => !(run.locked && run.locked.length && run.locked.includes(id));
+  const heroKeysOf = run => Object.keys(B.HEROES).filter(k => isOpen(run, k));
+  const itemsOf = run => B.ITEMS.filter(i => isOpen(run, i.id));
+  const relicsOf = run => B.RELICS.filter(r => isOpen(run, r.id));
   function pickN(run, arr, n) { const a = arr.slice(), o = []; while (a.length && o.length < n) o.push(a.splice(Math.floor(rnd(run) * a.length), 1)[0]); return o; }
   function wpick(run, weights) { let s = 0; for (const k in weights) s += weights[k]; let x = rnd(run) * s; for (const k in weights) { x -= weights[k]; if (x <= 0) return k; } return Object.keys(weights)[0]; }
 
@@ -35,12 +41,12 @@
     return run.v === 5 ? run : null;
   }
   const seqOf = run => run.seq || C.seq;
-  function newRun(seed) {
+  function newRun(seed, opts) {
     const run = { v: 5, seed: seed >>> 0, rs: seed | 0, gold: C.startGold, heroes: [], bag: [], relics: [], nuid: 0,
       step: -1, fightNo: 0, phase: 'start', opts: [], cur: null, pending: [], curse: 0, log: [], won: 0, lost: 0, score: 0, startOffer: [],
-      seq: C.seq.slice(), fightScale: C.fightScale.slice() };
-    run.startOffer = pickN(run, Object.keys(B.HEROES), C.startOffer);
-    run.relicOffer = pickN(run, B.RELICS.map(r => r.id), C.startOffer);  // review #22: the run also starts with a relic
+      seq: C.seq.slice(), fightScale: C.fightScale.slice(), locked: ((opts && opts.locked) || []).slice() };
+    run.startOffer = pickN(run, heroKeysOf(run), C.startOffer);
+    run.relicOffer = pickN(run, relicsOf(run).map(r => r.id), C.startOffer);  // review #22: the run also starts with a relic
     return run;
   }
   function addHero(run, key) {
@@ -305,14 +311,14 @@
       : n <= bossFight(run, 1) ? { common: 0.25, uncommon: 0.27, rare: 0.28, epic: 0.1, set: 0.07, legendary: 0.03 }
       : { common: 0.1, uncommon: 0.17, rare: 0.3, epic: 0.18, set: 0.12, legendary: 0.09, mythic: 0.04 };
   }
-  function randomItem(run, tier) { const t = tier || wpick(run, tierWeights(run)); return pick(run, B.ITEMS.filter(i => i.tier === t)).id; }
+  function randomItem(run, tier) { const t = tier || wpick(run, tierWeights(run)); return pick(run, itemsOf(run).filter(i => i.tier === t)).id; }
   function stockFor(run, kind) {
     if (kind === 'heroShop') {
       const have = new Set(run.heroes.map(h => h.key));
-      return pickN(run, Object.keys(B.HEROES).filter(k => !have.has(k)), 3).map(k => ({ kind: 'hero', id: k, price: Math.max(1, C.heroCost - seal(run)) }));
+      return pickN(run, heroKeysOf(run).filter(k => !have.has(k)), 3).map(k => ({ kind: 'hero', id: k, price: Math.max(1, C.heroCost - seal(run)) }));
     }
     if (kind === 'itemShop') return Array.from({ length: run.relics.includes('treasure') ? 7 : 5 }, () => { const id = randomItem(run); return { kind: 'item', id, price: Math.max(1, C.itemCost[B.ITEM[id].tier] - seal(run)) }; });
-    return pickN(run, B.RELICS.filter(r => !run.relics.includes(r.id)).map(r => r.id), 3).map(id => ({ kind: 'relic', id, price: Math.max(1, C.relicCost - seal(run)) }));
+    return pickN(run, relicsOf(run).filter(r => !run.relics.includes(r.id)).map(r => r.id), 3).map(id => ({ kind: 'relic', id, price: Math.max(1, C.relicCost - seal(run)) }));
   }
   function makeShop(run, kind) { return { type: 'shop', kind, stock: stockFor(run, kind), rerolls: 0 }; }
   function rerollCost(run) { return run.relics.includes('dice') && run.cur.rerolls === 0 ? 0 : C.reroll; }
@@ -354,12 +360,12 @@
   function makeEvent(run, id) { return { type: 'event', id, done: null, offer: rollOffer(run, id) }; }
   function rollOffer(run, id) {
     const o = {};
-    if (id === 'mercs') { const have = new Set(run.heroes.map(h => h.key)); o.heroes = pickN(run, Object.keys(B.HEROES).filter(k => !have.has(k)), 2); }
+    if (id === 'mercs') { const have = new Set(run.heroes.map(h => h.key)); o.heroes = pickN(run, heroKeysOf(run).filter(k => !have.has(k)), 2); }
     if (id === 'armory') {
       o.items = pickN(run, B.TYPES.map(t => t.id), 3).map(t => {
         const tier = wpick(run, run.fightNo > bossFight(run, 1) ? { rare: 0.4, epic: 0.35, set: 0.25 } : { uncommon: 0.3, rare: 0.45, epic: 0.15, set: 0.1 });
-        const pool = B.ITEMS.filter(i => i.type === t && i.tier === tier);
-        return pick(run, pool.length ? pool : B.ITEMS.filter(i => i.type === t && i.tier === 'rare')).id;
+        const pool = itemsOf(run).filter(i => i.type === t && i.tier === tier);
+        return pick(run, pool.length ? pool : itemsOf(run).filter(i => i.type === t && i.tier === 'rare')).id;
       });
     }
     if (id === 'collector') { const own = [...new Set(itemRefs(run).map(x => B.ITEM[x.id].set).filter(Boolean))]; o.set = own.length ? pick(run, own) : null; }
@@ -414,10 +420,10 @@
   // a random item of the same type, one rarity higher (skips rarities that type does not have)
   function upgradedOf(run, id) {
     const it = B.ITEM[id]; let t = RAR_UP[it.tier];
-    while (t) { const pool = B.ITEMS.filter(i => i.type === it.type && i.tier === t && i.id !== id); if (pool.length) return pick(run, pool).id; t = RAR_UP[t]; }
+    while (t) { const pool = itemsOf(run).filter(i => i.type === it.type && i.tier === t && i.id !== id); if (pool.length) return pick(run, pool).id; t = RAR_UP[t]; }
     return null;
   }
-  function randomRelic(run) { const pool = B.RELICS.filter(r => !run.relics.includes(r.id)); if (!pool.length) return null; const r = pick(run, pool); gainRelic(run, r.id); return r; }
+  function randomRelic(run) { const pool = relicsOf(run).filter(r => !run.relics.includes(r.id)); if (!pool.length) return null; const r = pick(run, pool); gainRelic(run, r.id); return r; }
   function eventAct(run, i, arg) {
     const ch = eventChoices(run)[i];
     if (!canChoose(run, ch).ok) return null;
@@ -434,7 +440,7 @@
     else if (a === 'buffHero') { for (const k in ch.mods) hero.bonus[k] = (hero.bonus[k] || 0) + ch.mods[k]; msg = name(hero) + ' got stronger.'; }
     else if (a === 'gold') { run.gold += +x; msg = '+' + x + ' gold.'; }
     else if (a === 'item') { const id = randomItem(run, x === 'common' ? 'common' : null); run.bag.push(id); msg = 'You got ' + iname(id) + '.'; }
-    else if (a === 'typeItem') { const pool = B.ITEMS.filter(q => q.type === tgt.type && q.tier === x); const id = pick(run, pool).id; run.bag.push(id); msg = 'The merchant hands you ' + iname(id) + '.'; }
+    else if (a === 'typeItem') { const pool = itemsOf(run).filter(q => q.type === tgt.type && q.tier === x); const id = pick(run, pool).id; run.bag.push(id); msg = 'The merchant hands you ' + iname(id) + '.'; }
     else if (a === 'mystery') { const id = randomItem(run, rnd(run) < 0.5 ? 'epic' : 'common'); run.bag.push(id); msg = 'Inside the box: ' + iname(id) + '.'; }
     else if (a === 'sellFull') { const v = C.itemCost[B.ITEM[it.id].tier]; msg = 'Sold ' + iname(it.id) + ' for ' + v + ' gold.'; it.drop(); run.gold += v; }
     else if (a === 'upgradeItem') { const nid = upgradedOf(run, it.id); if (nid) { msg = iname(it.id) + ' was reforged into ' + iname(nid) + '.'; it.set(nid); } else { run.gold += ch.cost || 0; msg = 'Nothing better exists for that item. Your gold is returned.'; } }
@@ -455,12 +461,12 @@
     else if (a === 'setPiece') {
       const own = new Set(itemRefs(run).map(q => q.id)), S = run.cur.offer && run.cur.offer.set && B.SETS[run.cur.offer.set];
       let pool = S ? S.pieces.filter(id => !own.has(id)) : [];
-      if (!pool.length) pool = B.ITEMS.filter(q => q.set && !own.has(q.id)).map(q => q.id);
+      if (!pool.length) pool = itemsOf(run).filter(q => q.set && !own.has(q.id)).map(q => q.id);
       if (!pool.length) { run.gold += ch.cost || 0; msg = 'You already own every set piece. Your gold is returned.'; }
       else { const id = pick(run, pool); run.bag.push(id); msg = 'You got ' + iname(id) + '.'; }
     }
     else if (a === 'tradeSet') {
-      const own = new Set(itemRefs(run).map(q => q.id)), pool = B.ITEMS.filter(q => q.set && !own.has(q.id));
+      const own = new Set(itemRefs(run).map(q => q.id)), pool = itemsOf(run).filter(q => q.set && !own.has(q.id));
       if (!pool.length) msg = 'You already own every set piece.';
       else { const was = iname(it.id); it.drop(); const id = pick(run, pool).id; run.bag.push(id); msg = 'Traded ' + was + ' for ' + iname(id) + '.'; }
     }

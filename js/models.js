@@ -41,6 +41,10 @@
     harlequin: H({ skin: '#f5f0ea', body: '#d23a8a', trim: '#1a1a1a', legs: '#2a1a2a', head: 'jester', hat: '#d23a8a', weapon: 'daggers', diamonds: '#1a1a1a' }),
     sprocket: H({ skin: '#d9a07a', body: '#3a7a5a', trim: '#e8c070', legs: '#2a3a2a', head: 'goggles', hair: '#e8e0c0', weapon: 'flask', orb: '#7ee08e', pack: true }),
     zephyr: H({ skin: '#d9a07a', body: '#e8e0c8', trim: '#3aa8a8', legs: '#c8c0a8', head: 'bald', weapon: 'none', sash: '#3aa8a8' }),
+    // v30 (review #28): the heroes unlocked by the account level
+    buzzwell: H({ skin: '#e8b890', body: '#ffc21a', trim: '#3a2a10', legs: '#6a4a1a', robe: '#e0a010', head: 'hood', hood: '#f2ead0', eyes: '#3a2a10', weapon: 'staff', orb: '#ffe066', diamonds: '#3a2a10' }),
+    coralie: H({ skin: '#f0d0c0', body: '#2fb8d8', trim: '#fff3c4', robe: '#1a86a8', head: 'tiara', hair: '#1a5a8a', weapon: 'staff', orb: '#9ff0ff' }),
+    stellan: H({ skin: '#e0b48a', body: '#3a3a8a', trim: '#ffe066', legs: '#24245a', head: 'hat', hat: '#2a2a6a', hair: '#e8e8ff', weapon: 'orb', orb: '#fff6a0', cape: '#5a4ab8', sparks: true }),
     bat: H({ skin: '#3a2a3a', body: '#2a1a2a', trim: '#8a1f3a', legs: '#1a101a', h: 0.5, bulk: 0.7, head: 'ears', weapon: 'none', wings: '#2a1a2a' }),
     // mobs
     grunt: H({ skin: '#6fa04a', body: '#6b4a2a', trim: '#3a2a1a', legs: '#3d2a18', h: 0.85, head: 'ears', weapon: 'club' }),

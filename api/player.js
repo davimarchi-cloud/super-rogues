@@ -44,7 +44,8 @@ module.exports = async (req, res) => {
       const left = await st.spend(pid, it.price, p.perks || '[]', JSON.stringify(perks.concat(it.id)));
       if (left == null) return send(res, 400, { error: `Not enough crowns: ${it.name} costs ${it.price} 👑` });
       Object.assign(p, { gems: left, perks: JSON.stringify(perks.concat(it.id)) });
-      return send(res, 200, Object.assign(await P.ownView(st, p), { bought: it.id }));
+      const xp = []; await P.xpSpend(st, p, it.price, xp);
+      return send(res, 200, Object.assign(await P.ownView(st, p), { bought: it.id, xp }));
     }
     if (b.op === 'rename') {
       const name = clean(b.name, 16).replace(/\s+/g, ' ');
@@ -55,7 +56,8 @@ module.exports = async (req, res) => {
       if (left == null) return send(res, 400, { error: `Not enough crowns: a name change costs ${price} 👑` });
       await st.renameTeams(pid, name);
       Object.assign(p, { gems: left, name });
-      return send(res, 200, Object.assign(await P.ownView(st, p), { renamed: name }));
+      const xp = []; await P.xpSpend(st, p, price, xp);
+      return send(res, 200, Object.assign(await P.ownView(st, p), { renamed: name, xp }));
     }
     if (b.op === 'ratings') {
       if (!D.hasPerk(P.perksOf(p), 'elo')) return send(res, 403, { error: 'Unlock Content Elo in the Crown Shop' });

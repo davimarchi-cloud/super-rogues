@@ -106,21 +106,35 @@ function leaguePoints(p, delta) {
 }
 
 // next opponent with at least `wins` wins: other players first, then your own older teams
-// review #24 (David): floor f (after f-1 wins) meets a ghost whose run ended with EXACTLY f wins, i.e. it won that floor
-// and lost the next one ("on the 3rd floor I fight ghosts that ended 3-1"); the top floor holds the champion, who never
-// lost. Anyone's ghost (yours too), drawn at random. When no ghost has exactly f wins, the closest record above; on floor
-// 1 with nobody above, a ghost that won 0 (the first ghosts). A ghost this run already faced comes back only when there
-// is no one else. A gauntlet left unfinished for 6 hours counts as ended. No ghost at all: you are the champion.
+// review #27 (PC boy, the owner approved): floor s (after s wins) is the pool of ghosts that LOST on that floor, i.e.
+// whose run ended with exactly s wins; the top floor holds the ONE champion (T = its wins). At floor s < T: a random
+// ghost of that pool (the floor just under the champion also holds the teams that fell to the champion, "champion
+// minus one"); an empty pool falls back to the closest floor above, then the champion. At floor T: the champion (while
+// the champion still has 0 wins, a random pick among it and the 0-win ghosts). Past T, a floor nobody reached: you are
+// the new champion and the old one becomes an ordinary ghost of its floor. Anyone's ghost; a ghost this run already
+// faced comes back only when there is no one else. A gauntlet left unfinished for 6 hours counts as ended. Ghosts keep
+// their own Elo; their player's Elo never moves for them.
 const STALE_MS = 6 * 3600e3;
 async function nextOpponent(st, wins, pid, teamId, faced) {
-  const f = wins + 1, stale = Date.now() - STALE_MS;
+  const stale = Date.now() - STALE_MS;
+  const champ = await st.getChampion(teamId);
+  if (champ) await st.demoteChampions(champ.id);   // only one champion (older data could hold several)
+  const T = champ ? champ.wins : -1;
+  if (wins > T) return null;
   for (const ex of [[teamId].concat(faced || []), [teamId]]) {
-    const g = (await st.pickGhost('eq', f, ex, stale)) || (await st.pickGhost('gt', f, ex, stale)) || (f === 1 ? await st.pickGhost('eq', 0, ex, stale) : null);
+    if (wins === T) {
+      if (T > 0) return champ;
+      const n = await st.countPool(0, 0, ex, stale);
+      if (!n || Math.random() < 1 / (n + 1)) return champ;
+      return st.pickPool(0, 0, ex, stale);
+    }
+    const g = (await st.pickPool(wins, wins === T - 1 ? null : wins, ex, stale)) || (await st.pickAbove(wins, ex, stale));
     if (g) return g;
   }
-  return null;
+  return champ;
 }
-const peakOf = (st, teamId) => st.maxWins(teamId, Date.now() - STALE_MS);
+// the tower's height: the champion's wins (its floor is the top one); -1 = no champion yet
+const peakOf = async (st, teamId) => { const c = await st.getChampion(teamId); return c ? c.wins : -1; };
 
 module.exports = async (req, res) => {
   const st = getStore();
@@ -144,8 +158,9 @@ module.exports = async (req, res) => {
     await P.sync(st, p);
     if (b.ref) await P.linkRef(st, p, b.ref);
     const save = () => st.setPlayer(pid, P.row(p));
+    const xp = [];   // v30: account XP earned by this call (shown as toasts and on the result screen)
     const me = extra => Object.assign({ name: p.name, code: P.codeOf(pid), elo: Math.round(p.elo), runs: p.runs, titles: p.crowns, best: p.best, league: p.league | 0, lp: p.lp | 0,
-      crowns: p.gems | 0, season: p.season, sreach: p.sreach | 0 }, extra);
+      crowns: p.gems | 0, season: p.season, sreach: p.sreach | 0, xp }, P.levelView(p), extra);
 
     if (b.op === 'hello') return send(res, 200, me({}));
 
@@ -155,6 +170,7 @@ module.exports = async (req, res) => {
       const r0 = (await st.getRatings(['boss:' + key]))['boss:' + key] ?? PVE, score = b.win ? 0 : 1;
       const delta = KC * (score - expect(r0, p.elo));
       await st.addRatings([{ kind: 'boss', id: key, delta, win: score }]);
+      if (b.win) await P.xpBoss(st, p, key, xp);
       return send(res, 200, me({ boss: { key, name: D.BOSSES[key].name, elo: Math.round(r0 + delta), delta: Math.round(r0 + delta) - Math.round(r0) } }));
     }
 
@@ -178,8 +194,9 @@ module.exports = async (req, res) => {
       const rt = b.reached && cleanTeam(b.reached.team);
       await rateContent(st, ipHash(req), [{ used: rt ? usedIn(rt, relicList(b.reached.relics)) : usedIn(team, relics), score: 1 }]);
       await P.heroGames(st, pid, rt || team, true);
+      await P.xpClear(st, p, rt || team, xp); await P.xpFloor(st, p, 1, xp);   // v30: first PvE clears, floor 1
       const opp = await nextOpponent(st, 0, pid, id), peak = await peakOf(st, id);
-      if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, peak, champion: true, over: true })); }
+      if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); await st.demoteChampions(id); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, peak, champion: true, over: true })); }
       await st.updateTeam(id, { wins: 0, status: 'running', opp: opp.id, faced: [opp.id] }); await save({});
       return send(res, 200, me({ teamId: id, round: 0, wins: 0, peak, opponent: oppView(opp, pid) }));
     }
@@ -214,10 +231,11 @@ module.exports = async (req, res) => {
         return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, wins: t.wins, over: true }));
       }
       const wins = t.wins + 1;
+      await P.xpFloor(st, p, wins + 1, xp);   // v30: a floor reached for the first time
       let faced = []; try { faced = JSON.parse(t.faced || '[]'); } catch (_) {}
       const next = await nextOpponent(st, wins, pid, t.id, faced);
       p.best = Math.max(p.best, wins);
-      if (!next) { await st.updateTeam(t.id, { wins, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, lg, wins, champion: true, over: true })); }
+      if (!next) { await st.updateTeam(t.id, { wins, status: 'champion', opp: null }); await st.demoteChampions(t.id); p.crowns++; await save({}); return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, lg, wins, champion: true, over: true })); }
       await st.updateTeam(t.id, { wins, status: 'running', opp: next.id, faced: faced.concat(next.id) }); await save({});
       return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, lg, wins, round: wins, opponent: oppView(next, pid) }));
     }

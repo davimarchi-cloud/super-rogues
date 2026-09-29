@@ -53,7 +53,7 @@ for (const d of DEVICES) {
   await shot('dev-' + d.name + '-deploy');
   await ev(`document.querySelector('[data-act=fight]').click()`); await sleep(1500);
   await noHScroll(d.name + ' battle'); await boardFits(d.name + ' battle'); await shot('dev-' + d.name + '-battle');
-  await ev(`document.querySelector('[data-act=skip]').click()`); for (let k = 0; k < 40 && (await ev('!!__bal.battle')); k++) await sleep(100);
+  await ev(`__bal.skipBattle()`); for (let k = 0; k < 40 && (await ev('!!__bal.battle')); k++) await sleep(100);
   await noHScroll(d.name + ' result');
 }
 ok(errors.length === 0, 'no JS errors' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));

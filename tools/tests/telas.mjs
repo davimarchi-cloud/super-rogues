@@ -148,8 +148,9 @@ while (steps++ < 80) {
       await sleep(900); await shot('05-battle'); await noHScroll('battle'); await noVScroll('battle');
       ok(await ev(`/4×🔒/.test(document.querySelector('.speed').textContent) && !!document.querySelector('.speed [data-arg="2"]')`), 'v27: 2× speed is free, 4× is locked (Crown Shop)');
       await click('.speed [data-arg="4"]'); ok(await ev(`/Crown Shop/.test(document.querySelector('#toast').textContent)`), 'tapping the locked 4× says where to get it');
+      ok(await ev(`!!document.querySelector('.speed .skip.locked')`), 'v30: the skip button is locked (Crown Shop perk)'); await click('.speed .skip'); ok(await ev(`/Skipping fights/.test(document.querySelector('#toast').textContent) && !!__bal.battle`), 'tapping it explains the unlock and the fight goes on');
     }
-    await click('[data-act=skip]');
+    await ev('__bal.skipBattle()');  // v30: the ⏭ button is a Crown Shop perk now
     for (let k = 0; k < 60 && (await ev('!!__bal.battle')); k++) await sleep(100);
     continue;
   }
@@ -222,7 +223,7 @@ if (!REMOTE) {
   await click('[data-act=to-duel]'); await sleep(300);
   ok(await ev(`/Rival/.test(document.querySelector('.bhead').textContent) && __bal.run.cur.type === 'gauntlet'`), 'duel deploy screen');
   await shot('18-gauntlet-deploy');
-  await click('[data-act=fight]'); await sleep(1200); await click('[data-act=skip]');
+  await click('[data-act=fight]'); await sleep(1200); await ev('__bal.skipBattle()');
   for (let k = 0; k < 80 && !(await ev(`[...document.querySelectorAll('.rewards2 .rw')].some(x => /Elo/.test(x.textContent))`)); k++) await sleep(100);
   ok(await ev(`[...document.querySelectorAll('.rewards2 .rw')].some(x => /Elo [0-9]+/.test(x.textContent) && /[+-][0-9]+/.test(x.textContent))`), 'duel result shows the Elo change (a reward chip)');
   await shot('18b-duel-result'); await noVScroll('duel result');
@@ -243,7 +244,7 @@ if (!REMOTE) {
   await ev(`fetch('/__dev/grant?pid=' + JSON.parse(localStorage.getItem('balance.pid')) + '&n=400')`); await sleep(200);
   await click('#modal .klock [data-act=shop]');
   for (let i = 0; i < 30 && !(await ev(`!!document.querySelector('#modal .wallet') && /40[0-9]/.test(document.querySelector('#modal .wallet').textContent)`)); i++) await sleep(100);
-  ok(await ev(`document.querySelectorAll('#modal .crl').length === 5 && document.querySelectorAll('#modal .perk').length === 3 && !!document.querySelector('#modal .king') && !!document.querySelector('#refLink') && /[?]ref=[a-f0-9]{12}$/.test(document.querySelector('#refLink').value)`), 'Crown Shop: wallet, crowns per league, 3 perks, the King Tier and your invite link');
+  ok(await ev(`document.querySelectorAll('#modal .crl').length === 5 && document.querySelectorAll('#modal .perk').length === 5 && !!document.querySelector('#modal .king') && !!document.querySelector('#refLink') && /[?]ref=[a-f0-9]{12}$/.test(document.querySelector('#refLink').value)`), 'Crown Shop: wallet, crowns per league, 5 perks (Double XP and Skip fights too), the King Tier and your invite link');
   await shot('23-crown-shop'); await noHScroll('crown shop');
   await click('[data-act=buy-perk][data-arg=elo]'); await sleep(150);
   ok(await ev(`/Tap again/.test(document.querySelector('[data-act=buy-perk][data-arg=elo]').textContent) && !__bal.acct.perks.includes('elo')`), 'the first tap only asks to confirm');
@@ -272,6 +273,7 @@ if (!REMOTE) {
   await click('[data-act=ladder-tab][data-arg=player]');
   for (let i = 0; i < 30 && !(await ev(`!!document.querySelector('#lgscroll')`)); i++) await sleep(100);
   ok(await ev(`document.querySelectorAll('.lgb').length === 6 && document.querySelectorAll('.lgb.cur').length === 1 && document.querySelectorAll('.lgpath .pn').length === 6 && /Bronze|Silver/.test(document.querySelector('.pme').textContent) && document.querySelector('#lgscroll').scrollWidth > document.querySelector('#lgscroll').clientWidth`), 'Player tab: 6 league banners in a scrolling row, your league marked, the path between tiers');
+  ok(await ev(`document.querySelectorAll('#roadmap .rmn').length === B.UNLOCKS.length && !!document.querySelector('.acctlv .lvb') && /Account level/.test(document.querySelector('.acctlv').textContent)`), 'v30: the Player tab shows the account level and the road of 18 rewards');
   await shot('22-player-tab'); await noHScroll('player tab');
   await click('[data-act=ladder-tab][data-arg=players]'); await sleep(400);
   ok(await ev(`/Tester King/.test(document.querySelector('#modal').textContent) && !!document.querySelector('#modal .kingmark') && document.querySelectorAll('#modal .tbl .plink').length >= 2`), 'back to the Ranking: the new name, a 👑 for the King, names link to profiles');

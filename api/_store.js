@@ -45,12 +45,23 @@ const SCHEMA = [
   `create unique index if not exists players_code on players(code)`,
   `create index if not exists players_ref on players(ref)`,
   `create index if not exists teams_pid on teams(pid)`,
+  // v30 (review #28): account XP (axp), the heroes that cleared PvE (cleared, JSON), the highest gauntlet floor ever
+  // reached (pfloor), bosses beaten (bosses, JSON), xpv = 1 once the XP of older players was counted from their teams
+  `alter table players add column if not exists axp int not null default 0`,
+  `alter table players add column if not exists cleared text not null default '[]'`,
+  `alter table players add column if not exists pfloor int not null default 0`,
+  `alter table players add column if not exists bosses text not null default '[]'`,
+  `alter table players add column if not exists xpv int not null default 0`,
   // v27: games and wins of each hero per player (King Tier profiles: most played, best win rate)
   `create table if not exists phero (pid text not null, hero text not null, games int not null default 0, wins int not null default 0, primary key (pid, hero))`,
 ];
 // public id of a player: never the pid itself (the pid is the player's secret key)
 const codeOf = pid => require('crypto').createHash('sha256').update('pub|' + pid).digest('hex').slice(0, 12);
 
+function poolOf(M, lo, hi, exclude, staleBefore) {
+  const ex = new Set(exclude || []);
+  return (M.teams || []).filter(t => !ex.has(t.id) && (t.status === 'lost' || (t.status === 'running' && (t.updated || t.created) < (staleBefore || 0))) && t.wins >= lo && (hi == null || t.wins <= hi));
+}
 function memStore() {
   const M = global.__BAL_MEMDATA = global.__BAL_MEMDATA || { sug: [], kv: {}, scores: [], id: 0 };
   return {
@@ -72,7 +83,7 @@ function memStore() {
     async topScores(n) { return M.scores.slice().sort((a, b) => b.score - a.score || a.created - b.created).slice(0, n).map(pubScore); },
     async getPlayer(pid) { const P = M.players = M.players || {}; return P[pid] ? Object.assign({}, P[pid]) : null; },
     // v27: a name given later only replaces the default one ("Player xxxx"); after that, renaming costs crowns
-    async upsertPlayer(pid, name, iph, fallback) { const P = M.players = M.players || {}; if (!P[pid]) P[pid] = { pid, code: codeOf(pid), name: name || fallback, elo: 1000, runs: 0, crowns: 0, best: 0, league: 0, lp: 0, gems: 0, season: 0, sreach: 0, peak_league: 0, last_league: -1, perks: '[]', ref: null, ref_gems: 0, iph, created: Date.now() }; else if (name && P[pid].name === fallback) P[pid].name = name; return Object.assign({}, P[pid]); },
+    async upsertPlayer(pid, name, iph, fallback) { const P = M.players = M.players || {}; if (!P[pid]) P[pid] = { pid, code: codeOf(pid), name: name || fallback, elo: 1000, runs: 0, crowns: 0, best: 0, league: 0, lp: 0, gems: 0, season: 0, sreach: 0, peak_league: 0, last_league: -1, perks: '[]', ref: null, ref_gems: 0, axp: 0, cleared: '[]', pfloor: 0, bosses: '[]', xpv: 0, iph, created: Date.now() }; else if (name && P[pid].name === fallback) P[pid].name = name; return Object.assign({}, P[pid]); },
     async setPlayer(pid, f) { for (const x of ['elo', 'runs', 'crowns', 'best', 'league', 'lp', 'season', 'sreach', 'peak_league', 'last_league']) if (f[x] != null) M.players[pid][x] = f[x]; M.players[pid].updated = Date.now(); },
     async topPlayers(n) { return Object.values(M.players || {}).sort((a, b) => b.elo - a.elo).slice(0, n).map(pubPlayer); },
     async getPlayerByCode(code) { const p = Object.values(M.players || {}).find(x => x.code === code); return p ? Object.assign({}, p) : null; },
@@ -84,6 +95,9 @@ function memStore() {
     async renameTeams(pid, name) { for (const t of M.teams || []) if (t.pid === pid) t.name = name; },
     async addHeroGames(pid, heroes, win) { const H = M.phero = M.phero || {}; for (const h of heroes) { const x = H[pid + ':' + h] = H[pid + ':' + h] || { hero: h, games: 0, wins: 0 }; x.games++; x.wins += win; } },
     async heroStats(pid) { return Object.entries(M.phero || {}).filter(([k]) => k.startsWith(pid + ':')).map(([, v]) => Object.assign({}, v)); },
+    async addXp(pid, n) { const p = M.players && M.players[pid]; if (!p) return null; p.axp = (p.axp || 0) + n; return p.axp; },
+    async setProgress(pid, f) { const p = M.players && M.players[pid]; if (!p) return; for (const k of ['cleared', 'pfloor', 'bosses', 'xpv']) if (f[k] != null) p[k] = f[k]; },
+    async teamsOf(pid) { return (M.teams || []).filter(t => t.pid === pid).map(t => ({ team: t.team, wins: t.wins })); },
     async ghostRecord(pid) { const T = (M.teams || []).filter(t => t.pid === pid); return { w: T.reduce((a, t) => a + (t.def_w || 0), 0), l: T.reduce((a, t) => a + (t.def_l || 0), 0), n: T.length }; },
     async insertTeam(t) { const T = M.teams = M.teams || []; const r = Object.assign({ id: ++M.id, wins: 0, status: 'running', opp: null, def_w: 0, def_l: 0, created: Date.now() }, t); T.push(r); return r.id; },
     async getTeam(id) { const r = (M.teams || []).find(t => t.id === id); return r ? Object.assign({}, r) : null; },
@@ -94,6 +108,14 @@ function memStore() {
     async countTeams(pid, since) { return (M.teams || []).filter(t => t.pid === pid && t.created >= since).length; },
     // review #24: a ghost whose run ENDED (lost, crowned, or abandoned before staleBefore) with exactly w wins ('eq'), or
     // the lowest record above w ('gt'); anyone's ghost, picked at random
+    // review #27 (PC boy): the champion is ONE team (the top one; getChampion + demoteChampions keep it unique) and every
+    // other ended ghost sits in the pool of the floor where it lost (its wins). pickPool = a random ghost with lo..hi wins
+    // (hi null = no top); countPool = how many; lost, or abandoned before staleBefore; never a champion.
+    async getChampion(excludeId) { const c = (M.teams || []).filter(t => t.status === 'champion' && t.id !== excludeId).sort((a, b) => b.wins - a.wins || (b.updated || b.created) - (a.updated || a.created))[0]; return c ? Object.assign({}, c) : null; },
+    async demoteChampions(keepId) { let n = 0; for (const t of M.teams || []) if (t.status === 'champion' && t.id !== keepId) { t.status = 'lost'; n++; } return n; },
+    async pickPool(lo, hi, exclude, staleBefore) { const pool = poolOf(M, lo, hi, exclude, staleBefore); return pool.length ? Object.assign({}, pool[Math.floor(Math.random() * pool.length)]) : null; },
+    async countPool(lo, hi, exclude, staleBefore) { return poolOf(M, lo, hi, exclude, staleBefore).length; },
+    async pickAbove(w, exclude, staleBefore) { let pool = poolOf(M, w + 1, null, exclude, staleBefore); if (!pool.length) return null; const m = Math.min(...pool.map(t => t.wins)); pool = pool.filter(t => t.wins === m); return Object.assign({}, pool[Math.floor(Math.random() * pool.length)]); },
     async pickGhost(cmp, w, exclude, staleBefore) {
       const ex = new Set(exclude || []);
       const ended = t => t.status === 'lost' || t.status === 'champion' || (t.status === 'running' && (t.updated || t.created) < staleBefore);
@@ -159,6 +181,12 @@ function pgStore() {
         on conflict (pid, hero) do update set games = phero.games + 1, wins = phero.wins + excluded.wins`, [pid, heroes, win]);
     },
     async heroStats(pid) { return (await q('select hero, games, wins from phero where pid=$1', [pid])).map(r => ({ hero: r.hero, games: Number(r.games), wins: Number(r.wins) })); },
+    async addXp(pid, n) { const r = await q('update players set axp = axp + $2 where pid=$1 returning axp', [pid, n]); return r.length ? Number(r[0].axp) : null; },
+    async setProgress(pid, f) {
+      const cols = ['cleared', 'pfloor', 'bosses', 'xpv'].filter(k => f[k] != null); if (!cols.length) return;
+      await q(`update players set ${cols.map((k, i) => k + '=$' + (i + 2)).join(', ')} where pid=$1`, [pid, ...cols.map(k => f[k])]);
+    },
+    async teamsOf(pid) { return (await q('select team, wins from teams where pid=$1', [pid])).map(r => ({ team: r.team, wins: Number(r.wins) })); },
     async ghostRecord(pid) { const r = (await q('select coalesce(sum(def_w),0)::int w, coalesce(sum(def_l),0)::int l, count(*)::int n from teams where pid=$1', [pid]))[0]; return { w: Number(r.w), l: Number(r.l), n: Number(r.n) }; },
     async insertTeam(t) { return Number((await q('insert into teams (pid, name, elo_at, team, relics, created) values ($1,$2,$3,$4,$5,$6) returning id', [t.pid, t.name, t.elo_at, t.team, t.relics, Date.now()]))[0].id); },
     async getTeam(id) { const r = await q('select * from teams where id=$1', [id]); return r.length ? num(r[0]) : null; },
@@ -169,6 +197,22 @@ function pgStore() {
     async countTeams(pid, since) { return Number((await q('select count(*)::int n from teams where pid=$1 and created>=$2', [pid, since]))[0].n); },
     async ghostResult(id, elo, won) { await q(`update teams set elo_at=$2, ${won ? 'def_w=def_w+1' : 'def_l=def_l+1'} where id=$1`, [id, elo]); },
     async maxWins(excludeId, staleBefore) { const r = await q("select max(wins)::int m from teams where id <> $1 and (status in ('lost','champion') or (status = 'running' and coalesce(updated, created) < $2))", [excludeId || 0, staleBefore || 0]); return r[0].m == null ? -1 : Number(r[0].m); },
+    async getChampion(excludeId) { const r = await q("select * from teams where status = 'champion' and id <> $1 order by wins desc, coalesce(updated, created) desc limit 1", [excludeId || 0]); return r.length ? num(r[0]) : null; },
+    async demoteChampions(keepId) { return (await q("update teams set status = 'lost' where status = 'champion' and id <> $1 returning id", [keepId || 0])).length; },
+    async pickPool(lo, hi, exclude, staleBefore) {
+      const r = await q(`select * from teams where not (id = any($1::bigint[])) and (status = 'lost' or (status = 'running' and coalesce(updated, created) < $4))
+        and wins >= $2 and ($3::int is null or wins <= $3) order by random() limit 1`, [(exclude || []).map(Number).filter(Number.isFinite), lo, hi == null ? null : hi, staleBefore || 0]);
+      return r.length ? num(r[0]) : null;
+    },
+    async countPool(lo, hi, exclude, staleBefore) {
+      return Number((await q(`select count(*)::int n from teams where not (id = any($1::bigint[])) and (status = 'lost' or (status = 'running' and coalesce(updated, created) < $4))
+        and wins >= $2 and ($3::int is null or wins <= $3)`, [(exclude || []).map(Number).filter(Number.isFinite), lo, hi == null ? null : hi, staleBefore || 0]))[0].n);
+    },
+    async pickAbove(w, exclude, staleBefore) {
+      const r = await q(`select * from teams where not (id = any($1::bigint[])) and (status = 'lost' or (status = 'running' and coalesce(updated, created) < $3))
+        and wins > $2 order by wins asc, random() limit 1`, [(exclude || []).map(Number).filter(Number.isFinite), w, staleBefore || 0]);
+      return r.length ? num(r[0]) : null;
+    },
     async pickGhost(cmp, w, exclude, staleBefore) {
       const ex = (exclude || []).map(Number).filter(Number.isFinite);
       const r = await q(`select * from teams where not (id = any($1::bigint[])) and (status in ('lost','champion') or (status = 'running' and coalesce(updated, created) < $3))
@@ -195,7 +239,7 @@ function pgStore() {
 // only public fields ever leave the server (never iph)
 function pub(s) { return { id: Number(s.id), batch: Number(s.batch || s.id), name: s.name, text: s.text, status: s.status, reply: s.reply || null, created: Number(s.created), updated: s.updated ? Number(s.updated) : null }; }
 // Neon returns bigint/real columns as strings: normalise numbers
-function num(r) { for (const k of ['id', 'elo', 'runs', 'crowns', 'best', 'elo_at', 'wins', 'opp', 'def_w', 'def_l', 'league', 'lp', 'created', 'updated', 'gems', 'season', 'sreach', 'peak_league', 'last_league', 'ref_gems']) if (r[k] != null) r[k] = Number(r[k]); return r; }
+function num(r) { for (const k of ['id', 'elo', 'runs', 'crowns', 'best', 'elo_at', 'wins', 'opp', 'def_w', 'def_l', 'league', 'lp', 'created', 'updated', 'gems', 'season', 'sreach', 'peak_league', 'last_league', 'ref_gems', 'axp', 'pfloor', 'xpv']) if (r[k] != null) r[k] = Number(r[k]); return r; }
 // v27: `titles` = champion titles (column crowns); `code` = public id for the profile; `king` = owns the King Tier
 function pubPlayer(p) { return { name: p.name, code: p.code || codeOf(p.pid), elo: Math.round(Number(p.elo)), runs: Number(p.runs), titles: Number(p.crowns), best: Number(p.best), league: Number(p.league) || 0, lp: Number(p.lp) || 0, king: /"king"/.test(p.perks || '') }; }
 function pubRating(r) { return { kind: r.kind, id: r.id, elo: Math.round(Number(r.elo)), games: Number(r.games), wins: Number(r.wins) }; }

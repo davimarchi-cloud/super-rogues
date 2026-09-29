@@ -810,6 +810,50 @@
     if (ab.tailwind) for (const a of allies(W, u)) if (Hx.dist(a, u) <= 2) buff(a, 'asPct', ab.tailwind, sec(3), W);
     return true;
   };
+  // v30 (review #28): the three heroes unlocked by the account level
+  A.hive = (W, u) => {   // Buzzwell: a hive of stinging bees (AP damage over time) and honey for the weakest ally
+    const ab = u.ab, t = bestCluster(W, u, ab.radius); if (!t) return false;
+    const drop = h => {
+      W.zones.push({ c: h.c, r: h.r, rad: ab.radius, until: W.t + sec(ab.dur), dps: ab.dps * apOf(u), side: u.side, src: u.id, color: '#ffc21a' });
+      fxRing(W, h.c, h.r, ab.radius, '#ffc21a', 14);
+      if (ab.slow) for (const e of enemies(W, u)) if (Hx.dist(e, h) <= ab.radius) slow(W, e, ab.slow, ab.dur);
+    };
+    drop(t);
+    if (ab.twin) { const o = enemies(W, u).filter(e => Hx.dist(e, t) > ab.radius * 2).sort((a, b) => Hx.dist(u, a) - Hx.dist(u, b))[0]; if (o) drop(o); }
+    const pool = allies(W, u), heroes = pool.filter(a => a.kind !== 'summon'), a = (heroes.length ? heroes : pool).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
+    if (a) { heal(W, a, ab.honey * apOf(u), true); fxRing(W, a.c, a.r, 0, '#ffe066', 8); }
+    return true;
+  };
+  A.wave = (W, u) => {   // Coralie: a wave that hits, pushes back and slows a group
+    const ab = u.ab, t = bestCluster(W, u, ab.radius); if (!t) return false;
+    const hit = mult => {
+      fxRing(W, t.c, t.r, ab.radius, '#2fb8d8', 14);
+      for (const e of enemies(W, u)) if (Hx.dist(e, t) <= ab.radius) {
+        deal(W, u, e, mult * ab.dmg * apOf(u), 'magic', { ability: true });
+        if (ab.slow) slow(W, e, ab.slow, 2); if (ab.stun) cc(W, e, 'stun', ab.stun);
+        if (alive(e) && ab.push) push(W, u, e, ab.push);
+      }
+    };
+    hit(1);
+    if (ab.echo) at(W, W.t + sec(1), () => { if (!u.dead) hit(ab.echo); });
+    if (ab.foam) for (const a of allies(W, u)) if (Hx.dist(a, u) <= 1) shield(W, a, a.maxHp * ab.foam, 4);
+    return true;
+  };
+  A.starfall = (W, u) => {   // Stellan: a star that lands after a short delay (AD + AP) and stuns
+    const ab = u.ab, t = bestCluster(W, u, ab.radius); if (!t) return false;
+    const c = t.c, r = t.r, delay = Math.max(0.3, ab.delay);
+    fxRing(W, c, r, ab.radius, '#b8a8ff', sec(delay));
+    if (ab.blessing) for (const a of allies(W, u)) if (Hx.dist(a, u) <= 2) buff(a, 'atkPct', ab.blessing, sec(4), W);
+    at(W, W.t + sec(delay), () => {
+      if (u.dead) return;
+      const dmg = ab.dmg * atkOf(W, u) + ab.apdmg * apOf(u);
+      fx(W, { k: 'bolt', pts: [[c, r - 3], [c, r]], color: '#fff6a0', t1: W.t + 8 }); fxRing(W, c, r, ab.radius, '#fff6a0', 14);
+      for (const e of enemies(W, u)) if (Hx.dist(e, { c, r }) <= ab.radius) { deal(W, u, e, dmg, 'magic', { ability: true }); if (ab.stun) cc(W, e, 'stun', ab.stun); }
+      for (let i = 0; i < ab.shards; i++) { const es = enemies(W, u); if (!es.length) break; const e = es[Math.floor(W.rng() * es.length)]; fx(W, { k: 'bolt', pts: [[e.c, e.r - 2], [e.c, e.r]], color: '#d8c8ff', t1: W.t + 6 }); deal(W, u, e, 0.5 * dmg, 'magic', { ability: true }); }
+      if (ab.veil) for (const a of allies(W, u)) if (Hx.dist(a, u) <= 2) shield(W, a, a.maxHp * ab.veil, 4);
+    });
+    return true;
+  };
   // --- mob & boss abilities
   A.smash = (W, u) => { const t = pickTarget(W, u); if (!t || Hx.dist(u, t) > 1) return false; deal(W, u, t, 2.5 * atkOf(W, u), 'phys', { ability: true }); cc(W, t, 'stun', 0.8); fxRing(W, t.c, t.r, 0, '#f96', 8); return true; };
   A.mend = (W, u) => { const t = allies(W, u).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (!t || t.hp >= t.maxHp) return false; heal(W, t, t.maxHp * 0.25, true); fxRing(W, t.c, t.r, 0, '#6f6', 8); return true; };
