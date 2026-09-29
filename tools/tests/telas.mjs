@@ -52,6 +52,11 @@ const noHScroll = async where => ok(await ev('document.documentElement.scrollWid
 const noVScroll = async where => { const r = await ev(`(() => { const m = document.querySelector('#modal:not([hidden]) .sheet'); return m ? [m.scrollHeight, m.clientHeight] : [document.documentElement.scrollHeight, window.innerHeight]; })()`); ok(r[0] <= r[1] + 2, `fits without scrolling: ${where} (${r[0]}px of ${r[1]}px)`); };
 ok(await ev(`!!document.querySelector('.title h1') && document.title === 'Balance'`), 'title screen renders');
 await shot('01-title'); await noHScroll('title'); await noVScroll('title');
+// v27 (owner + review #25): the start menu has the Crown Shop and your profile; the suggestion box stays only at the top
+ok(await ev(`!!document.querySelector('#top [data-act=shop].crownchip') && document.querySelectorAll('.homeicons button').length === 3 && !!document.querySelector('.homeicons [data-act=shop]') && !!document.querySelector('.homeicons [data-act=my-profile]') && !document.querySelector('.live') && document.querySelectorAll('[data-act=suggest]').length === 1 && !!document.querySelector('#top [data-act=suggest]')`), 'start menu: crown icon + Crown Shop and Profile tiles; the suggestion box only at the top');
+await click('.homeicons [data-act=my-profile]'); await sleep(400);
+ok(await ev(`/first run/.test(document.querySelector('#modal').textContent)`), 'profile before the first run: explains when it starts');
+await click('[data-act=close]'); await sleep(100);
 
 // new run, pick 1 hero and 1 relic (review #22)
 await click('[data-act=new-run]'); await sleep(200);
@@ -77,7 +82,8 @@ while (steps++ < 80) {
     if (await ev(`!!document.querySelector('form[data-form=gauntlet]')`)) { if (REMOTE) break; await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(800); continue; }
     await click('[data-act=to-duel]'); await sleep(150); continue;
   }
-  if (await ev(`!!document.querySelector('[data-act=result-ok]')`)) { if (fightsSeen === 1) { await sleep(900); await shot('06-result'); await noVScroll('result'); } await click('[data-act=result-ok]'); await sleep(100); continue; }
+  if (await ev(`!!document.querySelector('[data-act=result-ok]')`)) { if (fightsSeen === 1) { await sleep(900); await shot('06-result'); await noVScroll('result');
+      ok(await ev(`!!document.querySelector('.result.v2 .rhead .headline') && /⏱/.test(document.querySelector('.rmeta').textContent) && /foes down/.test(document.querySelector('.rmeta').textContent) && !!document.querySelector('.rh .rst') && /taken/.test(document.querySelector('.rh .rst').textContent) && document.querySelectorAll('.rfoes .rf').length > 0 && !/NaN|undefined/.test(document.querySelector('.result').textContent)`), 'review #25: the after-battle screen: banner, time and foes down, damage dealt and taken and kills per hero, the enemy line-up'); } await click('[data-act=result-ok]'); await sleep(100); continue; }
   if (st.phase === 'over') break;
   if (await ev(`!!document.querySelector('[data-act=spec]')`)) { if (!sawLevel) { await shot('07-levelup'); await noVScroll('level up'); sawLevel = true; } await click('[data-act=spec]'); await sleep(80); continue; }
   if (st.phase === 'map') {
@@ -140,6 +146,8 @@ while (steps++ < 80) {
         await sleep(60);
       }
       await sleep(900); await shot('05-battle'); await noHScroll('battle'); await noVScroll('battle');
+      ok(await ev(`/4×🔒/.test(document.querySelector('.speed').textContent) && !!document.querySelector('.speed [data-arg="2"]')`), 'v27: 2× speed is free, 4× is locked (Crown Shop)');
+      await click('.speed [data-arg="4"]'); ok(await ev(`/Crown Shop/.test(document.querySelector('#toast').textContent)`), 'tapping the locked 4× says where to get it');
     }
     await click('[data-act=skip]');
     for (let k = 0; k < 60 && (await ev('!!__bal.battle')); k++) await sleep(100);
@@ -215,8 +223,9 @@ if (!REMOTE) {
   ok(await ev(`/Rival/.test(document.querySelector('.bhead').textContent) && __bal.run.cur.type === 'gauntlet'`), 'duel deploy screen');
   await shot('18-gauntlet-deploy');
   await click('[data-act=fight]'); await sleep(1200); await click('[data-act=skip]');
-  for (let k = 0; k < 80 && !(await ev(`!!document.querySelector('.elo-line')`)); k++) await sleep(100);
-  ok(await ev(`/Elo/.test(document.querySelector('.elo-line').textContent)`), 'duel result shows the Elo change');
+  for (let k = 0; k < 80 && !(await ev(`[...document.querySelectorAll('.rewards2 .rw')].some(x => /Elo/.test(x.textContent))`)); k++) await sleep(100);
+  ok(await ev(`[...document.querySelectorAll('.rewards2 .rw')].some(x => /Elo [0-9]+/.test(x.textContent) && /[+-][0-9]+/.test(x.textContent))`), 'duel result shows the Elo change (a reward chip)');
+  await shot('18b-duel-result'); await noVScroll('duel result');
   await click('[data-act=result-ok]'); await sleep(200);
   const g = await ev(`({ phase: __bal.run.phase, status: __bal.run.g.status, wins: __bal.run.g.wins, elo: __bal.run.g.elo })`);
   ok(g.phase === 'over' && (g.status === 'champion' || g.status === 'lost'), `gauntlet ends (${g.status}, ${g.wins} win, Elo ${g.elo})`);
@@ -227,6 +236,25 @@ if (!REMOTE) {
   for (let k = 0; k < 30 && !(await ev(`!!document.querySelector('#modal table')`)); k++) await sleep(100);
   const ladder = await ev(`document.querySelector('#modal').textContent`);
   ok(ladder.includes('Rival') && ladder.includes('TestBot') && !/Onslaught/.test(ladder), 'Elo ladder lists the players' + (ladder.includes('Rival') && ladder.includes('TestBot') ? '' : ': ' + ladder.replace(/\s+/g, ' ').slice(0, 400)));
+  // v27: the content Elo tabs are a Crown Shop unlock: locked first, then bought with crowns (two taps), and the King Tier
+  await click('[data-act=ladder-tab][data-arg=hero]');
+  for (let i = 0; i < 30 && !(await ev(`!!document.querySelector('#modal .klock')`)); i++) await sleep(100);
+  ok(await ev(`/Crown Shop unlock/.test(document.querySelector('#modal .klock').textContent) && /🔒/.test(document.querySelector('[data-act=ladder-tab][data-arg=item]').textContent)`), 'v27: Heroes/Items/Relics tabs are locked without Content Elo');
+  await ev(`fetch('/__dev/grant?pid=' + JSON.parse(localStorage.getItem('balance.pid')) + '&n=400')`); await sleep(200);
+  await click('#modal .klock [data-act=shop]');
+  for (let i = 0; i < 30 && !(await ev(`!!document.querySelector('#modal .wallet') && /40[0-9]/.test(document.querySelector('#modal .wallet').textContent)`)); i++) await sleep(100);
+  ok(await ev(`document.querySelectorAll('#modal .crl').length === 5 && document.querySelectorAll('#modal .perk').length === 3 && !!document.querySelector('#modal .king') && !!document.querySelector('#refLink') && /[?]ref=[a-f0-9]{12}$/.test(document.querySelector('#refLink').value)`), 'Crown Shop: wallet, crowns per league, 3 perks, the King Tier and your invite link');
+  await shot('23-crown-shop'); await noHScroll('crown shop');
+  await click('[data-act=buy-perk][data-arg=elo]'); await sleep(150);
+  ok(await ev(`/Tap again/.test(document.querySelector('[data-act=buy-perk][data-arg=elo]').textContent) && !__bal.acct.perks.includes('elo')`), 'the first tap only asks to confirm');
+  await click('[data-act=buy-perk][data-arg=elo]'); await sleep(400);
+  ok(await ev(`__bal.acct.perks.includes('elo') && __bal.acct.crowns === 400 - B.SHOP_ITEM.elo.price`), 'Content Elo bought');
+  await click('[data-act=buy-perk][data-arg=king]'); await sleep(150); await click('[data-act=buy-perk][data-arg=king]'); await sleep(400);
+  ok(await ev(`__bal.acct.perks.includes('king') && B.Render.skin === 'royal' && !!document.querySelector('.king.own [data-act=skin]')`), 'the King Tier: bought, the Royal board is on');
+  await shot('24-king'); await noHScroll('king tier');
+  await ev(`(() => { const f = document.querySelector('form[data-form=rename]'); f.name.value = 'Tester King'; f.querySelector('button').click(); })()`); await sleep(400);
+  ok(await ev(`__bal.acct.name === 'Tester King' && __bal.acct.crowns === 400 - B.SHOP_ITEM.elo.price - B.SHOP_ITEM.king.price - B.SHOP_ITEM.rename.price`), 'a name change from the shop');
+  await click('[data-act=close]'); await sleep(100); await ev('__bal.ACT.scores()'); await sleep(300);
   // review #14: a tab per kind of content with its own Elo
   const tab = async (k, n, extra, msg) => {
     await click(`[data-act=ladder-tab][data-arg=${k}]`);
@@ -246,7 +274,18 @@ if (!REMOTE) {
   ok(await ev(`document.querySelectorAll('.lgb').length === 6 && document.querySelectorAll('.lgb.cur').length === 1 && document.querySelectorAll('.lgpath .pn').length === 6 && /Bronze|Silver/.test(document.querySelector('.pme').textContent) && document.querySelector('#lgscroll').scrollWidth > document.querySelector('#lgscroll').clientWidth`), 'Player tab: 6 league banners in a scrolling row, your league marked, the path between tiers');
   await shot('22-player-tab'); await noHScroll('player tab');
   await click('[data-act=ladder-tab][data-arg=players]'); await sleep(400);
-  ok(await ev(`/TestBot/.test(document.querySelector('#modal').textContent)`), 'back to the Players tab');
+  ok(await ev(`/Tester King/.test(document.querySelector('#modal').textContent) && !!document.querySelector('#modal .kingmark') && document.querySelectorAll('#modal .tbl .plink').length >= 2`), 'back to the Ranking: the new name, a 👑 for the King, names link to profiles');
+  // v27: tap a name, see the profile; a King also sees most played heroes, best win rate and the ghost record
+  await ev(`[...document.querySelectorAll('#modal .plink')].find(b => b.textContent === 'Rival').click()`);
+  for (let i = 0; i < 30 && !(await ev(`!!document.querySelector('#modal .prof')`)); i++) await sleep(100);
+  ok(await ev(`(() => { const t = document.querySelector('#modal .prof').textContent; return /Rival/.test(t) && /Elo/.test(t) && /Best Gauntlet/.test(t) && /league/i.test(t) && !!document.querySelector('.pmore') && /Ghosts/.test(t) && /Most played/.test(t); })()`), "a player's profile: name, league, Elo, best Gauntlet; the King's view adds heroes and ghosts");
+  await shot('25-profile'); await noHScroll('profile');
+  await click('[data-act=close]');
+  // your own profile from the start menu, and the opponent's name in the gauntlet opens theirs
+  await click('#top [data-act=menu]'); await sleep(200); await click('.homeicons [data-act=my-profile]');
+  for (let i = 0; i < 30 && !(await ev(`!!document.querySelector('#modal .prof')`)); i++) await sleep(100);
+  ok(await ev(`/Tester King/.test(document.querySelector('#modal .pname').textContent) && !!document.querySelector('#modal .pname .kingmark') && !!document.querySelector('#modal .phl')`), 'your own profile from the start menu (King mark, most played heroes)');
+  await shot('26-my-profile'); await noHScroll('my profile');
   await click('[data-act=close]');
 }
 

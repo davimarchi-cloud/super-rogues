@@ -35,8 +35,10 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `js/ui.js` | telas DOM + loop da batalha. Sem handler inline (CSP): todo botão tem `data-act` |
 | `js/net.js` | cliente JSON de `/api` |
 | `api/suggest.js` | GET fila pública (agrupada por envio) + status do revisor; POST `{items: [...até 10], name}` = 1 envio (lote). Limite por IP: 3 envios/10 min, 12 envios e 40 mudanças/dia; fila máx 300 |
-| `api/elo.js` | Elo por jogador (id aleatório guardado no navegador) + Gauntlet PvP: `fail` (perdeu a run = derrota contra 1000), `enter` (chegar = vitória contra 1000; guarda o time e sorteia o adversário), `result` (Elo 1v1 K=32 contra o Elo do time salvo); GET = ladder. Elo de conteúdo (lote 14): cada herói/item/relíquia tem Elo próprio (K=16, tabela `ratings`), só o que agiu na luta (`usedIn`); GET `?ratings=1`. Tabelas `players`, `teams`, `ratings` |
-| `api/_store.js` | Neon em produção, memória no dev/teste. Tabelas `suggestions`, `kv`, `scores` |
+| `api/elo.js` | Elo por jogador (id aleatório guardado no navegador) + Gauntlet PvP: `fail`, `enter`, `result` (Elo 1v1 K=32 contra o Elo do fantasma; o Elo do jogador só mexe nos duelos desde a v26), `boss`; GET = ladder, `?peak=1`. Elo de conteúdo (lote 14): cada herói/item/relíquia/chefe tem Elo próprio (K=16, tabela `ratings`), só o que agiu na luta (`usedIn`); a leitura (`?ratings=1`) virou desbloqueio da loja (v27) |
+| `api/player.js` | v27: loja de Coroas (`buy`), troca de nome paga (`rename`), perfil público (`profile`; Rei vê mais), `me` (carteira, sem criar jogador), `ratings` (só com Content Elo) |
+| `api/_player.js` | v27: temporadas, pagamento de Coroas por liga (`payLeagues`, atômico via `sreach`), indicação (`linkRef`, 1% mín. 1), jogos por herói (`phero`), visões do perfil |
+| `api/_store.js` | Neon em produção, memória no dev/teste. Tabelas `suggestions`, `kv`, `scores`, `players`, `teams`, `ratings`, `phero` |
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma` |
 | `tools/sim-run.js`, `tools/boss-matrix.js` | robô joga runs inteiras / todos os 220 times de 3 contra os 2 chefes |
@@ -120,6 +122,27 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v27 (2026-09-29), pedido direto do dono = lote 25 do David** (o #35 é o mesmo texto que o dono colou no chat; #34 =
+  tela pós-batalha). **Coroas** = moeda da conta (coluna `players.gems`; a coluna antiga `crowns` continua contando
+  títulos de campeão, que na API viraram `titles` e no jogo 🏆). Ganha na 1ª vez que alcança cada liga na temporada
+  (`B.CROWNS.league` = Silver 10, Gold 20, Platinum 30, Diamond 50, Celestial 80). **Temporadas** de 28 dias desde
+  2026-09-28 (`B.SEASON`); virou a temporada, todos voltam ao Bronze (ficam `last_league` e `peak_league`); quem é de
+  antes das Coroas (season 0) mantém a liga e recebe pelas ligas já alcançadas (o David, Platinum, recebe 60).
+  **Loja** (`B.SHOP`, ícone 👑 no menu e no topo): 4× de velocidade 25 (2× continua grátis; o ⏭ pular luta continua
+  livre), Content Elo 20 (as abas Heroes/Items/Relics do Ladder e a linha de Elo do chefe ficaram trancadas; o GET
+  público `?ratings=1` responde 403), troca de nome 10 (paga a cada troca; o 1º nome, na porta do Gauntlet, é grátis e
+  o servidor só aceita nome novo por cima do padrão "Player xxxx"; os fantasmas levam o nome novo), **King Tier** 300
+  (tabuleiro Royal violeta e dourado, `B.Render.skin`; 👑 ao lado do nome; vê nos perfis de todos os heróis mais
+  jogados, os de maior taxa de vitória com 3+ jogos e o placar geral dos fantasmas; inclui 4× e Content Elo). Compra
+  com 2 toques. **Indicação**: `?ref=<código>` fica guardado até a 1ª run criar a conta; o indicador ganha 1% (mín. 1)
+  de toda Coroa que o amigo ganha jogando, para sempre (não encadeia). **Perfis**: código público de 12 hex
+  (sha256 de 'pub|'+pid, nunca o pid); todo nome de jogador (ranking, torre, card do fantasma, resultado do duelo)
+  abre o perfil (liga, Elo, melhor Gauntlet, títulos, runs, melhor liga, última temporada). A caixa de sugestões de
+  baixo saiu do menu (ficou o botão 💡 do topo, como o dono pediu). **Tela pós-batalha** (#34): faixa com o que foi
+  lutado, tempo, inimigos abatidos e heróis de pé; recompensas em fichas (ouro, item, XP, subidas de nível, Elo, liga,
+  Coroas); por herói dano causado com a fatia do time, dano recebido, abates (os da invocação contam para o dono) e
+  caído/de pé; a fila de inimigos com quem caiu. Testes: api 103, Chrome 100 (o `dev-server` ganhou `/__dev/grant`).
 
 - **v26 (2026-09-29), lote 24 do David** (5 pedidos): (#29) andar f = fantasma cuja run TERMINOU com exatamente f
   vitórias (ganhou aquele andar e perdeu o seguinte: "no 3º andar, fantasmas que terminaram 3-1"); o topo é o campeão

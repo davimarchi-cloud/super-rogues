@@ -848,5 +848,24 @@
   ];
   B.LEAGUE_RULES = { step: 10, duelWin: 1, pveLoss: -2 };
 
+  // v27 (owner, 2026-09-29): Crowns, the account currency. Earned the first time you reach each league in a season
+  // (leagues reset to Bronze when a season starts) and from friends you referred. Spent in the Crown Shop on perks and
+  // the King Tier. Seasons are 28 days long, counted from the launch (Season 1 starts 2026-09-28).
+  B.SEASON = { epoch: Date.UTC(2026, 8, 28), days: 28 };
+  B.seasonOf = t => 1 + Math.max(0, Math.floor((t - B.SEASON.epoch) / (B.SEASON.days * 864e5)));
+  B.seasonEnds = n => B.SEASON.epoch + n * B.SEASON.days * 864e5;
+  B.CROWNS = {
+    league: [0, 10, 20, 30, 50, 80],   // crowns for reaching Bronze..Celestial the first time in a season (Bronze is the start)
+    referPct: 0.01, referMin: 1,       // a referrer gets 1% (at least 1) of every crown their friend earns by playing
+  };
+  B.SHOP = [
+    { id: 'speed4', icon: '⏩', name: '4× battle speed', price: 25, desc: 'Unlocks the 4× speed button in battle. 1× and 2× stay free.' },
+    { id: 'elo', icon: '📊', name: 'Content Elo', price: 20, desc: 'Unlocks the Heroes, Items and Relics tabs of the Ladder: the Elo, fights and win rate of every hero, boss, item and relic.' },
+    { id: 'rename', icon: '✎', name: 'Name change', price: 10, desc: 'Pick a new name. Your ghosts take it too. Pay each time you change it.', use: true },
+    { id: 'king', icon: '👑', name: 'King Tier', price: 300, king: true, desc: "The Royal board skin, only for Kings. Deeper profiles, yours and everyone else's: most played heroes, best win rate heroes, and the record of their ghosts. A crown next to your name. Includes 4× speed and Content Elo." },
+  ];
+  B.SHOP_ITEM = Object.fromEntries(B.SHOP.map(x => [x.id, x]));
+  B.hasPerk = (perks, id) => (perks || []).includes(id) || ((id === 'speed4' || id === 'elo') && (perks || []).includes('king'));
+
   if (typeof module !== 'undefined') module.exports = B;
 })(typeof window !== 'undefined' ? window : globalThis);

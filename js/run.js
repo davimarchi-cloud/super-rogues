@@ -252,7 +252,7 @@
     if (r.peak != null) g.peak = r.peak;
     if (r.lg) { g.lgGain = (g.lgGain || 0) + r.lg.delta; g.lgNow = r.lg; g.lgPromoted = g.lgPromoted || r.lg.promoted; }  // review #21
     g.elo = r.elo; g.teamId = r.teamId; g.wins = r.wins || 0;
-    if (r.delta != null && g.opp) g.history.push({ name: g.opp.name, elo: g.opp.elo, win: !!r.win, delta: r.delta, key: g.opp.team && g.opp.team[0] && g.opp.team[0].key, ghost: r.ghost || null });
+    if (r.delta != null && g.opp) g.history.push({ name: g.opp.name, code: g.opp.code || null, elo: g.opp.elo, win: !!r.win, delta: r.delta, key: g.opp.team && g.opp.team[0] && g.opp.team[0].key, ghost: r.ghost || null });
     if (r.opponent) { g.opp = r.opponent; g.round = r.round; g.status = 'match'; run.cur = { type: 'gauntlet' }; }
     if (r.over) { g.status = r.champion ? 'champion' : 'lost'; g.opp = null; run.cur = null; run.phase = 'over'; run.result = 'gauntlet'; }
   }

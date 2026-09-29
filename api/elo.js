@@ -11,6 +11,11 @@
 //   Review #21: leagues (B.LEAGUES): +1 league point per duel won, -2 per run lost before the gauntlet; 10 points move
 //   the player up one league, never down; Celestial has no ceiling. Answers carry league, lp and `lg` (the change).
 //   Answers carry `peak` = the most duels any finished ghost won: the height of the gauntlet tower.
+// - v27 (owner + review #25): seasons and Crowns (api/_player.js). Every call rolls the player into the current season;
+//   a promotion pays crowns the first time a league is reached in a season (`lg.crowns`). A new player's first call can
+//   carry `ref` (a friend's invite code). Every run end and duel counts a game for each hero (King Tier profiles).
+//   The name is set once (the default "Player xxxx" is replaced by the first name given); changing it later is a
+//   Crown Shop purchase (api/player.js). The content ratings (GET ?ratings=1) moved behind the Content Elo unlock.
 // - After the last shop the player's team is stored as a GHOST and enters the gauntlet: round k is against the ghost of
 //   another run whose own gauntlet ended with k wins (or the closest above). Review #10: only player ghosts, no bots.
 //   Other players' ghosts first; if there are none yet, ghosts of your own older runs. Each match is a 1v1 Elo game against that team's rating
@@ -19,6 +24,7 @@
 // Fights run in the player's browser (like the rest of the game), so results are trusted: this is a demo.
 const { send, body, sameOrigin, ipHash, clean } = require('./_http');
 const getStore = require('./_store');
+const P = require('./_player');
 require('../js/hex.js'); require('../js/data.js');
 const D = globalThis.B;
 
@@ -90,7 +96,7 @@ function cleanTeam(team) {
   }
   return out;
 }
-const oppView = (t, pid) => t && { teamId: t.id, name: t.name, elo: Math.round(t.elo_at), wins: t.wins, status: t.status, own: t.pid === pid, defW: t.def_w || 0, defL: t.def_l || 0, team: JSON.parse(t.team), relics: JSON.parse(t.relics) };
+const oppView = (t, pid) => t && { teamId: t.id, name: t.name, code: P.codeOf(t.pid), elo: Math.round(t.elo_at), wins: t.wins, status: t.status, own: t.pid === pid, defW: t.def_w || 0, defL: t.def_l || 0, team: JSON.parse(t.team), relics: JSON.parse(t.relics) };
 // review #21: league points; returns what changed
 function leaguePoints(p, delta) {
   const R = D.LEAGUE_RULES, top = D.LEAGUES.length - 1, l0 = p.league | 0, lp0 = p.lp | 0;
@@ -121,7 +127,7 @@ module.exports = async (req, res) => {
   try {
     if (req.method === 'GET') {
       const qs = new URL(req.url || '/', 'http://x').searchParams;
-      if (qs.get('ratings')) return send(res, 200, { ratings: await st.listRatings() });
+      if (qs.get('ratings')) return send(res, 403, { error: 'Unlock Content Elo in the Crown Shop' });  // v27: POST /api/player {op:'ratings'}
       if (qs.get('peak')) return send(res, 200, { peak: await peakOf(st, 0) });  // review #16: height of the gauntlet tower
       return send(res, 200, { top: await st.topPlayers(25) });
     }
@@ -134,8 +140,12 @@ module.exports = async (req, res) => {
     const given = clean(b.name, 16).replace(/\s+/g, ' ');
     const p = await st.upsertPlayer(pid, given || null, ipHash(req), 'Player ' + pid.slice(0, 4));
     const name = p.name;
-    const save = f => st.setPlayer(pid, Object.assign({ elo: p.elo, runs: p.runs, crowns: p.crowns, best: p.best, league: p.league | 0, lp: p.lp | 0 }, f));
-    const me = extra => Object.assign({ elo: Math.round(p.elo), runs: p.runs, crowns: p.crowns, best: p.best, league: p.league | 0, lp: p.lp | 0 }, extra);
+    // v27: a new season, crowns still owed, and a friend's invite code on a brand-new player
+    await P.sync(st, p);
+    if (b.ref) await P.linkRef(st, p, b.ref);
+    const save = () => st.setPlayer(pid, P.row(p));
+    const me = extra => Object.assign({ name: p.name, code: P.codeOf(pid), elo: Math.round(p.elo), runs: p.runs, titles: p.crowns, best: p.best, league: p.league | 0, lp: p.lp | 0,
+      crowns: p.gems | 0, season: p.season, sreach: p.sreach | 0 }, extra);
 
     if (b.op === 'hello') return send(res, 200, me({}));
 
@@ -152,7 +162,7 @@ module.exports = async (req, res) => {
       p.runs++;
       const lg = leaguePoints(p, D.LEAGUE_RULES.pveLoss);
       await save({});
-      const used = cleanTeam(b.team); if (used) await rateContent(st, ipHash(req), [{ used: usedIn(used, relicList(b.relics)), score: 0 }]);
+      const used = cleanTeam(b.team); if (used) { await rateContent(st, ipHash(req), [{ used: usedIn(used, relicList(b.relics)), score: 0 }]); await P.heroGames(st, pid, used, false); }
       return send(res, 200, me({ lg }));
     }
 
@@ -167,6 +177,7 @@ module.exports = async (req, res) => {
       p.runs++;
       const rt = b.reached && cleanTeam(b.reached.team);
       await rateContent(st, ipHash(req), [{ used: rt ? usedIn(rt, relicList(b.reached.relics)) : usedIn(team, relics), score: 1 }]);
+      await P.heroGames(st, pid, rt || team, true);
       const opp = await nextOpponent(st, 0, pid, id), peak = await peakOf(st, id);
       if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, peak, champion: true, over: true })); }
       await st.updateTeam(id, { wins: 0, status: 'running', opp: opp.id, faced: [opp.id] }); await save({});
@@ -186,6 +197,7 @@ module.exports = async (req, res) => {
       const sides = [{ used: usedIn(mine, myRelics), score: win ? 1 : 0 }];
       if (opp) sides.push({ used: usedIn(JSON.parse(opp.team), JSON.parse(opp.relics)), score: win ? 0 : 1 });
       await rateContent(st, ipHash(req), sides);
+      await P.heroGames(st, pid, mine, win);
       // review #16: the ghost's side of the duel: its own Elo and record, and its player's Elo (not for your own ghost)
       let ghost = null;
       if (opp) {
@@ -195,6 +207,7 @@ module.exports = async (req, res) => {
       }
       const peak = await peakOf(st, t.id);
       const lg = win ? leaguePoints(p, D.LEAGUE_RULES.duelWin) : null;
+      if (lg && lg.promoted) lg.crowns = await P.payLeagues(st, p);  // v27: crowns for a league reached the first time this season
       if (!win) {
         await st.updateTeam(t.id, { wins: t.wins, status: 'lost', opp: null });
         p.best = Math.max(p.best, t.wins); await save({});

@@ -215,6 +215,7 @@
     u.dead = true; u.hp = 0; u.deathT = W.t; u.anim = null;
     if (W.occ[Hx.key(u.c, u.r)] === u.id) W.occ[Hx.key(u.c, u.r)] = 0;
     if (u.side === 1 && !u.suicide) W.kills++;
+    if (src && src.side !== u.side) src.kb = (src.kb || 0) + 1;  // review #25: kills per unit, for the after-battle screen
     // on-death effects
     if (u.m.onDeathHeal) for (const a of allies(W, u)) if (Hx.dist(a, u) <= 2) heal(W, a, a.maxHp * u.m.onDeathHeal, true);
     if (u.explode > 0) { for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) { deal(W, u, e, u.explode, 'magic', { ability: true }); slow(W, e, 0.3, 2); } fxRing(W, u.c, u.r, 1, '#ff6fb5'); }

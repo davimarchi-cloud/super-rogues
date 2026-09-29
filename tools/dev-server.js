@@ -15,6 +15,8 @@ http.createServer(async (req, res) => {
     if (M) { M.sug.filter(s => !b || s.batch === b).forEach((s, i) => { s.status = i === 0 && u.searchParams.has('decline1') ? 'declined' : 'done'; s.reply = 'Done in test'; s.updated = now; }); M.kv.lastRun = String(now); }
     res.setHeader('Content-Type', 'application/json'); return res.end('{"ok":true}');
   }
+  // dev-only: give a test player crowns (v27 Crown Shop tests)
+  if (u.pathname === '/__dev/grant') { const P = global.__BAL_MEMDATA && global.__BAL_MEMDATA.players, p = P && P[u.searchParams.get('pid')]; if (p) p.gems += +u.searchParams.get('n') || 0; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ ok: !!p })); }
   if (u.pathname === '/__dev/ship') { if (global.__BAL_MEMDATA) global.__BAL_MEMDATA.kv.lastRun = String(Date.now()); return res.end('{"ok":true}'); }
   if (u.pathname.startsWith('/api/')) {
     const name = u.pathname.slice(5).replace(/[^a-z]/g, '');

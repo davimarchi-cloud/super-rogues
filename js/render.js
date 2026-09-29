@@ -58,8 +58,14 @@
   const unitPos = (v, W, u, T) => proj(v, flatPos(v, W, u, T));
 
   // ------------------------------------------------------------------ board
+  // v27 (owner + review #25): the King Tier's Royal board skin (B.Render.skin = 'royal'): violet and gold stone
+  const royal = () => B.Render.skin === 'royal';
   function tileColor(c, r, o) {
     const n = ((c * 7 + r * 13) % 5) / 5;
+    if (royal()) {
+      if (o.deploy) return r >= 4 ? `hsl(266,36%,${21 + n * 4}%)` : `hsl(345,28%,${17 + n * 3}%)`;
+      return (c + r) % 2 ? `hsl(268,30%,${17 + n * 4}%)` : `hsl(38,34%,${18 + n * 4}%)`;
+    }
     if (o.deploy) return r >= 4 ? `hsl(220,32%,${20 + n * 4}%)` : `hsl(350,22%,${17 + n * 3}%)`;
     return `hsl(222,14%,${16 + n * 4}%)`;
   }
@@ -69,7 +75,7 @@
       const pts = corners(v, c, r, size * 0.985);
       // side faces of the two lower edges (hidden by the next row except at the board's edge)
       for (const [i, j] of [[0, 1], [1, 2], [2, 3]]) {
-        ctx.fillStyle = i === 1 ? '#0e1016' : i === 0 ? '#151922' : '#12151d';
+        ctx.fillStyle = royal() ? (i === 1 ? '#1c1206' : i === 0 ? '#3a2a10' : '#2a1d0a') : i === 1 ? '#0e1016' : i === 0 ? '#151922' : '#12151d';
         ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.lineTo(pts[j].x, pts[j].y + th); ctx.lineTo(pts[i].x, pts[i].y + th); ctx.closePath(); ctx.fill();
       }
       const top = corners(v, c, r, size * 0.94);
@@ -79,7 +85,7 @@
       if (v.grit) { ctx.fillStyle = v.grit; ctx.fill(); }
       // bevel: lit upper-left edges, shaded lower-right edges
       ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(255,255,255,0.13)'; ctx.beginPath(); ctx.moveTo(top[3].x, top[3].y); ctx.lineTo(top[4].x, top[4].y); ctx.lineTo(top[5].x, top[5].y); ctx.lineTo(top[0].x, top[0].y); ctx.stroke();
+      ctx.strokeStyle = royal() ? 'rgba(255,207,90,0.38)' : 'rgba(255,255,255,0.13)'; ctx.beginPath(); ctx.moveTo(top[3].x, top[3].y); ctx.lineTo(top[4].x, top[4].y); ctx.lineTo(top[5].x, top[5].y); ctx.lineTo(top[0].x, top[0].y); ctx.stroke();
       ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.moveTo(top[0].x, top[0].y); ctx.lineTo(top[1].x, top[1].y); ctx.lineTo(top[2].x, top[2].y); ctx.lineTo(top[3].x, top[3].y); ctx.stroke();
     }
     if (o.deploy) { const y = hexScreen(v, 0, 4).y - size * 0.75 * K; ctx.strokeStyle = 'rgba(95,168,255,0.5)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(v.w, y); ctx.stroke(); ctx.setLineDash([]); }
@@ -143,7 +149,8 @@
     ctx.clearRect(0, 0, v.w, v.h);
     if (S.shake > 0.2 && !o.deploy) { ctx.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake); S.shake *= Math.pow(0.02, dt); } else S.shake = 0;
     const bg = ctx.createRadialGradient(v.w / 2, v.h * 0.55, v.w * 0.1, v.w / 2, v.h * 0.55, v.w * 0.8);
-    bg.addColorStop(0, '#1d2230'); bg.addColorStop(1, '#0b0d12'); ctx.fillStyle = bg; ctx.fillRect(0, 0, v.w, v.h);
+    if (royal()) { bg.addColorStop(0, '#2c1f40'); bg.addColorStop(1, '#0c0913'); } else { bg.addColorStop(0, '#1d2230'); bg.addColorStop(1, '#0b0d12'); }
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, v.w, v.h);
     drawBoard(v, o);
     if (!W) return;
     for (const z of W.zones) if (z.until > W.t) for (const h of Hx.within(z.c, z.r, z.rad)) {
@@ -288,5 +295,5 @@
     ctx.textAlign = 'right'; ctx.fillStyle = '#e8b84a'; ctx.fillText(Math.max(0, Math.round(b.hp)) + ' / ' + b.maxHp, x + w, y + 9);
   }
 
-  B.Render = { setup, draw, hexAt, hexScreen };
+  B.Render = { setup, draw, hexAt, hexScreen, skin: null };
 })(typeof window !== 'undefined' ? window : globalThis);
