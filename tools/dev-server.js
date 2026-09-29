@@ -4,7 +4,7 @@ global.__BAL_MEM = true;
 process.env.ADMIN_KEY = process.env.ADMIN_KEY || 'dev-key';
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..'), PORT = +(process.argv[2] || 3790);
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
 const HEADERS = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')).headers[0].headers;
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://localhost');
@@ -26,7 +26,7 @@ http.createServer(async (req, res) => {
     return;
   }
   let p = decodeURIComponent(u.pathname); if (p === '/') p = '/index.html';
-  if (!/^\/(index\.html|style\.css|js\/[a-z]+\.js)$/.test(p)) { res.statusCode = 404; return res.end('not found'); }
+  if (!/^\/(index\.html|style\.css|js\/[a-z]+\.js|fonts\/[a-z]+\.woff2)$/.test(p)) { res.statusCode = 404; return res.end('not found'); }
   const f = path.join(ROOT, p);
   if (!fs.existsSync(f)) { res.statusCode = 404; return res.end('not found'); }
   res.setHeader('Content-Type', TYPES[path.extname(f)] || 'application/octet-stream');

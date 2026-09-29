@@ -598,9 +598,10 @@
   ];
   B.TYPE = {}; for (const t of B.TYPES) B.TYPE[t.id] = t;
   B.RARITIES = [
-    { id: 'common', name: 'Common', color: '#b8c0cc' }, { id: 'uncommon', name: 'Uncommon', color: '#5fd47a' },
-    { id: 'rare', name: 'Rare', color: '#5fa8ff' }, { id: 'epic', name: 'Epic', color: '#c77dff' },
-    { id: 'set', name: 'Set', color: '#2fd6c0' }, { id: 'legendary', name: 'Legendary', color: '#ff9f40' }, { id: 'mythic', name: 'Mythic', color: '#ff4d5e' },
+    // v29: brighter so every rarity reads on the new sky-blue panels
+    { id: 'common', name: 'Common', color: '#e2e8f2' }, { id: 'uncommon', name: 'Uncommon', color: '#6ff09a' },
+    { id: 'rare', name: 'Rare', color: '#7cc8ff' }, { id: 'epic', name: 'Epic', color: '#dca8ff' },
+    { id: 'set', name: 'Set', color: '#4ff0dc' }, { id: 'legendary', name: 'Legendary', color: '#ffb35c' }, { id: 'mythic', name: 'Mythic', color: '#ff6f82' },
   ];
   B.RARITY = {}; for (const r of B.RARITIES) B.RARITY[r.id] = r;
   // the first 78 items, sorted into slots (ids never change: saved runs, ghosts and content Elo use them)

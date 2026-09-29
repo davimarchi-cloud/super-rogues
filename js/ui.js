@@ -156,7 +156,7 @@
       return { k, t: txt + (note ? ` <span class="dim">(${note})</span>` : '') };
     });
   }
-  const SCALE_ICON = { P: '⚔', M: '✦', MX: '✦', A: '⚔', B: '🔥', BA: '🔥', H: '✚', X: '✚', S: '🛡', D: '☠', Z: '•' };
+  const SCALE_ICON = { P: '⚔', M: '✦', MX: '✦', A: '⚔', B: '🔥', BA: '🔥', H: '✚', X: '✚', S: '🛡', D: '🧪', Z: '•' };
   function scalingHTML(d, compact) {
     const parts = scaleParts(d); if (!parts.length) return '';
     const head = compact ? '' : `<div class="scal-h">How it scales <span class="dim">now: ⚔ ${Math.round(d.atk)} AD · ✦ ${Math.round(d.ap)} AP</span></div>`;
@@ -177,7 +177,7 @@
   const setInfo = it => { const S = it.set && B.SETS[it.set]; return S ? `<div class="setline">◆ <b>${esc(S.name)}</b> set · 2 pieces: ${fmt(S.bonus[2].desc)} · 3 pieces: ${fmt(S.bonus[3].desc)}</div>` : ''; };
   const RANK = id => B.RARITIES.findIndex(r => r.id === ITEM[id].tier);
   const DOLL = ['helmet', 'trinket', 'weapon', 'offhand', 'gloves', 'armor', 'boots'];
-  const NODE_ICON = { F: '⚔', X: '?', B: '☠', S: '🛒', G: '♛' };
+  const NODE_ICON = { F: '⚔️', X: '❓', B: '👹', S: '🛒', G: '🏆' };  // v29: friendlier icons
   const SHOP_NAME = { heroShop: 'Hero Shop', itemShop: 'Item Shop', relicShop: 'Relic Shop' };
   const SHOP_DESC = { heroShop: 'Recruit new heroes.', itemShop: 'Buy items to equip.', relicShop: 'Team-wide relics.' };
 
@@ -190,7 +190,7 @@
     }
     const stepN = Math.max(0, run.step);
     const elo = store.get('balance.elo', null), g = run.g;
-    const prog = g ? (g.round != null ? 'Gauntlet · floor ' + (g.round + 1) : 'Gauntlet') : 'Day ' + (stepN + 1) + '/' + Run.seqOf(run).length;
+    const prog = g ? (g.round != null ? '🏆 Floor ' + (g.round + 1) : '🏆 Gauntlet') : 'Day ' + (stepN + 1) + '/' + Run.seqOf(run).length;
     const lgs = store.get('balance.league', null);
     h.innerHTML = `${elo != null ? `<button class="lgchip" data-act="player-tab" title="${lgs ? leagueName(lgs.league) + ' league · ' : ''}Elo ${elo}" aria-label="Your league and Elo">${emblem(lgs ? lgs.league : 0, 18)}<span>${elo}</span></button>` : ''}
       <span class="gold" title="Gold">${run.gold}</span><span class="prog">${prog}</span>
@@ -275,10 +275,10 @@
   function optHTML(o, i) {
     if (o.type === 'fight') {
       if (o.diff === 'boss') { const b = o.enemies.map(e => B.BOSSES[e.key]).find(Boolean); return bannerHTML(i, 'boss', img(b.key, 72, 'por emb-img'), esc(b.name), `<span class="small">${fmt(b.desc)}</span><span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold'); }
-      return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔⚔' : '⚔', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold' + (o.enemies.some(e => e.elite) ? ' · ★ elite' : ''));
+      return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔️⚔️' : o.diff === 'medium' ? '🗡️' : '⚔️', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold' + (o.enemies.some(e => e.elite) ? ' · ★ elite' : ''));
     }
-    if (o.type === 'shop') return bannerHTML(i, 'shop', o.kind === 'heroShop' ? '♞' : o.kind === 'itemShop' ? '⚒' : '◆', SHOP_NAME[o.kind] + (o.final ? ' (last)' : ''), `<span class="small">${SHOP_DESC[o.kind]}</span>`);
-    if (o.type === 'event') return bannerHTML(i, 'event', '?', esc(EVENT[o.id].name), `<span class="small">${esc(EVENT[o.id].text)}</span>`);
+    if (o.type === 'shop') return bannerHTML(i, 'shop', o.kind === 'heroShop' ? '🦸' : o.kind === 'itemShop' ? '🛡️' : '💎', SHOP_NAME[o.kind] + (o.final ? ' (last)' : ''), `<span class="small">${SHOP_DESC[o.kind]}</span>`);
+    if (o.type === 'event') return bannerHTML(i, 'event', '❓', esc(EVENT[o.id].name), `<span class="small">${esc(EVENT[o.id].text)}</span>`);
     return '';
   }
   // review #17: what an event did to the next fight, in words
@@ -297,8 +297,8 @@
   function mapHTML() {
     const t = Run.seqOf(run)[run.step];
     const title = t === 'B' ? 'A boss blocks the way' : t === 'S' ? 'One last shop' : 'Choose your path';
-    return `<section>${trackHTML()}<h2 class="sc">Day ${run.step + 1} · ${title}</h2>${run.nextMod ? `<p class="nextmod">⚑ Next fight: ${fmt(modText(run.nextMod))}</p>` : ''}<div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
-      ${partyHTML()}</section>`;
+    return `<section class="map"><div class="mapmain">${trackHTML()}<h2 class="sc">Day ${run.step + 1} · ${title}</h2>${run.nextMod ? `<p class="nextmod">⚑ Next fight: ${fmt(modText(run.nextMod))}</p>` : ''}<div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
+      </div><aside class="mapside">${partyHTML()}</aside></section>`;
   }
   // review #18: the party under the map (levels, XP, worn items, relics) and the next boss, so each choice is informed
   function partyHTML() {
@@ -312,7 +312,7 @@
     const seq = Run.seqOf(run);
     for (let k = Math.max(0, run.step); k < seq.length; k++) if (seq[k] === 'B') {
       const nth = seq.slice(0, k + 1).filter(x => x === 'B').length, b = nth === 1 ? B.BOSSES.gorewarden : B.BOSSES.hollowking, d = k - run.step;
-      boss = `<div class="nextboss">${img(b.key, 40, 'por')}<div><b>☠ ${esc(b.name)}</b> <span class="dim">${d <= 0 ? 'today' : 'in ' + d + ' day' + (d > 1 ? 's' : '')}</span><span class="small">${fmt(b.desc)}</span></div></div>`;
+      boss = `<div class="nextboss">${img(b.key, 40, 'por')}<div><b>👹 ${esc(b.name)}</b> <span class="dim">${d <= 0 ? 'today' : 'in ' + d + ' day' + (d > 1 ? 's' : '')}</span><span class="small">${fmt(b.desc)}</span></div></div>`;
       break;
     }
     return `<div class="party"><div class="bph"><b>Your party</b><span class="dim small">${run.bag.length ? `${run.bag.length} in bag · <a href="#" data-act="team">equip</a>` : `${run.heroes.length}/${Run.teamMax(run)} heroes`}</span></div>
@@ -352,12 +352,13 @@
     const gau = run.cur && run.cur.type === 'gauntlet';
     const f = run.cur;
     return `<section class="deploy">
-      <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '☠ Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
+      <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy</div>
       <p class="hint tight">${!gau && f.mod ? `<span class="nextmod">⚑ ${fmt(modText(f.mod))}</span>` : 'Drag heroes within the blue rows: tanks in front, ranged behind. Tap a unit for details.'}</p>
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
       ${foesHTML(gau, f)}
       <div class="bar sticky"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${gau ? 'Duel!' : 'Fight!'}</button></div>
+      <div class="dparty">${partyHTML()}</div>
     </section>`;
   }
   // review #18 (David: "another pass of the ui and battle ui ... pretty, functional, visible, engaging"): under the
@@ -424,9 +425,9 @@
     const hs = r.xp.map(x => ({ x, h: run.heroes.find(q => q.uid === x.uid), s: S[x.uid] || { dmg: (r.dmg || {})[x.uid] || 0, taken: 0, kills: 0, alive: true } })).filter(o => o.h);
     const top = Math.max(1, ...hs.map(o => o.s.dmg)), total = Math.max(1, hs.reduce((a, o) => a + o.s.dmg, 0));
     const mvpUid = hs.length > 1 || r.win ? (hs.slice().sort((a, b) => b.s.dmg - a.s.dmg)[0] || {}).x : null;
-    const what = r.gauntlet ? `Gauntlet · floor ${r.floor || '?'} · vs ${plink(r.opp.name, r.opp.code)}` : r.boss ? `☠ ${esc(r.bossName || 'Boss')}` : esc(r.fightName || 'Fight');
+    const what = r.gauntlet ? `Gauntlet · floor ${r.floor || '?'} · vs ${plink(r.opp.name, r.opp.code)}` : r.boss ? `👹 ${esc(r.bossName || 'Boss')}` : esc(r.fightName || 'Fight');
     const foesDown = r.foes ? r.foes.filter(f => f.dead).length : null;
-    const meta = [r.time != null ? `⏱ ${clock(r.time)}` : '', r.foes ? `☠ ${foesDown}/${r.foes.length} foes down` : '', `♥ ${hs.filter(o => o.s.alive).length}/${hs.length} standing`, r.timeout ? 'time ran out' : ''].filter(Boolean).join(' · ');
+    const meta = [r.time != null ? `⏱ ${clock(r.time)}` : '', r.foes ? `💥 ${foesDown}/${r.foes.length} foes down` : '', `♥ ${hs.filter(o => o.s.alive).length}/${hs.length} standing`, r.timeout ? 'time ran out' : ''].filter(Boolean).join(' · ');
     const chips = [];
     if (r.win && !r.gauntlet) chips.push(`<span class="rw rw-gold"><i class="coin"></i><b>+${r.gold}</b><em>gold</em></span>`);
     if (r.prize) chips.push(`<span class="rw rw-prize" style="--tier:${TIER_COLOR[ITEM[r.prize].tier]}">${ico('item', r.prize, 26)}<b>${esc(ITEM[r.prize].name)}</b><em>${B.RARITY[ITEM[r.prize].tier].name} ${B.TYPE[ITEM[r.prize].type].name.toLowerCase()}</em></span>`);
@@ -442,10 +443,10 @@
       return `<div class="rh ${mvp ? 'mvp' : ''} ${st.alive ? '' : 'ko'}"><span class="rhp">${img(h.key, 46, 'por')}${st.alive ? '' : '<i class="kox">✝</i>'}</span><div class="rhb">
         <div class="rhn"><b>${esc(x.name)}</b>${mvp ? '<span class="mvpb">★ MVP</span>' : ''}<span class="grow"></span>${x.to > x.from ? `<b class="up">Lv ${x.to} ▲</b>` : `<span class="lv">Lv ${x.to}</span>`}</div>
         <div class="dmgbar"><s style="width:${100 * st.dmg / top}%"></s><em>⚔ ${kfmt(st.dmg)} damage · ${Math.round(100 * st.dmg / total)}%</em></div>
-        <div class="rst"><span title="Damage taken">🛡 ${kfmt(st.taken)} taken</span><span title="Kills">☠ ${st.kills} kill${st.kills === 1 ? '' : 's'}</span>${r.gauntlet ? '' : `<span class="rxp"><span class="xpbar"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></span><span class="kw-xp">+${x.gained} XP</span></span>`}</div></div></div>`;
+        <div class="rst"><span title="Damage taken">🛡 ${kfmt(st.taken)} taken</span><span title="Kills">💥 ${st.kills} kill${st.kills === 1 ? '' : 's'}</span>${r.gauntlet ? '' : `<span class="rxp"><span class="xpbar"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></span><span class="kw-xp">+${x.gained} XP</span></span>`}</div></div></div>`;
     }).join('');
     const foes = r.foes && r.foes.length ? `<div class="rfoes"><span class="dim small">${r.gauntlet ? 'Their team' : 'Enemies'}</span>${r.foes.map(f => `<span class="rf ${f.dead ? 'dead' : ''} ${f.boss ? 'boss' : ''} ${f.elite ? 'elite' : ''}">${img(f.key, f.boss ? 30 : 24, 'por')}</span>`).join('')}</div>` : '';
-    const bl = r.boss && r.bossElo && hasPerk('elo') ? `<p class="small dim ghostline">☠ ${esc(r.bossElo.name)}'s Elo: <b>${r.bossElo.elo}</b> (${r.bossElo.delta >= 0 ? '+' : ''}${r.bossElo.delta})</p>` : '';
+    const bl = r.boss && r.bossElo && hasPerk('elo') ? `<p class="small dim ghostline">👹 ${esc(r.bossElo.name)}'s Elo: <b>${r.bossElo.elo}</b> (${r.bossElo.delta >= 0 ? '+' : ''}${r.bossElo.delta})</p>` : '';
     const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${plink(r.ghost.name, r.opp.code)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})</p>` : '';
     const lostRun = !r.win && !r.gauntlet ? '<p class="small dim center">Your run is over.</p>' : '';
     return `<section class="result v2"><div class="rhead ${r.win ? 'win' : 'lose'}"><h2 class="sc headline ${r.win ? 'win' : 'lose'}">${r.win ? 'Victory' : 'Defeat'}</h2>
@@ -600,11 +601,14 @@
     document.body.classList.toggle('landscape', vw > vh * 1.25 && vh < 600);
     document.body.classList.toggle('wide', vw >= 760 && !document.body.classList.contains('landscape'));
     document.body.classList.toggle('side', document.body.classList.contains('wide') && vw >= vh * 1.1);  // review #18: panel beside the board
+    document.body.classList.toggle('desk', document.body.classList.contains('side') && vw >= 1024 && vh >= 560);  // v29: a full-screen stage on computers
   }
   function boardWidth(wrap) {
     const vw = window.innerWidth, vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     const land = document.body.classList.contains('landscape');
     // review #18: on tablets/desktops the deploy and battle screens put their panel in a column beside the board
+    // v29 (owner: "on PC the framing is horrible"): the board takes all the height the screen has, the panel sits beside it
+    if (document.body.classList.contains('desk')) return Math.floor(Math.max(300, Math.min(vw - 474, (vh - 124) / BOARD_RATIO, 1360)));
     if (document.body.classList.contains('side')) return Math.floor(Math.max(300, Math.min(Math.min(vw, 1180) - 36 - 356, (vh - 64 - 8) / BOARD_RATIO, 1000)));
     const reserved = land ? 64 : screen === 'battle' ? 175 : 215;
     const byHeight = Math.max(200, (vh - reserved - 4) / BOARD_RATIO);
@@ -659,7 +663,7 @@
     const hud = $('#bhud');
     if (hud) {
       const secs = Math.floor(b.W.t / Sim.TPS);
-      const title = b.gau ? `⚔ Floor ${run.g.round + 1} · ${esc(run.g.opp.name)}` : run.cur.diff === 'boss' ? '☠ Boss' : '⚔ ' + B.DIFF[run.cur.diff].name;
+      const title = b.gau ? `⚔ Floor ${run.g.round + 1} · ${esc(run.g.opp.name)}` : run.cur.diff === 'boss' ? '👹 Boss' : '⚔ ' + B.DIFF[run.cur.diff].name;
       const toSd = CFG.suddenDeath - secs, clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
       const str = `<b>${title}</b><span class="clock ${toSd <= 0 ? 'sd' : toSd <= 10 ? 'warn' : ''}">⏱ ${clock}${toSd <= 0 ? ' · SUDDEN DEATH' : toSd <= 10 ? ' · sudden death in ' + toSd + 's' : ''}</span>`;
       if (str !== b.hudStr) { hud.innerHTML = str; b.hudStr = str; }
@@ -871,7 +875,7 @@
     const noFight = id => kind !== 'hero' && B.NONCOMBAT[kind].includes(id);
     const rated = ids.filter(id => by[id] && by[id].games).sort((a, b) => by[b].elo - by[a].elo || by[b].games - by[a].games);
     const rest = ids.filter(id => !rated.includes(id)).sort((a, b) => noFight(a) - noFight(b));
-    const name = id => `<td class="who">${pic(id)}<span${kind === 'item' ? ` style="color:${TIER_COLOR[ITEM[id].tier]}"` : B.BOSSES[id] ? ' class="bossname"' : ''}>${B.BOSSES[id] ? '☠ ' : ''}${esc(def(id).name)}</span></td>`;
+    const name = id => `<td class="who">${pic(id)}<span${kind === 'item' ? ` style="color:${TIER_COLOR[ITEM[id].tier]}"` : B.BOSSES[id] ? ' class="bossname"' : ''}>${B.BOSSES[id] ? '👹 ' : ''}${esc(def(id).name)}</span></td>`;
     const rows = rated.map((id, i) => { const r = by[id]; return `<tr><td>${i + 1}</td>${name(id)}<td><b>${r.elo}</b></td><td>${r.games}</td><td>${Math.round(100 * r.wins / r.games)}%</td></tr>`; }).join('')
       + rest.map(id => `<tr class="unrated"><td></td>${name(id)}<td colspan="3">${noFight(id) ? 'no combat effect' : 'not played yet'}</td></tr>`).join('');
     return `<p class="dim small">📊 Content Elo unlocked. Every ${kind} has its own Elo, apart from the players, to guide balance. It only counts in fights where it acted: heroes on the board, equipped items and relics with a combat effect. Losing a run is a loss against 1000, reaching the Gauntlet a win against 1000, and a duel is a game against the other team's ${kind === 'hero' ? 'heroes' : kind + 's'}.${kind === 'hero' ? ' ☠ Bosses have their own Elo: it rises when they beat a player and falls when they lose (against that player\'s Elo), and never changes the player\'s.' : ''}</p>

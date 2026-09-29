@@ -66,8 +66,9 @@
       if (o.deploy) return r >= 4 ? `hsl(266,36%,${21 + n * 4}%)` : `hsl(345,28%,${17 + n * 3}%)`;
       return (c + r) % 2 ? `hsl(268,30%,${17 + n * 4}%)` : `hsl(38,34%,${18 + n * 4}%)`;
     }
-    if (o.deploy) return r >= 4 ? `hsl(220,32%,${20 + n * 4}%)` : `hsl(350,22%,${17 + n * 3}%)`;
-    return `hsl(222,14%,${16 + n * 4}%)`;
+    // v29 (owner: "more child friendly"): a sunny meadow; while deploying, your rows glow sky blue and theirs soft red
+    if (o.deploy) return r >= 4 ? `hsl(205,62%,${58 + n * 5}%)` : `hsl(4,58%,${63 + n * 4}%)`;
+    return (c + r) % 2 ? `hsl(104,46%,${50 + n * 5}%)` : `hsl(96,44%,${56 + n * 5}%)`;
   }
   function drawBoard(v, o) {
     const { ctx, size } = v, th = v.slab;
@@ -75,20 +76,20 @@
       const pts = corners(v, c, r, size * 0.985);
       // side faces of the two lower edges (hidden by the next row except at the board's edge)
       for (const [i, j] of [[0, 1], [1, 2], [2, 3]]) {
-        ctx.fillStyle = royal() ? (i === 1 ? '#1c1206' : i === 0 ? '#3a2a10' : '#2a1d0a') : i === 1 ? '#0e1016' : i === 0 ? '#151922' : '#12151d';
+        ctx.fillStyle = royal() ? (i === 1 ? '#1c1206' : i === 0 ? '#3a2a10' : '#2a1d0a') : i === 1 ? '#6b4524' : i === 0 ? '#8a5a2e' : '#7a4f28';
         ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.lineTo(pts[j].x, pts[j].y + th); ctx.lineTo(pts[i].x, pts[i].y + th); ctx.closePath(); ctx.fill();
       }
       const top = corners(v, c, r, size * 0.94);
       path(ctx, top);
       const drop = o.drop && o.drop.c === c && o.drop.r === r;
-      ctx.fillStyle = drop ? '#4466a8' : tileColor(c, r, o); ctx.fill();
-      if (v.grit) { ctx.fillStyle = v.grit; ctx.fill(); }
+      ctx.fillStyle = drop ? '#ffe066' : tileColor(c, r, o); ctx.fill();
+      if (v.grit) { ctx.globalAlpha = royal() ? 1 : 0.35; ctx.fillStyle = v.grit; ctx.fill(); ctx.globalAlpha = 1; }
       // bevel: lit upper-left edges, shaded lower-right edges
       ctx.lineWidth = 1.5;
-      ctx.strokeStyle = royal() ? 'rgba(255,207,90,0.38)' : 'rgba(255,255,255,0.13)'; ctx.beginPath(); ctx.moveTo(top[3].x, top[3].y); ctx.lineTo(top[4].x, top[4].y); ctx.lineTo(top[5].x, top[5].y); ctx.lineTo(top[0].x, top[0].y); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.moveTo(top[0].x, top[0].y); ctx.lineTo(top[1].x, top[1].y); ctx.lineTo(top[2].x, top[2].y); ctx.lineTo(top[3].x, top[3].y); ctx.stroke();
+      ctx.strokeStyle = royal() ? 'rgba(255,207,90,0.38)' : 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.moveTo(top[3].x, top[3].y); ctx.lineTo(top[4].x, top[4].y); ctx.lineTo(top[5].x, top[5].y); ctx.lineTo(top[0].x, top[0].y); ctx.stroke();
+      ctx.strokeStyle = royal() ? 'rgba(0,0,0,0.45)' : 'rgba(40,70,20,0.35)'; ctx.beginPath(); ctx.moveTo(top[0].x, top[0].y); ctx.lineTo(top[1].x, top[1].y); ctx.lineTo(top[2].x, top[2].y); ctx.lineTo(top[3].x, top[3].y); ctx.stroke();
     }
-    if (o.deploy) { const y = hexScreen(v, 0, 4).y - size * 0.75 * K; ctx.strokeStyle = 'rgba(95,168,255,0.5)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(v.w, y); ctx.stroke(); ctx.setLineDash([]); }
+    if (o.deploy) { const y = hexScreen(v, 0, 4).y - size * 0.75 * K; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(v.w, y); ctx.stroke(); ctx.setLineDash([]); }
   }
 
   // ------------------------------------------------------------------ units
@@ -128,7 +129,7 @@
     ctx.fillStyle = hero ? '#5fd47a' : '#e05555'; ctx.fillRect(bx, by, bw * Math.max(0, u.hp / u.maxHp), 4);
     if (u.shield > 0 && u.shieldU > s) { ctx.fillStyle = '#e8ecff'; ctx.fillRect(bx, by, Math.min(bw, bw * u.shield / u.maxHp), 2); }
     if (u.maxMana > 0) { ctx.fillStyle = '#000b'; ctx.fillRect(bx - 1, by + 5, bw + 2, 3); ctx.fillStyle = '#5fa8ff'; ctx.fillRect(bx, by + 5, bw * Math.min(1, u.mana / u.maxMana), 2); }
-    if (u.lvl > 1 && hero && u.kind === 'hero') { ctx.font = 'bold 9px system-ui'; ctx.fillStyle = '#ffcf5a'; ctx.textAlign = 'left'; ctx.fillText(u.lvl, bx + bw + 2, by + 5); }
+    if (u.lvl > 1 && hero && u.kind === 'hero') { ctx.font = "700 10px 'Fredoka', 'Nunito', system-ui, sans-serif"; ctx.fillStyle = '#ffcf5a'; ctx.textAlign = 'left'; ctx.fillText(u.lvl, bx + bw + 2, by + 5); }
     const marks = [];
     if (u.st.stun > s && !(u.st.frozenU > s)) marks.push('✦');
     if (u.st.silence > s) marks.push('⊘');
@@ -149,7 +150,7 @@
     ctx.clearRect(0, 0, v.w, v.h);
     if (S.shake > 0.2 && !o.deploy) { ctx.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake); S.shake *= Math.pow(0.02, dt); } else S.shake = 0;
     const bg = ctx.createRadialGradient(v.w / 2, v.h * 0.55, v.w * 0.1, v.w / 2, v.h * 0.55, v.w * 0.8);
-    if (royal()) { bg.addColorStop(0, '#2c1f40'); bg.addColorStop(1, '#0c0913'); } else { bg.addColorStop(0, '#1d2230'); bg.addColorStop(1, '#0b0d12'); }
+    if (royal()) { bg.addColorStop(0, '#2c1f40'); bg.addColorStop(1, '#0c0913'); } else { bg.addColorStop(0, '#bfe6ff'); bg.addColorStop(1, '#6fb2f2'); }
     ctx.fillStyle = bg; ctx.fillRect(0, 0, v.w, v.h);
     drawBoard(v, o);
     if (!W) return;
@@ -205,7 +206,7 @@
         for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + k * 2, R = size * (0.4 + k * 0.7); ctx.beginPath(); ctx.moveTo(p.x + Math.cos(a) * R * 0.5, p.y - size * 0.7 + Math.sin(a) * R * 0.5); ctx.lineTo(p.x + Math.cos(a) * R, p.y - size * 0.7 + Math.sin(a) * R); ctx.stroke(); }
         ctx.globalAlpha = 1;
       } else if (f.k === 'banner') {
-        ctx.globalAlpha = k < 0.8 ? 1 : (1 - k) / 0.2; ctx.font = 'bold ' + Math.round(size * 0.9) + 'px Georgia,"Times New Roman",serif';
+        ctx.globalAlpha = k < 0.8 ? 1 : (1 - k) / 0.2; ctx.font = '700 ' + Math.round(size * 0.9) + "px 'Fredoka', 'Nunito', system-ui, sans-serif";
         ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(f.text.toUpperCase(), v.w / 2, v.h * 0.4);
         ctx.fillStyle = '#ffcf5a'; ctx.fillText(f.text.toUpperCase(), v.w / 2, v.h * 0.4); ctx.globalAlpha = 1;
       }
@@ -214,7 +215,7 @@
     if (!o.deploy) drawCalls(v, W, T, S, dt);
     const vg = ctx.createRadialGradient(v.w / 2, v.h * 0.5, v.w * 0.35, v.w / 2, v.h * 0.5, v.w * 0.85);
     const sd = W.sd > 0 ? Math.min(0.55, 0.25 + W.sd * 0.15) * (0.75 + 0.25 * Math.sin(now * 6)) : 0;
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, sd ? `rgba(120,10,20,${sd})` : 'rgba(0,0,0,0.45)'); ctx.fillStyle = vg; ctx.fillRect(-10, -10, v.w + 20, v.h + 20);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, sd ? `rgba(200,20,40,${sd})` : royal() ? 'rgba(0,0,0,0.45)' : 'rgba(20,40,120,0.18)'); ctx.fillStyle = vg; ctx.fillRect(-10, -10, v.w + 20, v.h + 20);
     if (!o.deploy) bossBar(v, W);
     if (o.dragGhost) { ctx.globalAlpha = 0.65; B.Models.draw(ctx, o.dragGhost.key, o.dragGhost.x, o.dragGhost.y + size * 0.5, size * 1.3, { t: T / 20, face: 1 }); ctx.globalAlpha = 1; }
   }
@@ -277,7 +278,7 @@
       const u = W.byId[c.id]; if (!u) continue;
       const p = unitPos(v, W, u, T), k = c.t / 1.1, pop = c.t < 0.12 ? 0.7 + c.t / 0.12 * 0.45 : 1.15 - Math.min(0.15, (c.t - 0.12));
       ctx.save(); ctx.globalAlpha = k < 0.75 ? 1 : (1 - k) / 0.25; ctx.translate(p.x, p.y - size * 2.6 - k * size * 0.4); ctx.scale(pop, pop);
-      ctx.font = 'bold ' + Math.round(size * 0.52) + 'px Georgia,"Times New Roman",serif'; ctx.textAlign = 'center';
+      ctx.font = '700 ' + Math.round(size * 0.52) + "px 'Fredoka', 'Nunito', system-ui, sans-serif"; ctx.textAlign = 'center';
       ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(c.text.toUpperCase(), 0, 0); ctx.fillStyle = c.col; ctx.fillText(c.text.toUpperCase(), 0, 0);
       ctx.restore();
     }
@@ -291,7 +292,7 @@
     ctx.fillStyle = g; ctx.fillRect(x, y + 12, w * Math.max(0, b.hp / b.maxHp), 6);
     ctx.strokeStyle = '#e8b84a88'; ctx.lineWidth = 1; ctx.strokeRect(x, y + 12, w, 6);
     for (const f of [0.25, 0.5, 0.75]) { ctx.fillStyle = '#000a'; ctx.fillRect(x + w * f, y + 12, 1, 6); }
-    ctx.font = 'bold 11px Georgia,serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#f3e6c4'; ctx.fillText(b.name.toUpperCase(), x, y + 9);
+    ctx.font = "700 12px 'Fredoka', 'Nunito', system-ui, sans-serif"; ctx.textAlign = 'left'; ctx.fillStyle = '#f3e6c4'; ctx.fillText(b.name.toUpperCase(), x, y + 9);
     ctx.textAlign = 'right'; ctx.fillStyle = '#e8b84a'; ctx.fillText(Math.max(0, Math.round(b.hp)) + ' / ' + b.maxHp, x + w, y + 9);
   }
 
