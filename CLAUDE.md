@@ -125,6 +125,14 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v40 (2026-09-30), lote 37 do David (#48): arte do Kagero (kage) + folhas de cartões + prévias animadas.** A folha
+  dele era de "cartões" (cada quadro num cartão rosa com borda, num fundo escuro, com título, rótulos e uma pose grande
+  embaixo). `cutCards` (art.js): cor do cartão = a mais comum depois do fundo (contando os baldes vizinhos, a cor tem
+  ruído); cartão = bloco dessa cor com o contorno todo preenchido; lacunas na grade da linha (cartão coberto por um
+  clarão) são preenchidas; cada cartão é recortado na própria cor, sem a borda; todos os quadros de uma linha ficam do
+  mesmo tamanho e lugar (a bomba voa, a queda cai); efeito que enche o cartão ganha bordas suaves. Kagero: 8 quadros em
+  cada animação (`art/kage/`). No lab, uma prévia animada por animação (mesmo tempo e mistura da batalha).
+
 - **v39 (2026-09-29), lote 36 do David (#47): arte da Melissa (buzzwell).** Veio marcada como "Astrid" porque o lab abria
   no 1º herói da lista; a arte é claramente a apicultora → aplicada na Melissa e o lab agora abre SEM herói escolhido.
   A folha tinha as figuras coladas (sem espaço), o lab achou 1 quadro por linha: montada à mão (`art/buzzwell/`, 66

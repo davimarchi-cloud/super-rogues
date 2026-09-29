@@ -375,6 +375,19 @@ if (!REMOTE) {
   await setFile('#alSheet', packed); await sleep(1200);
   ok(await ev(`(() => { const a = B.Art.sprite('rook'); return !!a && a.anims.idle.length === 9 && a.anims.move.length === 7; })()`), 'a sheet with no space between the frames: 9 and 7 frames found by their pitch');
   await setFile('#alSheet', anim); await sleep(1200);
+  // review #48: animated previews, one little stage per animation
+  ok(await ev(`(() => { const cs = [...document.querySelectorAll('#alSheetView canvas.alprev')]; return cs.length === 4 && cs.every(c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 16) if (d[i]) return true; return false; }); })()`), 'Art Lab: every animation plays in its own preview');
+  // review #48: a sheet of cards (a pink tile per frame on a dark sheet, a title, row labels, one card hidden by a flash)
+  const cardsheet = await pic('art-cards.png', `(() => { const c = document.createElement('canvas'); c.width = 760; c.height = 560; const x = c.getContext('2d'); x.fillStyle = '#23242b'; x.fillRect(0, 0, 760, 560);
+    x.fillStyle = '#000'; x.fillRect(10, 8, 740, 34); x.fillStyle = '#fff'; x.font = 'bold 22px sans-serif'; x.fillText('HERO SPRITESHEET', 20, 33);
+    [['Idle', 6], ['Walk', 6], ['Attack', 5]].forEach(([label, n], r) => { const Y = 70 + r * 160; x.fillStyle = '#fff'; x.font = '16px sans-serif'; x.fillText(label, 14, Y - 6);
+      for (let i = 0; i < n; i++) { const X = 14 + i * 120; x.fillStyle = '#b04c90'; x.fillRect(X, Y, 110, 140); x.fillStyle = '#f067ad'; x.fillRect(X + 3, Y + 3, 104, 134);
+        if (r === 2 && i === 4) { const g = x.createRadialGradient(X + 55, Y + 70, 5, X + 55, Y + 70, 90); g.addColorStop(0, '#fff'); g.addColorStop(1, '#9cf'); x.fillStyle = g; x.fillRect(X + 3, Y + 3, 104, 134); continue; }
+        x.fillStyle = '#3a2a4a'; x.beginPath(); x.arc(X + 50 + i * 2, Y + 30 + (r === 1 ? i % 2 * 4 : 0), 14, 0, 7); x.fill(); x.fillRect(X + 38 + i * 2, Y + 44, 24, 60); x.fillRect(X + 38, Y + 104, 9, 26); x.fillRect(X + 55, Y + 104, 9, 26); } });
+    return c.toDataURL('image/png'); })()`);
+  await setFile('#alSheet', cardsheet); await sleep(1400);
+  ok(await ev(`(() => { const a = B.Art.sprite('rook'); return !!a && a.anims.idle.length === 6 && a.anims.move.length === 6 && a.anims.attack.length === 5 && a.anims.idle.every(i => i.naturalWidth === a.anims.idle[0].naturalWidth && i.naturalHeight === a.anims.idle[0].naturalHeight) && /cards/.test(document.querySelector('#alSheetView').textContent); })()`), 'a sheet of cards: every card is a frame (the flash card too), the frames of a row keep one size and place');
+  await setFile('#alSheet', anim); await sleep(1200);
   await ev(`B.ArtLab.state.fight = null`); await sleep(900);
   ok(await ev(`B.ArtLab.state.fight && B.ArtLab.state.fight.W.t > 5`), 'the test fight runs with the animated hero');
   await setFile('#alSplash', splashPic); await sleep(900);

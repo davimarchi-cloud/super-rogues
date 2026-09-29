@@ -64,6 +64,7 @@
     if (!P.idle && !(S.res && S.res.rows.length > 1)) { el.innerHTML = '<p class="small dim">Now: the drawn figure.</p>'; return; }
     const frames = Object.values(P).reduce((n, f) => n + f.length, 0);
     const note = !S.sheet ? '' : S.rows === 1 ? (S.found > 4 ? `One row with ${S.found} figures: the first 4 are idle, walk, attack and ability. For whole animations put each one on its own row.` : `One row: ${S.found} pose${S.found === 1 ? '' : 's'}${S.found < 4 ? ' (the missing ones reuse idle or attack)' : ''}.`)
+      : S.cards ? `A sheet of cards: ${S.found} cards in ${S.rows} row${S.rows === 1 ? '' : 's'}; each card is a frame and keeps its place in the row.`
       : `${S.rows} animation${S.rows === 1 ? '' : 's'}, ${frames} frames${S.dropped ? `; ${S.dropped} label${S.dropped === 1 ? '' : 's'} or speck${S.dropped === 1 ? '' : 's'} left out` : ''}.`;
     // review #45: an animation sheet shows its rows, each with "Use as" (a spin row can be the ability, two rows can
     // make one animation, a row can be left out); the summary says what plays
@@ -71,9 +72,31 @@
     const rowsHTML = R ? `<div class="alanims">${R.map((row, i) => `<div class="alanim"><select class="alrowsel" data-row="${i}" aria-label="Row ${i + 1} is">${[...B.Art.ANIMS, 'none'].map(k => `<option value="${k}" ${S.map[i] === k ? 'selected' : ''}>${k === 'none' ? 'Not used' : NAMES[k]}</option>`).join('')}</select>
         <span class="dim small">row ${i + 1} · ${row.length}</span><div class="alframes">${row.map(f => `<img src="${f.url}" alt="">`).join('')}</div></div>`).join('')}</div>
       <p class="small">Plays as: ${B.Art.ANIMS.filter(k => P[k]).map(k => `<b>${NAMES[k]}</b> ${P[k].length}`).join(' · ')}${P.death ? '' : ' · Death: fades out'}</p>` : '';
-    el.innerHTML = R ? rowsHTML + sheetFoot(d, note) : `<div class="alanims">${B.Art.ANIMS.filter(k => P[k] || k !== 'death').map(k => `<div class="alanim ${P[k] ? '' : 'miss'}"><b>${NAMES[k]}</b><span class="dim small">${P[k] ? `${P[k].length} frame${P[k].length === 1 ? '' : 's'}` : k === 'move' || k === 'cast' ? 'uses ' + (k === 'move' ? 'idle' : 'attack') : 'uses idle'}</span>
+    el.innerHTML = previewsHTML(P) + (R ? rowsHTML + sheetFoot(d, note) : `<div class="alanims">${B.Art.ANIMS.filter(k => P[k] || k !== 'death').map(k => `<div class="alanim ${P[k] ? '' : 'miss'}"><b>${NAMES[k]}</b><span class="dim small">${P[k] ? `${P[k].length} frame${P[k].length === 1 ? '' : 's'}` : k === 'move' || k === 'cast' ? 'uses ' + (k === 'move' ? 'idle' : 'attack') : 'uses idle'}</span>
         <div class="alframes">${(P[k] || []).map(u => `<img src="${u}" alt="">`).join('')}</div></div>`).join('')}</div>
-${sheetFoot(d, note)}`;
+${sheetFoot(d, note)}`);
+  }
+  // review #48 (David: "implement better previews"): every animation plays on its own little stage, with the same
+  // frame timing and blending as the battle
+  function previewsHTML(P) {
+    const ks = B.Art.ANIMS.filter(k => P[k]);
+    return ks.length ? `<div class="alprevs">${ks.map(k => `<figure><canvas class="alprev" data-anim="${k}"></canvas><figcaption>${NAMES[k]} · ${P[k].length}</figcaption></figure>`).join('')}</div>` : '';
+  }
+  function drawPreviews(now) {
+    const a = S.key && B.Art.sprite(S.key); if (!a) return;
+    const t = now / 1000, dpr = Math.min(3, window.devicePixelRatio || 1);
+    for (const cv of U.$$('#alSheetView canvas.alprev')) {
+      const w = cv.clientWidth || 90, h = cv.clientHeight || 110;
+      if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+      const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
+      const k = cv.dataset.anim, S0 = (h - 16) / 1.45 / Math.max(0.4, a.def.scale || 1), cast = B.Art.castTicks(S.key) / 20, dead = B.Art.deathTicks(S.key) / 20;
+      const pose = { t, face: 1 };
+      if (k === 'move') pose.walk = (t * 1.6) % 1;
+      else if (k === 'attack') { const p = (t % 1.1) / 0.8; if (p <= 1) pose.atk = p; }
+      else if (k === 'cast') { const p = (t % (cast + 0.6)) / cast; if (p <= 1) pose.cast = p; }
+      else if (k === 'death') pose.dead = Math.min(1, (t % (dead + 1)) / dead);
+      c.save(); B.Art.draw(c, a, w / 2, h - 8, S0, pose, B.HEROES[S.key].color); c.restore();
+    }
   }
   function sheetFoot(d, note) {
     return `${S.sheet ? `<p class="small dim">${note} Background <span class="alsw" style="background:${S.bg}"></span></p>` : ''}
@@ -100,7 +123,7 @@ ${sheetFoot(d, note)}`;
   }
   function cut() {
     const res = B.Art.cutSheet(S.sheet, S.tol);
-    S.found = res.found; S.bg = res.bg; S.rows = res.rows.length; S.dropped = res.dropped;
+    S.found = res.found; S.bg = res.bg; S.rows = res.rows.length; S.dropped = res.dropped; S.cards = !!res.cards;
     if (!res.rows.length) { U.toast('No figure found: use one flat background colour'); return; }
     if (!S.res || S.map.length !== res.rows.length) S.map = B.Art.defaultMap(res);
     S.res = res; applyMap();
@@ -134,6 +157,7 @@ ${sheetFoot(d, note)}`;
     else if (!f.endAt) f.endAt = now + 1500;
     else if (now >= f.endAt) newFight();
     B.Render.draw(S.view, S.fight.W, S.fight.W.t + (S.fight.W.over ? 0 : S.fight.acc / TICK), {});
+    drawPreviews(now);
     S.raf = requestAnimationFrame(loop);
   }
 

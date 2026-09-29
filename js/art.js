@@ -31,6 +31,11 @@
     buzzwell: { splash: 'art/buzzwell/splash.jpg', crop: { x: 0.52, y: 0.3, z: 1 }, flip: false, scale: 1,
       anims: { idle: seq('buzzwell', 'idle', 16), move: seq('buzzwell', 'move', 15), attack: seq('buzzwell', 'attack', 5), cast: seq('buzzwell', 'cast', 19), death: seq('buzzwell', 'death', 11) },
       axs: { idle: [0.55, 0.662, 0.663, 0.67, 0.657, 0.64, 0.592, 0.61, 0.642, 0.64, 0.642, 0.641, 0.642, 0.632, 0.607, 0.602], move: [0.476, 0.529, 0.462, 0.526, 0.463, 0.533, 0.513, 0.447, 0.443, 0.507, 0.548, 0.572, 0.537, 0.525, 0.549], attack: [0.467, 0.46, 0.431, 0.528, 0.496], cast: [0.449, 0.442, 0.464, 0.501, 0.538, 0.5, 0.581, 0.472, 0.459, 0.586, 0.571, 0.591, 0.53, 0.589, 0.618, 0.614, 0.663, 0.64, 0.655], death: [0.496, 0.504, 0.541, 0.585, 0.582, 0.508, 0.52, 0.467, 0.491, 0.48, 0.515] } },
+    // review #48 (David): Kagero. A sheet of cards (every frame on a pink tile, with a title and row labels): cut per
+    // card by cutCards, 8 frames in each of idle, walk, attack, ability (the smoke bomb flies, then the flash) and death
+    kage: { splash: 'art/kage/splash.jpg', crop: { x: 0.46, y: 0.15, z: 1.2 }, flip: false, scale: 1,
+      anims: { idle: seq('kage', 'idle', 8), move: seq('kage', 'move', 8), attack: seq('kage', 'attack', 8), cast: seq('kage', 'cast', 8), death: seq('kage', 'death', 8) },
+      axs: { idle: [0.569, 0.569, 0.578, 0.578, 0.578, 0.569, 0.569, 0.559], move: [0.528, 0.528, 0.528, 0.538, 0.528, 0.528, 0.528, 0.528], attack: [0.492, 0.492, 0.492, 0.5, 0.492, 0.492, 0.492, 0.492], cast: [0.492, 0.492, 0.492, 0.5, 0.492, 0.492, 0.492, 0.492], death: [0.492, 0.492, 0.492, 0.5, 0.492, 0.492, 0.492, 0.492] } },
   };
   const LOCAL = 'balance.artlab';
   const live = {}, subs = [], cache = {};
@@ -189,6 +194,8 @@
       const sp = mh - ml; if (sp > 0) for (let ch = 0; ch < 3; ch++) if (hi[ch]) px[i + ch] = Math.round(px[i + ch] - sp * 0.85);
     }
     c.putImageData(D, 0, 0);
+    const cardRes = cutCards(px, A, W, H, tol, `rgb(${Math.round(br)},${Math.round(bgc)},${Math.round(bb)})`);
+    if (cardRes) return cardRes;
     const gap = Math.max(3, Math.round(Math.min(W, H) * 0.01));
     const spans = (n, has) => { const out = []; let st = -1, last = -1; for (let i = 0; i < n; i++) if (has(i)) { if (st < 0) st = i; else if (i - last > gap) { out.push([st, last]); st = i; } last = i; } if (st >= 0) out.push([st, last]); return out; };
     let boxes = [];
@@ -268,6 +275,97 @@
       return { url, w: o.width, h: o.height, ax: fn ? clamp((fx / fn - b.x0) / bw, 0, 1) : 0.5 };
     };
     return { rows: rowsB.map(r => r.map(cut)), found, dropped, pitches, bg: `rgb(${Math.round(br)},${Math.round(bgc)},${Math.round(bb)})` };
+  }
+  // review #48 (David): sheets that draw every frame on a card (a tile of one colour on a sheet of another colour, with
+  // a title and row labels around it). The card colour is the most common colour left once the sheet background is
+  // gone; cards are the blocks of that colour, row by row. Each card is keyed on its own colour with its border trimmed,
+  // and all the frames of a row keep the same size and place, so the figure moves inside the frame exactly as drawn
+  // (a leap stays a leap, a thrown bomb flies). Returns null when the sheet has no cards.
+  function cutCards(px, A, W, H, tol, bgName) {
+    const mid = arr => arr.slice().sort((p, q) => p - q)[arr.length >> 1] || 0;
+    const q4 = i => (px[i] >> 4) << 8 | (px[i + 1] >> 4) << 4 | px[i + 2] >> 4;
+    const hist = new Map(); let nOp = 0;
+    for (let j = 0; j < W * H; j++) if (A[j]) { nOp++; const q = q4(j * 4); hist.set(q, (hist.get(q) || 0) + 1); }
+    // a flat colour with a little noise spreads over neighbouring buckets: count each bucket with its neighbours
+    const near = q => { const r = q >> 8, gq = (q >> 4) & 15, b = q & 15; let n = 0; for (let dr = -1; dr <= 1; dr++) for (let dg = -1; dg <= 1; dg++) for (let db = -1; db <= 1; db++) { const rr = r + dr, g2 = gq + dg, b2 = b + db; if (rr >= 0 && rr < 16 && g2 >= 0 && g2 < 16 && b2 >= 0 && b2 < 16) n += hist.get(rr << 8 | g2 << 4 | b2) || 0; } return n; };
+    let best = 0, bq = -1; for (const q of hist.keys()) { const n = near(q); if (n > best) { best = n; bq = q; } }
+    if (!nOp || best < nOp * 0.3) return null;
+    const inN = q => Math.abs((q >> 8) - (bq >> 8)) <= 1 && Math.abs(((q >> 4) & 15) - ((bq >> 4) & 15)) <= 1 && Math.abs((q & 15) - (bq & 15)) <= 1;
+    let cr = 0, cg = 0, cb = 0, cn = 0; for (let j = 0; j < W * H; j++) if (A[j] && inN(q4(j * 4))) { cr += px[j * 4]; cg += px[j * 4 + 1]; cb += px[j * 4 + 2]; cn++; }
+    cr /= cn; cg /= cn; cb /= cn;
+    const t2 = Math.max(tol, 48), soft = Math.max(12, t2 * 0.6), K = new Uint8Array(W * H);
+    for (let j = 0; j < W * H; j++) if (A[j] && Math.hypot(px[j * 4] - cr, px[j * 4 + 1] - cg, px[j * 4 + 2] - cb) < t2) K[j] = 1;
+    const g = Math.max(2, Math.round(Math.min(W, H) * 0.004));
+    const spans = (n, has) => { const out = []; let st = -1, last = -1; for (let i = 0; i < n; i++) if (has(i)) { if (st < 0) st = i; else if (i - last > g) { out.push([st, last]); st = i; } last = i; } if (st >= 0) out.push([st, last]); return out; };
+    const rows = [];
+    for (const [y0, y1] of spans(H, y => { let n = 0; for (let x = 0; x < W; x++) if (K[y * W + x] && ++n > 3) return true; return false; })) {
+      if (y1 - y0 < 16) continue;
+      const row = [];
+      for (const [x0, x1] of spans(W, x => { let n = 0; for (let y = y0; y <= y1; y++) if (K[y * W + x] && ++n > 2) return true; return false; })) {
+        const cw = x1 - x0 + 1, ch = y1 - y0 + 1; if (cw < 16) continue;
+        let n = 0; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) n += K[y * W + x];
+        // a card is a solid tile: its whole outline is drawn (a figure's bounding box is mostly empty around the edge)
+        let per = 0, on = 0; for (let x = x0; x <= x1; x++) { per += 2; on += A[y0 * W + x] + A[y1 * W + x]; } for (let y = y0; y <= y1; y++) { per += 2; on += A[y * W + x0] + A[y * W + x1]; }
+        if (n / (cw * ch) >= 0.3 && on >= per * 0.9) row.push({ x0, x1, y0, y1 });
+      }
+      // a card covered by a big effect (a white flash) shows little card colour: fill the gaps of the row's grid where
+      // there is something drawn
+      if (row.length > 2) {
+        const cw = Math.round(mid(row.map(c => c.x1 - c.x0 + 1))), pitch = Math.round(mid(row.slice(1).map((c, i) => c.x0 - row[i].x0)));
+        const drawn = x0 => { let n = 0; for (let y = y0; y <= y1; y++) for (let x = x0; x < x0 + cw && x < W; x++) n += A[y * W + x]; return n > cw * (y1 - y0 + 1) * 0.3; };
+        for (let i = 0; i < row.length; i++) {
+          const nx = row[i].x0 + pitch, next = row[i + 1];
+          if (pitch > cw && (next ? next.x0 - row[i].x0 > pitch * 1.5 : nx + cw <= W) && drawn(nx)) row.splice(i + 1, 0, { x0: nx, x1: nx + cw - 1, y0, y1 });
+        }
+      }
+      if (row.length) rows.push(row);
+    }
+    const nCards = rows.reduce((n, r) => n + r.length, 0);
+    if (nCards < 4) return null;
+    const hi = [cr, cg, cb].map(v => v > 128), lo = hi.map(h => !h);
+    const keyed = rows.slice(0, ANIMS.length).map(row => row.slice(0, MAX_FRAMES).map(cd => {
+      const m = Math.max(2, Math.round(Math.min(cd.x1 - cd.x0, cd.y1 - cd.y0) * 0.04));   // the card's border
+      const x0 = cd.x0 + m, y0 = cd.y0 + m, w = Math.max(1, cd.x1 - cd.x0 + 1 - 2 * m), h = Math.max(1, cd.y1 - cd.y0 + 1 - 2 * m);
+      const out = new Uint8ClampedArray(w * h * 4), mask = new Uint8Array(w * h);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const i = ((y0 + y) * W + x0 + x) * 4, o = (y * w + x) * 4;
+        const d = Math.hypot(px[i] - cr, px[i + 1] - cg, px[i + 2] - cb);
+        const a = (d <= t2 ? 0 : d >= t2 + soft ? 1 : (d - t2) / soft) * px[i + 3] / 255;
+        let r = px[i], gg = px[i + 1], b = px[i + 2];
+        if (a > 0 && a < 1) { r = clamp((r - (1 - a) * cr) / a, 0, 255); gg = clamp((gg - (1 - a) * cg) / a, 0, 255); b = clamp((b - (1 - a) * cb) / a, 0, 255); }
+        if (a > 0 && a < 1 && hi.some(Boolean) && lo.some(Boolean)) { let mh = 255, ml = 0; const v = [r, gg, b]; for (let ch = 0; ch < 3; ch++) { if (hi[ch]) mh = Math.min(mh, v[ch]); else ml = Math.max(ml, v[ch]); } const sp = mh - ml; if (sp > 0) for (let ch = 0; ch < 3; ch++) if (hi[ch]) v[ch] -= sp * 0.85; r = v[0]; gg = v[1]; b = v[2]; }
+        out[o] = r; out[o + 1] = gg; out[o + 2] = b; out[o + 3] = Math.round(a * 255); mask[y * w + x] = a > 0.35 ? 1 : 0;
+      }
+      return { w, h, out, mask };
+    }));
+    // one crop per row: the union of the figure over all its frames, so every frame keeps its place in the card
+    const unions = keyed.map(row => {
+      let l = 1e9, t = 1e9, r = -1, b = -1;
+      for (const f of row) for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++) if (f.mask[y * f.w + x]) { if (x < l) l = x; if (x > r) r = x; if (y < t) t = y; if (y > b) b = y; }
+      return r < 0 ? null : { l, t, r, b };
+    });
+    const maxH = Math.max(1, ...unions.filter(Boolean).map(u => u.b - u.t + 1)), sc = Math.min(1, 320 / maxH);
+    const outRows = keyed.map((row, ri) => {
+      const u = unions[ri]; if (!u) return [];
+      const uw = u.r - u.l + 1, uh = u.b - u.t + 1;
+      return row.map(f => {
+        const src = document.createElement('canvas'); src.width = f.w; src.height = f.h; src.getContext('2d').putImageData(new ImageData(f.out, f.w, f.h), 0, 0);
+        const o = document.createElement('canvas'); o.width = Math.max(1, Math.round(uw * sc)); o.height = Math.max(1, Math.round(uh * sc));
+        const oc = o.getContext('2d'); oc.imageSmoothingQuality = 'high'; oc.drawImage(src, u.l, u.t, uw, uh, 0, 0, o.width, o.height);
+        // an effect that fills the whole card (a flash) would show the card's straight edges: fade it out toward them
+        const id = oc.getImageData(0, 0, o.width, o.height), dd = id.data, ow = o.width, oh = o.height; let edge = 0, tot = 0;
+        for (let x = 0; x < ow; x++) { tot += 2; edge += (dd[(x) * 4 + 3] > 128) + (dd[((oh - 1) * ow + x) * 4 + 3] > 128); }
+        for (let y = 0; y < oh; y++) { tot += 2; edge += (dd[(y * ow) * 4 + 3] > 128) + (dd[(y * ow + ow - 1) * 4 + 3] > 128); }
+        if (edge > tot * 0.35) {
+          const fx = ow * 0.22, fy = oh * 0.22;
+          for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) { const k = Math.min(1, Math.min(x, ow - 1 - x) / fx) * Math.min(1, Math.min(y, oh - 1 - y) / fy); dd[(y * ow + x) * 4 + 3] *= k * k * (3 - 2 * k); }
+          oc.putImageData(id, 0, 0);
+        }
+        let url = o.toDataURL('image/webp', 0.9); if (!url.startsWith('data:image/webp')) url = o.toDataURL('image/png');
+        return { url, w: o.width, h: o.height, ax: clamp((f.w / 2 - u.l) / uw, 0, 1) };
+      });
+    }).filter(r => r.length);
+    return outRows.length ? { rows: outRows, found: nCards, dropped: 0, cards: true, pitches: [], bg: bgName, card: `rgb(${Math.round(cr)},${Math.round(cg)},${Math.round(cb)})` } : null;
   }
   // what was cut -> the def's animations. Several rows: row 1 idle, 2 walk, 3 attack, 4 ability, 5 death, every frame
   // kept. A single row: the old pose sheet (idle, walk, attack, ability, one frame each).
