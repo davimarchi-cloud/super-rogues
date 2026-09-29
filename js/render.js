@@ -160,8 +160,11 @@
     ctx.globalAlpha = Math.max(0, alpha);
     // selection / side ring on the ground
     const hero = u.side === 0;
-    ctx.strokeStyle = o.sel && o.sel === u.uid && hero ? '#ffffff' : u.elite ? '#ffcf5a' : hero ? 'rgba(95,168,255,0.8)' : 'rgba(224,85,85,0.8)';
-    ctx.lineWidth = o.sel && o.sel === u.uid ? 3 : 1.6;
+    // review #44 (David: "clearer player/enemy distinction"): a filled disc in the side's colour under every unit
+    const sideC = hero ? '74,163,255' : '255,92,110';
+    if (!u.dead) { ctx.fillStyle = `rgba(${sideC},0.28)`; ctx.beginPath(); ctx.ellipse(p.x, p.y, S * 0.5, S * 0.5 * K * 0.55, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = o.sel && o.sel === u.uid && hero ? '#ffffff' : u.elite ? '#ffcf5a' : `rgba(${sideC},0.95)`;
+    ctx.lineWidth = o.sel && o.sel === u.uid ? 3 : 2.2;
     ctx.beginPath(); ctx.ellipse(p.x, p.y, S * 0.5, S * 0.5 * K * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
     const pose = poseOf(W, u, T);
     const mk = u.key === 'clone' ? 'mirage' : u.key, art = B.Art && B.Art.sprite(mk);
@@ -174,19 +177,29 @@
     if (u.dead) return;
     // bars above the head
     const headTop = p.y - S * (u.boss ? 1.75 : 1.5), bw = Math.max(S * 0.95, size * 1.1), bx = p.x - bw / 2, by = headTop - 10;
-    ctx.fillStyle = '#000b'; ctx.fillRect(bx - 1, by - 1, bw + 2, 6);
-    ctx.fillStyle = hero ? '#5fd47a' : '#e05555'; ctx.fillRect(bx, by, bw * Math.max(0, u.hp / u.maxHp), 4);
+    ctx.fillStyle = hero ? '#123a86' : '#6a1426'; ctx.fillRect(bx - 1.5, by - 1.5, bw + 3, 7);   // the bar's frame in the side's colour
+    ctx.fillStyle = '#000a'; ctx.fillRect(bx, by, bw, 4);
+    ctx.fillStyle = hero ? '#5fd47a' : '#ff5c6e'; ctx.fillRect(bx, by, bw * Math.max(0, u.hp / u.maxHp), 4);
     if (u.shield > 0 && u.shieldU > s) { ctx.fillStyle = '#e8ecff'; ctx.fillRect(bx, by, Math.min(bw, bw * u.shield / u.maxHp), 2); }
     if (u.maxMana > 0) { ctx.fillStyle = '#000b'; ctx.fillRect(bx - 1, by + 5, bw + 2, 3); ctx.fillStyle = '#5fa8ff'; ctx.fillRect(bx, by + 5, bw * Math.min(1, u.mana / u.maxMana), 2); }
     if (u.lvl > 1 && hero && u.kind === 'hero') { ctx.font = "700 10px 'Fredoka', 'Nunito', system-ui, sans-serif"; ctx.fillStyle = '#ffcf5a'; ctx.textAlign = 'left'; ctx.fillText(u.lvl, bx + bw + 2, by + 5); }
+    // review #44: status effects as coloured badges (glyph on a disc) above the bars, one colour per effect
     const marks = [];
-    if (u.st.stun > s && !(u.st.frozenU > s)) marks.push('✦');
-    if (u.st.silence > s) marks.push('⊘');
-    if (u.st.tauntU > s) marks.push('!');
-    if (u.dots.some(d => d.k === 'burn' && d.until > s)) marks.push('🔥');
-    if (u.dots.some(d => d.k === 'poison' && d.until > s)) marks.push('☣');
-    if (u.st.slowU > s) marks.push('↓');
-    if (marks.length) { ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffe066'; ctx.fillText(marks.join(''), p.x, by - 3); }
+    if (u.st.frozenU > s) marks.push(['❄', '#3fb8e8']);
+    else if (u.st.stun > s) marks.push(['✦', '#f5b700']);
+    if (u.st.silence > s) marks.push(['⊘', '#9b5de5']);
+    if (u.st.tauntU > s) marks.push(['!', '#ff5c6e']);
+    if (u.st.confuseU > s) marks.push(['?', '#e05ab8']);
+    if (u.dots.some(d => d.k === 'burn' && d.until > s)) marks.push(['🔥', '#ff8a3d']);
+    if (u.dots.some(d => d.k === 'poison' && d.until > s)) marks.push(['☠', '#3ddc84']);
+    if (u.st.slowU > s) marks.push(['↓', '#4aa3ff']);
+    if (u.st.root > s) marks.push(['⚓', '#a0703a']);
+    if (marks.length) {
+      const R = Math.max(5.5, size * 0.2), gap = R * 2 + 2, x0 = p.x - (marks.length - 1) * gap / 2, y0 = by - R - 3;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `700 ${Math.round(R * 1.35)}px 'Fredoka', system-ui, sans-serif`;
+      marks.forEach(([g, c], i) => { const x = x0 + i * gap; ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y0, R, 0, Math.PI * 2); ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke(); ctx.fillStyle = '#fff'; ctx.fillText(g, x, y0 + 0.5); });
+      ctx.textBaseline = 'alphabetic';
+    }
     if (u.st.stun > s && !(u.st.frozenU > s)) { ctx.fillStyle = '#ffe066'; for (let i = 0; i < 3; i++) { const a = T / 3 + i * 2.1; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * S * 0.3, headTop + 4 + Math.sin(a) * S * 0.08, 2.2, 0, Math.PI * 2); ctx.fill(); } }
   }
 

@@ -67,6 +67,8 @@ for (const d of SIZES) {
   await shot('08-event');
   await ev(`__bal.ACT.team()`); await sleep(300); await shot('09-team'); await ev(`__bal.ACT.close()`);
   await ev(`__bal.ACT.shop()`); await sleep(500); await shot('10-crown-shop'); await ev(`__bal.ACT.close()`);
+  await ev(`__bal.ACT.scores()`); await sleep(700); await shot('14-ladder'); await ev(`__bal.ACT.close()`);
+  await ev(`__bal.ACT['my-profile']()`); await sleep(700); await shot('15-profile'); await ev(`__bal.ACT.close()`);
   // Art Lab (owner, 2026-09-29): a splash picture (the owner's sample when it is on this PC) and a pose sheet made from
   // the drawn model on magenta, cut by the lab, then the test fight
   {

@@ -1349,3 +1349,83 @@ body.desk .title .labtile { grid-area: lab; margin: 12px 0 0; }
 .alanim .alframes img { height: 64px; width: auto; flex: 0 0 auto; }
 .alanim.miss { opacity: .6; }
 .artlab .alsliders .alchk input[type=checkbox] { width: 22px; height: 22px; min-width: 0; min-height: 0; padding: 0; margin: 0; border: 0; box-shadow: none; appearance: auto; -webkit-appearance: checkbox; }
+
+/* =====================================================================================================
+   v36 (review #44, David: "Redesign the UI. Keep current colors and philosophy/theme ... improve hierarchy, spacing,
+   contrast, and consistency only, no new features"). One layer on top of v29:
+   - tokens: spacing 4/8/12/16/24, one card radius, one soft card shadow, brighter secondary text;
+   - hierarchy: yellow primary buttons stay the loudest thing; secondary actions become light glass buttons;
+   - cards: soft depth instead of the hard 3D edge; shop cards get a rarity stripe and a rarity pill;
+   - empty states: dashed outlines; abilities: name, then Passive / Active lines, the scaling note small;
+   - status bar: one height for every chip and button; computers: short screens are centred (no big empty voids).
+   ===================================================================================================== */
+:root {
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --r: 16px; --r-sm: 10px;
+  --card: linear-gradient(180deg, #4252cb 0%, #3442ab 100%); --card-line: #ffffff2e;
+  --card-shadow: inset 0 1px 0 #ffffff24, 0 10px 24px #0b115c42, 0 2px 0 #1d268055;
+  --dim: #dde3ff;
+}
+/* buttons: secondary = light glass; primary = yellow candy, a bit deeper so it leads */
+button { background: linear-gradient(180deg, #ffffff33, #ffffff1c); border: 2px solid #ffffff5c; box-shadow: 0 3px 0 #1d268099, 0 6px 14px #0b115c2e; text-shadow: 0 1px 0 #1b2a8a55; }
+button:hover:not(:disabled) { background: linear-gradient(180deg, #ffffff42, #ffffff28); }
+button:active:not(:disabled) { box-shadow: 0 1px 0 #1d268099; }
+button.primary { box-shadow: 0 5px 0 #c47f00, 0 10px 22px #0b115c5c; }
+button.primary:hover:not(:disabled) { background: linear-gradient(180deg, #ffe97f 0%, #ffc92e 100%); }
+.chip { background: #ffffff26; border: 1.5px solid #ffffff55; box-shadow: none; }
+.chip:hover:not(:disabled) { background: #ffffff38; }
+.shead button { background: linear-gradient(180deg, #ff8a9a, #f0506a); border-color: #ffffff80; }
+.tabs button { box-shadow: 0 2px 0 #1d268099; }
+/* the status bar: one strip, every chip and button the same height */
+#top { gap: var(--s2); min-height: 56px; }
+#top .gold, #top .prog, #top .lgchip, #top .crownchip, #top button { height: 38px; min-height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 999px; }
+#top button:not(.crownchip):not(.lgchip) { min-width: 42px; justify-content: center; box-shadow: 0 2px 0 #141b6a80; }
+#top .sugg { background: #ffffff26; }
+/* cards: one radius, a little tighter, soft depth */
+.card { padding: var(--s3); }
+.hint { color: var(--dim); }
+h2 { margin: var(--s2) 0 var(--s3); } h3 { margin: var(--s4) 0 var(--s2); font-size: 13px; }
+/* abilities: name → Passive / Active lines → small scaling note */
+.abil .abname, .small .abname { display: inline; }
+.abl { display: block; margin-top: 3px; line-height: 1.4; }
+.abk { display: inline-block; font-style: normal; font-family: var(--fun); font-weight: 700; font-size: 10px; letter-spacing: .5px; text-transform: uppercase;
+  padding: 1px 6px; margin-right: 6px; border-radius: 6px; background: #ffffff2e; color: #fff; vertical-align: 1px; }
+.abk.act { background: #ffd23f; color: #5a3000; }
+.scaletag, .scaletag * { font-size: 11.5px; }
+/* shop: rarity stripe + rarity pill; icons framed in the rarity colour */
+.card.stock { position: relative; overflow: hidden; padding-top: calc(var(--s3) + 5px); display: flex; flex-direction: column; gap: 6px; }
+.card.stock::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--rc, #ffffff40); }
+.card.stock > button { margin-top: auto; }
+.card.stock .srow { gap: 10px; }
+.card.stock .ico.big, .card.stock .por.big { border-radius: 12px; box-shadow: 0 0 0 2px var(--rc, #fff); }
+.card.stock .itag, .card.stock .tier { display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 999px; font-style: normal; font-size: 11px; font-weight: 700; color: #fff;
+  background: color-mix(in srgb, var(--rc, #fff) 30%, transparent); border: 1px solid color-mix(in srgb, var(--rc, #fff) 75%, transparent); }
+.card.stock.k-hero .ctitle { color: #fff; }
+/* empty states: dashed */
+.dslot.empty { background: #ffffff0a; border: 2px dashed #ffffff55; box-shadow: none; }
+.dslot.empty img { opacity: .5; }
+.pmi i.dim, .gitems i { display: inline-block; padding: 0 8px; border: 1.5px dashed #ffffff55; border-radius: 999px; font-style: normal; font-size: 11px; color: var(--dim); }
+/* team: the hero that can take the chosen item glows; the others step back */
+.eqhero.target { box-shadow: 0 0 0 3px var(--gold), 0 0 18px #ffd23f66, var(--card-shadow); }
+.eqhero.full { opacity: .6; }
+/* home: a stronger hero showcase and a clearer "Continue run" */
+.title .lineup { position: relative; }
+.title .lineup::after { content: ''; position: absolute; left: 12%; right: 12%; bottom: -10px; height: 26px; border-radius: 50%; background: radial-gradient(closest-side, #0b115c55, #0b115c00); z-index: -1; }
+.title .lineup img { border-radius: 20px; box-shadow: 0 0 0 4px #fff, 0 14px 30px #0b115c66; }
+.title .lineup img.mid { box-shadow: 0 0 0 4px var(--gold), 0 0 34px #ffd23f99, 0 16px 34px #0b115c77; }
+button.cta { display: grid; justify-items: center; gap: 1px; line-height: 1.15; padding-top: 8px; padding-bottom: 8px; }
+button.cta small { font-family: 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 12.5px; letter-spacing: 0; color: #6b3d00; }
+.labtile { box-shadow: 0 3px 0 #6a3fb0aa, 0 8px 18px #0b115c38; }
+/* results, profile, ladder: tighter, cleaner grids */
+.rh { padding: 10px 12px; }
+.pstats { gap: var(--s2); } .pstats > div { padding: 10px; }
+.stats-row { gap: var(--s2); }
+/* computers: a screen shorter than the window sits in the middle instead of leaving a void under it */
+body.desk #screen { min-height: calc(100dvh - 64px); display: flex; flex-direction: column; }
+body.desk #screen > section { margin-top: auto; margin-bottom: auto; }
+/* computers with room to spare: the short screens (map, shops, events, results) are drawn bigger instead of floating
+   small in the middle of the window (zoom keeps every proportion; the board screens are left alone) */
+@media (min-height: 780px) and (min-width: 1200px) { body.desk #screen > section.map, body.desk #screen > section.shop, body.desk #screen > section.event, body.desk #screen > section.result { zoom: 1.18; } }
+@media (min-height: 1000px) and (min-width: 1600px) { body.desk #screen > section.map, body.desk #screen > section.shop, body.desk #screen > section.event, body.desk #screen > section.result { zoom: 1.32; } }
+/* the rarity pill never wraps */
+.card.stock .itag, .card.stock .tier { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 10.5px; }
+section.event > p { text-align: center; max-width: 760px; margin-left: auto; margin-right: auto; }

@@ -236,7 +236,7 @@
       <div class="lineup">${lineup.map((k, i) => `<img class="${i === 1 ? 'mid' : ''}" src="${por(k, 120, true)}" alt="">`).join('')}</div>
       <p class="small dim">Deploy your champions, let them fight, beat two bosses, then climb the Gauntlet of other players' ghosts.</p>
       <div class="stack">
-        ${has ? '<button class="primary big" data-act="continue-run">Continue run</button>' : ''}
+        ${has ? `<button class="primary big cta" data-act="continue-run"><span>Continue run</span><small>${run.phase === 'gauntlet' ? '🏆 Gauntlet' : 'Day ' + (Math.max(0, run.step) + 1) + '/' + Run.seqOf(run).length} · ${run.heroes.length} hero${run.heroes.length === 1 ? '' : 'es'} · ${run.gold} gold</small></button>` : ''}
         <button class="${has ? '' : 'primary '}big" data-act="new-run">New run</button>
         <button data-act="howto">How to play</button>
       </div>
@@ -248,12 +248,18 @@
       <button class="labtile" data-act="art-lab"><span class="hi">🎨</span><b>Art Lab</b><span>Try your own pictures on a hero: splash art and battle poses</span></button>
     </section>`;
   }
+  // review #44 (David: "Name → short effect → small scaling note"): the ability name, then its passive and its active
+  // part on their own lines (same words, easier to scan); the scaling note stays small under it
+  function abilHTML(h) {
+    const d = String(h.abDesc || ''), m = d.match(/^Passive:\s*(.*?)\s*Active:\s*(.*)$/);
+    return `<b class="abname">${esc(h.abName)}</b>` + (m ? `<span class="abl"><i class="abk">Passive</i>${fmt(m[1])}</span><span class="abl"><i class="abk act">Active</i>${fmt(m[2])}</span>` : ` ${fmt(d)}`);
+  }
   function heroCard(key, extra = '') {
     const h = HEROES[key];
     return `<div class="hcard">
       <div class="hrow">${img(key, 48)}<b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
       ${chips({ hp: h.hp, atk: h.atk, armor: h.armor, mr: h.mr, as: h.as, range: h.range })}
-      <div class="abil"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div>${scaleTag(key)}${extra}</div>`;
+      <div class="abil">${abilHTML(h)}</div>${scaleTag(key)}${extra}</div>`;
   }
   // review #22 (David): the run starts with 1 hero and 1 relic: pick one of each (3 offered)
   function startHTML() {
@@ -269,7 +275,7 @@
       ${fr ? `<div class="card detail"><div class="hrow">${ico('relic', fr.id, 44)}<b class="relic">${esc(fr.name)}</b><span class="role">relic</span></div><div class="abil">${fmt(fr.desc)}</div></div>`
         : `<div class="card detail"><div class="hrow">${img(f, 48)}<b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
         ${chips({ hp: h.hp, atk: h.atk, armor: h.armor, mr: h.mr, as: h.as, range: h.range, crit: h.crit ? pct(h.crit) : 0, dodge: h.dodge ? pct(h.dodge) : 0 })}
-        <div class="abil"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div>${scaleTag(f)}</div>`}
+        <div class="abil">${abilHTML(h)}</div>${scaleTag(f)}</div>`}
       <div class="bar"><button class="primary big" data-act="start-go" ${ready ? '' : 'disabled'}>${ready ? 'Begin the journey' : !n ? 'Pick a hero' : 'Pick a relic'}</button></div></section>`;
   }
 
@@ -546,15 +552,17 @@
   function stockCard(s, i) {
     const dis = s.sold || run.gold < s.price || (s.kind === 'hero' && run.heroes.length >= Run.teamMax(run));
     let body = '';
-    if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><div class="small"><b class="abname">${esc(h.abName)}</b> ${fmt(h.abDesc)}</div>${scaleTag(s.id)}`; }
+    if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><div class="small">${abilHTML(h)}</div>${scaleTag(s.id)}`; }
     else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div>${itemTag(it)}</div></div><div class="small">${fmt(it.desc)}</div>${setInfo(it)}`; }
     else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier t-relic">relic</div></div></div><div class="small">${fmt(r.desc)}</div>`; }
-    return `<div class="card stock ${s.sold ? 'sold' : ''}">${body}<button class="${dis ? '' : 'primary'}" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''}>${s.sold ? 'Sold' : `Buy <span class="price">${s.price}</span>`}</button></div>`;
+    // review #44: a stripe in the rarity colour (hero colour for heroes, gold for relics) makes the rarity readable at a glance
+    const rc = s.kind === 'item' ? TIER_COLOR[ITEM[s.id].tier] : s.kind === 'hero' ? HEROES[s.id].color : '#ffd23f';
+    return `<div class="card stock k-${s.kind} ${s.sold ? 'sold' : ''}" style="--rc:${rc}">${body}<button class="${dis ? '' : 'primary'}" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''}>${s.sold ? 'Sold' : `Buy <span class="price">${s.price}</span>`}</button></div>`;
   }
   function shopHTML() {
     const c = run.cur, rc = Run.rerollCost(run);
     const note = c.kind === 'heroShop' ? `Team ${run.heroes.length}/${Run.teamMax(run)}` : c.kind === 'itemShop' ? `Items go to your bag. Each hero wears one item of each type.` : 'Relics affect every hero.';
-    return `<section>${trackHTML()}<h2>🛒 ${SHOP_NAME[c.kind]}</h2><p class="hint">${note}</p>
+    return `<section class="shop">${trackHTML()}<h2>🛒 ${SHOP_NAME[c.kind]}</h2><p class="hint">${note}</p>
       <div class="grid">${c.stock.map(stockCard).join('') || '<p>Nothing left to sell.</p>'}</div>
       <div class="bar sticky"><button data-act="reroll" ${run.gold < rc ? 'disabled' : ''}>Reroll · ${rc}g</button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
   }
@@ -607,7 +615,7 @@
     if (typeof ui.info === 'string') { const T = B.TERRAIN[ui.info]; return T ? `<div class="hrow"><span class="ticon">${T.icon}</span><b>${T.name}</b><span class="dim small">terrain</span></div><div class="small">${esc(T.desc)}</div>` : ''; }
     const u = W.byId[ui.info]; if (!u) return '';
     const hd = HEROES[u.key];
-    const abil = hd ? `<b class="abname">${esc(hd.abName)}</b> ${fmt(hd.abDesc)}` : u.boss ? fmt(B.BOSSES[u.key].desc) : u.abil ? fmt(MOB_ABIL[u.abil] || '') : u.fl.has('dive') ? 'Leaps to your back line at the start.' : u.kind === 'summon' ? 'Summoned unit.' : 'No special ability.';
+    const abil = hd ? `${abilHTML(hd)}` : u.boss ? fmt(B.BOSSES[u.key].desc) : u.abil ? fmt(MOB_ABIL[u.abil] || '') : u.fl.has('dive') ? 'Leaps to your back line at the start.' : u.kind === 'summon' ? 'Summoned unit.' : 'No special ability.';
     return `<div class="hrow">${img(u.key, 40)}<b>${esc(u.name)}</b>${u.kind === 'hero' ? ' Lv ' + u.lvl : ''}${u.elite ? ' <span class="elite">★ elite</span>' : ''}</div>
       ${chips({ hp: Math.max(0, Math.round(u.hp)) + '/' + u.maxHp, atk: Math.round(Sim.atkOf(W, u)), ap: Math.round(u.ap), armor: Math.round(Sim.armorOf(W, u)), mr: Math.round(Sim.mrOf(W, u)), as: Sim.asOf(W, u).toFixed(2), range: u.range, crit: u.crit ? pct(u.crit) : 0, dodge: u.dodge ? pct(u.dodge) : 0 }, true)}
       <div class="small">${abil}</div>${hd ? scalingHTML({ abil: u.abil, ab: u.ab, atk: Sim.atkOf(W, u), ap: u.ap, hp: u.maxHp, lvl: u.lvl, name: u.name }, true) : ''}`;
@@ -793,7 +801,7 @@
   function heroCardHTML(h) {
     const d = HEROES[h.key], def = Run.heroDef(run, h), specs = h.specs.map(id => Run.specOf(h.key, id)).filter(Boolean);
     return `<div class="hdetail"><div class="row">${img(h.key, 44)}<div class="grow"><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span> <span class="dim small">${esc(d.role)}</span>
-        <div class="small"><b class="abname">${esc(d.abName)}</b> ${fmt(d.abDesc)}</div></div><button class="chip" data-act="hero-info" data-arg="0" aria-label="Close">✕</button></div>
+        <div class="small">${abilHTML(d)}</div></div><button class="chip" data-act="hero-info" data-arg="0" aria-label="Close">✕</button></div>
       ${scalingHTML(def)}
       ${specs.length ? `<div class="hspecs">${specs.map(sp => `<div class="small"><b class="spec">★ ${esc(sp.name)}</b> ${fmt(sp.desc)}</div>`).join('')}</div>` : ''}</div>`;
   }

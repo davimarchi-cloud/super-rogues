@@ -125,6 +125,16 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v36 (2026-09-29), lote 33 do David (#44): passada de design** (mesmas cores e tema, nada novo): camada v36 no fim
+  do style.css com tokens (espaço 4/8/12/16/24, um raio, uma sombra suave de cartão, texto secundário mais claro);
+  botões secundários viram "vidro" claro e o amarelo primário fica dominante; barra de status com chips da mesma altura;
+  cartões da loja com faixa e pílula da raridade; espaços vazios tracejados; habilidades como nome → linhas
+  Passive/Active → nota de escala pequena (`abilHTML`); "Continue run" com dia, heróis e ouro; vitrine dos heróis com
+  brilho; no PC, telas curtas (mapa, lojas, eventos, resultado) em `zoom` 1,18/1,32 para não sobrar vazio; na batalha,
+  disco na cor do lado sob cada unidade, moldura da barra de vida na cor do lado e status como bolinhas coloridas
+  (atordoado, congelado, silêncio, provocação, confuso, queimando, veneno, lento, raiz). Vitrine agora fotografa também
+  o Ladder e o perfil.
+
 - **v35 (2026-09-29), lote 32 do David (#43): Art Lab com animações inteiras.** O David mandou a arte do Redhand
   (thorne, hoje Ulfrik) com uma folha de animação (várias linhas com rótulo, vários quadros por linha), mas o lab da v31
   só pegava as 4 primeiras figuras (vieram 4 quadros do "parado" + o rótulo IDLE grudado). Ele pediu para NÃO aplicar sem
