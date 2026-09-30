@@ -127,6 +127,12 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v43 (2026-09-30), lote 41 do David (#53): ajuda escondida na liga Bronze.** Em luta PvE (não no Gauntlet nem na luta
+  de teste do Art Lab), quem está na Bronze (`acct.league` 0, inclusive quem ainda não tem conta) recebe 80% do dano no
+  lado dos heróis (`takeMul` no `Sim.create` → `W.tm0`, aplicado no fim do `deal()`; execuções continuam matando). Pedido
+  do David: **não divulgar em lugar nenhum** do jogo (sem texto, sem How to play, sem dica). A matriz de chefes e o
+  robô rodam sem a ajuda (medem o jogo "cru").
+
 - **v42 (2026-09-30), lote 39 do David (#51: "ainda parece jogo amador de gente pobre; precisa de mais dopamina; UI mais
   profissional; cortar texto inútil").** Camada v42 no fim do style.css: fundo mais fundo (luz de cima, vinheta, padrão
   de hexágonos quase invisível), cartões com borda de luz em cima, títulos com contorno de logo, barra do topo escura;

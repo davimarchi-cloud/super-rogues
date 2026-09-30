@@ -214,13 +214,13 @@
     });
   }
   // preview = the static board shown while deploying (no rng used, no start-of-fight effects)
-  function fightWorld(run, preview) {
+  function fightWorld(run, preview, o) {
     const f = run.cur;
     for (const h of run.heroes) if (h.pos && blockedAt(run, h.pos.c, h.pos.r)) h.pos = null;
     for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
     return B.Sim.create({
       terrain: terrainOf(run),
-      mode: 'fight', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: f.fightNo, relics: run.relics,
+      mode: 'fight', seed: preview ? 1 : Math.floor(rnd(run) * 1e9), noStart: !!preview, fightNo: f.fightNo, relics: run.relics, takeMul: o && o.takeMul,
       heroes: run.heroes.map(h => ({ def: withMod(heroDef(run, h), f.mod), c: h.pos.c, r: h.pos.r })),
       enemies: enemyDefs(run, f),
     });

@@ -455,5 +455,16 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
     ok(Object.keys(o.anims).every(k => o.axs[k] && o.axs[k].length === o.anims[k].length) && o.anims.idle && o.anims.idle.length, `${key}: an anchor for every frame, and an idle animation`);
   }
 }
+// ---- review #53 (David): the player's side takes 80% of the damage when the world is built with takeMul 0.8
+{
+  const mk = tm => { const hd = Run.heroDef({ relics: [] }, { key: 'bastion', lvl: 1, specs: [], items: [], bonus: {} });
+    return Sim.create({ mode: 'fight', seed: 9, takeMul: tm, heroes: [{ def: hd, c: 3, r: 4 }], enemies: [{ def: Sim.mobScaleDef('brute', 1), c: 3, r: 3 }, { def: Sim.mobScaleDef('archer', 1), c: 5, r: 1 }] }); };
+  const A1 = mk(1), A2 = mk(0.8); for (let i = 0; i < 80; i++) { Sim.step(A1); Sim.step(A2); }
+  const taken = W => W.units.filter(u => u.side === 0).reduce((a, u) => a + (u.dmgTaken || 0), 0), dealt = W => W.units.filter(u => u.side === 1).reduce((a, u) => a + (u.dmgTaken || 0), 0);
+  const r = taken(A2) / Math.max(1, taken(A1));
+  ok(taken(A1) > 100 && r > 0.74 && r < 0.86, `takeMul 0.8: the heroes take ${Math.round(r * 100)}% of the damage (${Math.round(taken(A2))} vs ${Math.round(taken(A1))})`);
+  ok(dealt(A1) === dealt(A2), 'takeMul changes nothing on the enemy side');
+  ok(mk(undefined).tm0 === 1 && mk(1.5).tm0 === 1, 'without takeMul (or with a wrong one) damage is unchanged');
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

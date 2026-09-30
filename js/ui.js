@@ -699,7 +699,7 @@
   // ------------------------------------------------------------------ board mount + input
   function worldFor(preview) {
     const t = run.cur && run.cur.type;
-    return t === 'gauntlet' ? Run.gauntletWorld(run, preview) : Run.fightWorld(run, preview);
+    return t === 'gauntlet' ? Run.gauntletWorld(run, preview) : Run.fightWorld(run, preview, { takeMul: (acct.league | 0) === 0 ? 0.8 : 1 });   // review #53 (David)
   }
   // review #13 (David: "randomly adjusted to 75% of my screen ... adapt to the screen size and device"):
   // the board takes the width AND the height left on screen, on phones (portrait/landscape), tablets and desktops.

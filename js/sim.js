@@ -20,6 +20,7 @@
       t: 0, nid: 0, units: [], byId: {}, occ: new Array(Hx.COLS * Hx.ROWS).fill(0), q: [], fx: [], zones: [],
       rng: rngOf(o.seed || 1), mode: o.mode || 'fight', over: false, winner: -1, kills: 0, wave: 0,
       sd: 0, fightNo: o.fightNo || 1, fl: {}, fl1: {}, once: {}, log: [],
+      tm0: o.takeMul > 0 && o.takeMul < 1 ? o.takeMul : 1,   // review #53 (David): damage taken by side 0
     };
     // review #39 (David): terrain hexes (trees, boulders, ridges, ponds) are blocked in the occupancy grid, so movement,
     // spawns, blinks and pushes all go around them; ranged attacks and spells ignore them
@@ -210,6 +211,7 @@
     if (type === 'phys') { const arm = Math.max(0, armorOf(W, tgt) * (1 - Math.min(0.9, (src ? src.m.armorPen || 0 : 0) + (o.pen || 0)))); dmg *= 100 / (100 + arm); }
     else if (type === 'magic') dmg *= 100 / (100 + Math.max(0, mrOf(W, tgt)));
     dmg *= 1 - Math.min(0.8, (tgt.m.dmgReduce || 0) + bsum(W, tgt, 'dr'));
+    if (tgt.side === 0 && W.tm0 !== 1 && !(type === 'true' && raw >= tgt.hp + tgt.shield)) dmg *= W.tm0;
     dmg = Math.max(1, Math.round(dmg));
     let abs = 0;
     if (tgt.shield > 0 && tgt.shieldU > W.t) { abs = Math.min(tgt.shield, dmg); tgt.shield -= abs; dmg -= abs; }
