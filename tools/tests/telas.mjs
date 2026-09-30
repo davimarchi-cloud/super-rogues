@@ -84,7 +84,11 @@ while (steps++ < 80) {
     await click('[data-act=to-duel]'); await sleep(150); continue;
   }
   if (await ev(`!!document.querySelector('[data-act=result-ok]')`)) { if (fightsSeen === 1) { await sleep(900); await shot('06-result'); await noVScroll('result');
-      ok(await ev(`!!document.querySelector('.result.v2 .rhead .headline') && /⏱/.test(document.querySelector('.rmeta').textContent) && /foes down/.test(document.querySelector('.rmeta').textContent) && !!document.querySelector('.rh .rst') && /taken/.test(document.querySelector('.rh .rst').textContent) && document.querySelectorAll('.rfoes .rf').length > 0 && !/NaN|undefined/.test(document.querySelector('.result').textContent)`), 'review #25: the after-battle screen: banner, time and foes down, damage dealt and taken and kills per hero, the enemy line-up'); } await click('[data-act=result-ok]'); await sleep(100); continue; }
+      ok(await ev(`!!document.querySelector('.result.v2 .rhead .headline') && /⏱/.test(document.querySelector('.rmeta').textContent) && /💥 [0-9]+.[0-9]+/.test(document.querySelector('.rmeta').textContent) && !!document.querySelector('.rh .rst') && /🛡/.test(document.querySelector('.rh .rst').textContent) && (document.querySelector('.rhead.win') ? document.querySelectorAll('.rstars .st').length === 3 : document.querySelectorAll('.rfoes .rf').length > 0) && !/NaN|undefined/.test(document.querySelector('.result').textContent)`), 'review #25/#51: the after-battle screen: banner, time and foes down, damage dealt and taken and kills per hero, stars on a win (the enemy line-up on a loss)');
+      // review #51: the rewards play in order and end with the stars lit, the gold counted and the top bar showing the new gold
+      for (let k = 0; k < 40 && !(await ev(`!!(__bal.result && __bal.result.fx && __bal.result.fx.done)`)); k++) await sleep(150);
+      for (let k = 0; k < 25 && !(await ev(`+document.querySelector('#top .gold').textContent === __bal.run.gold`)); k++) await sleep(120);
+      ok(await ev(`(() => { const r = __bal.result; if (!r || !r.win) return true; const lit = document.querySelectorAll('.rstars .st.lit').length; return r.stars >= 1 && lit === r.stars && document.querySelector('.rw-gold b').textContent === '+' + r.gold && +document.querySelector('#top .gold').textContent === __bal.run.gold; })()`), 'review #51: after the reward animation: the stars lit, +gold counted, the top bar shows the new gold'); } await click('[data-act=result-ok]'); await sleep(100); continue; }
   if (st.phase === 'over') break;
   if (await ev(`!!document.querySelector('[data-act=spec]')`)) { if (!sawLevel) { await shot('07-levelup'); await noVScroll('level up'); sawLevel = true; } await click('[data-act=spec]'); await sleep(80); continue; }
   if (st.phase === 'map') {
@@ -166,6 +170,7 @@ await shot('11-over'); await noHScroll('over');
 if (fin.result === 'defeat' && !REMOTE) {
   await sleep(600);
   ok(await ev(`__bal.run.eloEnd == null && !!__bal.run.lgEnd && /league point/.test(document.querySelector('#screen').textContent) && /1000/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run; review #24: it costs league points but no Elo');
+  ok(await ev(`(() => { const t = document.querySelector('#top'); return t.scrollWidth <= t.clientWidth + 1 && [...t.children].every(c => c.getBoundingClientRect().right <= window.innerWidth + 1); })()`), 'review #51: the top bar fits the phone with the league chip, gold, day, Team, suggest and menu');
 }
 
 // ---- review #19: every hero ability has a scaling explanation with real numbers

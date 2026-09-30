@@ -192,12 +192,15 @@
   const NODE_ICON = { F: '⚔️', X: '❓', B: '👹', S: '🛒', G: '🏆' };  // v29: friendlier icons
   const SHOP_NAME = { heroShop: 'Hero Shop', itemShop: 'Item Shop', relicShop: 'Relic Shop' };
   const SHOP_DESC = { heroShop: 'Recruit new heroes.', itemShop: 'Buy items to equip.', relicShop: 'Team-wide relics.' };
+  // v42 (review #51): each event has its own picture (map card and a big medallion on the event screen)
+  const EVENT_ICON = { training: '🎯', merchant: '🧳', altar: '🗿', fountain: '⛲', mercs: '🪖', smith: '⚒️', library: '📜', caravan: '🐪', shrine: '🕯️', hut: '🌿', recruit: '🛡️', arena: '🏟️', armory: '🗡️', collector: '💎' };
+  const evIcon = id => EVENT_ICON[id] || '❓';
 
   // ------------------------------------------------------------------ header
   function header() {
     const h = $('#top');
     if (!run || screen === 'title') {
-      h.innerHTML = `<b class="logo">${EMBLEM}Balance</b><span class="grow"></span><button class="crownchip" data-act="shop" aria-label="Crown Shop: ${acct.crowns | 0} crowns">👑 <b>${acct.crowns | 0}</b></button><button data-act="scores" aria-label="Ladder">🏆</button><button data-act="suggest" class="sugg">💡 Suggest</button>`;
+      h.innerHTML = `<b class="logo">${EMBLEM}Balance</b><span class="grow"></span><button class="crownchip" data-act="shop" aria-label="Crown Shop: ${acct.crowns | 0} crowns">👑 <b>${acct.crowns | 0}</b></button>${soundBtn()}<button data-act="suggest" class="sugg">💡 Suggest</button>`;
       return;
     }
     const stepN = Math.max(0, run.step);
@@ -205,25 +208,54 @@
     const prog = g ? (g.round != null ? '🏆 Floor ' + (g.round + 1) : '🏆 Gauntlet') : 'Day ' + (stepN + 1) + '/' + Run.seqOf(run).length;
     const lgs = store.get('balance.league', null);
     h.innerHTML = `${elo != null ? `<button class="lgchip" data-act="player-tab" title="${lgs ? leagueName(lgs.league) + ' league · ' : ''}Elo ${elo}" aria-label="Your league and Elo">${emblem(lgs ? lgs.league : 0, 18)}<span>${elo}</span></button>` : ''}
-      <span class="gold" title="Gold">${run.gold}</span><span class="prog">${prog}</span>
-      <span class="grow"></span>${battle ? '' : '<button data-act="team">Team</button>'}<button data-act="suggest" class="sugg">💡</button><button data-act="menu">☰</button>`;
+      <span class="gold" title="Gold">${shownGold()}</span><span class="prog">${prog}</span>
+      <span class="grow"></span>${battle ? soundBtn() : '<button data-act="team">Team</button>'}<button data-act="suggest" class="sugg">💡</button><button data-act="menu">☰</button>`;
+    animGold();
+  }
+  // v42 (review #51, David: "more dopamine hits"): sounds (js/sfx.js) with a switch, and a gold counter that counts up or
+  // down with a bump and a "+6" whenever the gold changes. After a won fight it waits for the coins to fly in.
+  const soundBtn = () => `<button class="sndbtn" data-act="sound" aria-label="Sound ${B.Sfx && B.Sfx.on ? 'on' : 'off'}" title="Sound">${B.Sfx && B.Sfx.on ? '🔊' : '🔇'}</button>`;
+  const sfx = (n, a) => { if (B.Sfx) B.Sfx.play(n, a); };
+  const shownGold = () => ui.goldHold != null ? ui.goldHold : run.gold;
+  function animGold() {
+    const el = $('#top .gold'); if (!el || !run) return;
+    const g = shownGold(), was = ui.lastGold; ui.lastGold = g;
+    if (was == null || was === g || !B.Juice) return;
+    el.textContent = was; B.Juice.countUp(el, was, g, 450); B.Juice.bump(el); B.Juice.floater(el, (g > was ? '+' : '−') + Math.abs(g - was), g > was ? 'up' : 'down');
   }
 
   // ------------------------------------------------------------------ screens
   function render() {
     header();
     const m = $('#screen');
-    if (screen === 'title' || !run) { m.innerHTML = titleHTML(); return; }
-    if (screen === 'battle') { m.innerHTML = battleHTML(); mountBoard(); return; }
-    if (screen === 'result') { m.innerHTML = resultHTML(); return; }
-    if (run.phase === 'over') { m.innerHTML = overHTML(); return; }
-    if (run.pending.length && run.phase !== 'deploy') { m.innerHTML = levelHTML(); return; }
-    if (run.phase === 'gauntlet') { m.innerHTML = gauntletHTML(); return; }
-    if (run.phase === 'start') m.innerHTML = startHTML();
+    const key = screenKey();
+    if (screen === 'title' || !run) m.innerHTML = titleHTML();
+    else if (screen === 'battle') { m.innerHTML = battleHTML(); mountBoard(); }
+    else if (screen === 'result') m.innerHTML = resultHTML();
+    else if (run.phase === 'over') m.innerHTML = overHTML();
+    else if (run.pending.length && run.phase !== 'deploy') m.innerHTML = levelHTML();
+    else if (run.phase === 'gauntlet') m.innerHTML = gauntletHTML();
+    else if (run.phase === 'start') m.innerHTML = startHTML();
     else if (run.phase === 'map') m.innerHTML = mapHTML();
     else if (run.phase === 'deploy') { m.innerHTML = deployHTML(); mountBoard(); }
     else if (run.phase === 'shop') m.innerHTML = shopHTML();
     else if (run.phase === 'event') m.innerHTML = eventHTML();
+    // v42: the screen plays its entrance only when it is a new screen (buying an item no longer makes the shop jump)
+    const sec = m.firstElementChild;
+    if (sec && key !== ui.lastKey) { sec.classList.add('enter'); onEnter(key); }
+    ui.lastKey = key;
+    if (screen === 'result' && ui.result && !ui.result.fx) celebrate(ui.result);
+  }
+  function screenKey() {
+    if (screen === 'title' || !run) return 'title';
+    if (screen !== 'run') return screen;
+    if (run.pending.length && run.phase !== 'deploy') return 'level:' + run.pending[0].uid + ':' + run.pending[0].lvl;
+    return run.phase + ':' + run.step + ':' + (run.g ? run.g.round + ':' + run.g.status : '') + ':' + (run.cur && run.cur.pick != null ? 'pick' : '') + (run.cur && run.cur.done ? 'done' : '');
+  }
+  function onEnter(key) {
+    if (!B.Juice) return;
+    if (key.startsWith('level:')) { sfx('levelup'); const el = $('.lufull'); if (el) setTimeout(() => B.Juice.confettiAt(el, 50), 150); }
+    else if (key.startsWith('event:') && key.endsWith('done')) sfx('unlock');
   }
 
   function titleHTML() {
@@ -234,7 +266,6 @@
       <h1 class="sc">Balance</h1>
       <p class="tag">A roguelike of heroes, hexes and ghosts</p>
       <div class="lineup">${lineup.map((k, i) => `<img class="${i === 1 ? 'mid' : ''}" src="${por(k, 120, true)}" alt="">`).join('')}</div>
-      <p class="small dim">Deploy your champions, let them fight, beat two bosses, then climb the Gauntlet of other players' ghosts.</p>
       <div class="stack">
         ${has ? `<button class="primary big cta" data-act="continue-run"><span>Continue run</span><small>${run.phase === 'gauntlet' ? '🏆 Gauntlet' : 'Day ' + (Math.max(0, run.step) + 1) + '/' + Run.seqOf(run).length} · ${run.heroes.length} hero${run.heroes.length === 1 ? '' : 'es'} · ${run.gold} gold</small></button>` : ''}
         <button class="${has ? '' : 'primary '}big" data-act="new-run">New run</button>
@@ -243,9 +274,9 @@
       <div class="homeicons">
         <button data-act="my-profile">${emblem(acct.league | 0, 34)}<b>Profile</b><span>${esc(acct.account && acct.name ? acct.name : 'You')} · Lv ${lvlNow()}</span></button>
         <button data-act="shop" class="shopic"><span class="hi">👑</span><b>Crown Shop</b><span>${acct.crowns | 0} crown${(acct.crowns | 0) === 1 ? '' : 's'}</span></button>
-        <button data-act="scores"><span class="hi">🏆</span><b>Ladder</b><span>Elo · leagues</span></button>
+        <button data-act="scores"><span class="hi">🏆</span><b>Ladder</b><span>${store.get('balance.elo', null) != null ? 'Elo ' + store.get('balance.elo', null) : 'Top players'}</span></button>
       </div>
-      <button class="labtile" data-act="art-lab"><span class="hi">🎨</span><b>Art Lab</b><span>Try your own pictures on a hero: splash art and battle poses</span></button>
+      <button class="labtile" data-act="art-lab"><span class="hi">🎨</span><b>Art Lab</b><span>Your art on the heroes</span></button>
     </section>`;
   }
   // review #44 (David: "Name → short effect → small scaling note"): the ability name, then its passive and its active
@@ -267,7 +298,7 @@
     const relics = run.relicOffer || [], rsel = ui.startRelic && relics.includes(ui.startRelic) ? ui.startRelic : null, ready = n === CFG.startHeroes && (!relics.length || rsel);
     const relicRow = relics.length ? `<div class="srelics">${relics.map(id => `<button class="srelic ${rsel === id ? 'on' : ''} ${ui.focusRelic === id ? 'focus' : ''}" data-act="start-relic" data-arg="${id}">${ico('relic', id, 30)}<b class="relic">${esc(RELIC[id].name)}</b>${rsel === id ? '<span class="chk">✓</span>' : ''}</button>`).join('')}</div>` : '';
     const fr = ui.focusRelic && relics.includes(ui.focusRelic) ? RELIC[ui.focusRelic] : null;
-    return `<section class="start"><h2 class="sc">Choose your champion</h2><p class="hint center">Pick 1 hero and 1 relic (tap to read). More heroes join in the Hero Shop.${(run.locked || []).length ? ` <span class="kw-gold">${run.locked.length} heroes, items and relics unlock with your account level.</span>` : ''}</p>
+    return `<section class="start"><h2 class="sc">Choose your champion</h2>${(run.locked || []).length ? `<p class="center"><span class="lockpill" title="More heroes, items and relics unlock as your account levels up">🔒 ${run.locked.length} more unlock as you level up</span></p>` : ''}
       <div class="hbanners">${run.startOffer.map(k => { const d = HEROES[k], on = ui.startPick.includes(k);
         return `<button class="hbanner ${on ? 'on' : ''} ${k === f ? 'focus' : ''}" data-act="start-pick" data-arg="${k}" style="--cloth:${d.color}">
           <span class="rod"></span><img src="${por(k, 120, true)}" alt=""><b>${esc(d.name)}</b><i>${d.role}</i>${on ? '<span class="chk">✓</span>' : ''}</button>`; }).join('')}</div>
@@ -298,7 +329,7 @@
       return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔️⚔️' : o.diff === 'medium' ? '🗡️' : '⚔️', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>${mp}`, '+' + o.gold + ' gold' + (o.enemies.some(e => e.elite) ? ' · ★ elite' : ''));
     }
     if (o.type === 'shop') return bannerHTML(i, 'shop', o.kind === 'heroShop' ? '🦸' : o.kind === 'itemShop' ? '🛡️' : '💎', SHOP_NAME[o.kind] + (o.final ? ' (last)' : ''), `<span class="small">${SHOP_DESC[o.kind]}</span>`);
-    if (o.type === 'event') return bannerHTML(i, 'event', '❓', esc(EVENT[o.id].name), `<span class="small">${esc(EVENT[o.id].text)}</span>`);
+    if (o.type === 'event') return bannerHTML(i, 'event', evIcon(o.id), esc(EVENT[o.id].name), `<span class="small">${esc(EVENT[o.id].text)}</span>`);
     return '';
   }
   // review #17: what an event did to the next fight, in words
@@ -317,7 +348,7 @@
   function mapHTML() {
     const t = Run.seqOf(run)[run.step];
     const title = t === 'B' ? 'A boss blocks the way' : t === 'S' ? 'One last shop' : 'Choose your path';
-    return `<section class="map"><div class="mapmain">${trackHTML()}<h2 class="sc">Day ${run.step + 1} · ${title}</h2>${run.nextMod ? `<p class="nextmod">⚑ Next fight: ${fmt(modText(run.nextMod))}</p>` : ''}<div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
+    return `<section class="map"><div class="mapmain">${trackHTML()}<h2 class="sc">${title}</h2>${run.nextMod ? `<p class="nextmod">⚑ Next fight: ${fmt(modText(run.nextMod))}</p>` : ''}<div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
       </div><aside class="mapside">${partyHTML()}</aside></section>`;
   }
   // review #18: the party under the map (levels, XP, worn items, relics) and the next boss, so each choice is informed
@@ -326,7 +357,7 @@
       const next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null, prev = CFG.xpLevels[h.lvl] || 0;
       return `<button class="pm" data-act="team">${img(h.key, 38, 'por')}<span class="pmb"><span class="pmn"><b>${esc(HEROES[h.key].name)}</b><span class="lv">Lv ${h.lvl}</span></span>
         <span class="xpbar"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></span>
-        <span class="pmi">${h.items.map(id => `<img class="ico xs" src="${B.Icons.item(id, 20)}" alt="">`).join('') || '<i class="dim">no items</i>'}</span></span></button>`;
+        <span class="pmi">${h.items.map(id => `<img class="ico xs" src="${B.Icons.item(id, 20)}" alt="">`).join('') || '<i class="noitem" title="No items yet"></i>'}</span></span></button>`;
     }).join('');
     let boss = '';
     const seq = Run.seqOf(run);
@@ -335,7 +366,7 @@
       boss = `<div class="nextboss">${img(b.key, 40, 'por')}<div><b>👹 ${esc(b.name)}</b> <span class="dim">${d <= 0 ? 'today' : 'in ' + d + ' day' + (d > 1 ? 's' : '')}</span><span class="small">${fmt(b.desc)}</span></div></div>`;
       break;
     }
-    return `<div class="party"><div class="bph"><b>Your party</b><span class="dim small">${run.bag.length ? `${run.bag.length} in bag · <a href="#" data-act="team">equip</a>` : `${run.heroes.length}/${Run.teamMax(run)} heroes`}</span></div>
+    return `<div class="party"><div class="bph"><b>Party</b><span class="dim small">${run.bag.length ? `<a href="#" data-act="team" class="bagnote">🎒 ${run.bag.length} to equip</a>` : `${run.heroes.length}/${Run.teamMax(run)}`}</span></div>
       <div class="pgrid">${heroes}</div>${run.relics.length ? `<div class="relicline"><b>Relics</b>${run.relics.map(id => `<button class="relicbtn" data-act="relic-info" data-arg="${id}" aria-label="${esc(RELIC[id].name)}">${ico('relic', id, 26)}</button>`).join('')}</div>` : ''}${boss}</div>`;
   }
 
@@ -361,12 +392,12 @@
       for (const e of f.enemies) {
         const k = e.key + '|' + (e.elite || ''), m = B.MOBS[e.key] || B.BOSSES[e.key], el = e.elite && B.ELITES.find(x => x.id === e.elite);
         if (!by[k]) groups.push(by[k] = { key: e.key, n: 0, boss: !!B.BOSSES[e.key], elite: el ? el.name : '', name: m.name,
-          what: B.BOSSES[e.key] ? m.desc : m.abil ? MOB_ABIL[m.abil] || '' : (m.fl || []).includes('dive') ? 'Leaps to your back line at the start.' : m.range > 1 ? 'Attacks from range.' : 'Fights up close.' });
+          what: B.BOSSES[e.key] ? m.desc : m.abil ? MOB_ABIL[m.abil] || '' : (m.fl || []).includes('dive') ? 'Leaps to your back line.' : '', ranged: m.range > 1 });
         by[k].n++;
       }
     }
-    return `<div class="foes"><div class="bph"><b>${gau ? 'Their ghost team' : 'You will face'}</b><span class="dim small">${groups.reduce((a, g) => a + g.n, 0)} ${gau ? 'heroes' : 'enemies'}</span></div>
-      <div class="fgrid">${groups.map(g => `<div class="fo ${g.boss ? 'boss' : ''} ${g.elite ? 'elite' : ''}">${img(g.key, 34, 'por')}<div><b>${esc(g.name)}${g.n > 1 ? ' ×' + g.n : ''}${g.elite ? ` <span class="elt">★ ${esc(g.elite)}</span>` : ''}</b><small class="fw">${fmt(g.what)}</small></div></div>`).join('')}</div></div>`;
+    return `<div class="foes"><div class="bph"><b>${gau ? 'Their team' : 'Enemies'}</b><span class="dim small">${groups.reduce((a, g) => a + g.n, 0)}</span></div>
+      <div class="fgrid">${groups.map(g => `<div class="fo ${g.boss ? 'boss' : ''} ${g.elite ? 'elite' : ''} ${g.what ? '' : 'plain'}">${img(g.key, 34, 'por')}<div><b>${esc(g.name)}${g.n > 1 ? ' ×' + g.n : ''}${g.ranged ? ' <i class="rng" title="Attacks from range">➶</i>' : ''}${g.elite ? ` <span class="elt">★ ${esc(g.elite)}</span>` : ''}</b>${g.what ? `<small class="fw">${fmt(g.what)}</small>` : ''}</div></div>`).join('')}</div></div>`;
   }
   function deployHTML() {
     const gau = run.cur && run.cur.type === 'gauntlet';
@@ -374,8 +405,8 @@
     const map = Run.mapOf(run);
     return `<section class="deploy">
       <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy${map ? ` <span class="mapchip" title="${esc(map.desc)}">🗺 ${esc(map.name)}</span>` : ''}</div>
-      <p class="hint tight">${!gau && f.mod ? `<span class="nextmod">⚑ ${fmt(modText(f.mod))}</span>` : 'Drag heroes within the blue rows: tanks in front, ranged behind. Tap a unit for details.'}</p>
-      ${run.relics.some(id => RELIC[id] && RELIC[id].form) ? `<p class="hint tight formline" id="formline">${formHTML(worldFor(true))}</p>` : ''}
+      ${!gau && f.mod ? `<p class="hint tight"><span class="nextmod">⚑ ${fmt(modText(f.mod))}</span></p>` : (store.get('balance.tips.deploy', 0) | 0) < 3 ? '<p class="hint tight tip">Drag your heroes: tanks in front, ranged behind.</p>' : ''}
+      ${run.relics.some(id => RELIC[id] && RELIC[id].form) ? `<p class="formline" id="formline">${formHTML(worldFor(true))}</p>` : ''}
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
       ${foesHTML(gau, f)}
@@ -384,12 +415,15 @@
     </section>`;
   }
   // review #40 (David): who gets what from the formation relics, from where the heroes stand right now
+  // v42 (review #51, "cut needless text"): one chip per formation relic with how many heroes it reaches; the chip's
+  // tooltip and a tap still give the full "who gets what"
   function formHTML(W) {
     const got = W ? Sim.formation(W, 0) : [];
     return run.relics.filter(id => RELIC[id] && RELIC[id].form).map(id => {
       const r = RELIC[id], who = got.filter(b => b.fl === r.fl);
-      return `<span class="fr">${ico('relic', id, 18)} <b>${esc(r.name)}</b>: ${who.length ? who.map(b => `${esc(b.u.name)} <span class="kw-gold">${B.FORMATION[b.fl](b.n)}</span>`).join(', ') : '<span class="dim">nobody yet (move your heroes)</span>'}</span>`;
-    }).join(' ');
+      const full = `${r.name}: ` + (who.length ? who.map(b => `${b.u.name} ${B.FORMATION[b.fl](b.n)}`).join(', ') : 'nobody yet (move your heroes)');
+      return `<button class="fr ${who.length ? 'got' : 'none'}" data-act="form-info" data-arg="${esc(full)}" title="${esc(full)}">${ico('relic', id, 20)}<b>${esc(r.name)}</b><span>${who.length ? '✓ ' + who.length : '—'}</span></button>`;
+    }).join('');
   }
   // review #18 (David: "another pass of the ui and battle ui ... pretty, functional, visible, engaging"): under the
   // board, a card per hero (HP and shield in numbers, mana bar named after the ability that glows when READY, status
@@ -456,10 +490,14 @@
     const top = Math.max(1, ...hs.map(o => o.s.dmg)), total = Math.max(1, hs.reduce((a, o) => a + o.s.dmg, 0));
     const mvpUid = hs.length > 1 || r.win ? (hs.slice().sort((a, b) => b.s.dmg - a.s.dmg)[0] || {}).x : null;
     const what = r.gauntlet ? `Gauntlet · floor ${r.floor || '?'} · vs ${plink(r.opp.name, r.opp.code)}` : r.boss ? `👹 ${esc(r.bossName || 'Boss')}` : esc(r.fightName || 'Fight');
-    const foesDown = r.foes ? r.foes.filter(f => f.dead).length : null;
-    const meta = [r.time != null ? `⏱ ${clock(r.time)}` : '', r.foes ? `💥 ${foesDown}/${r.foes.length} foes down` : '', `♥ ${hs.filter(o => o.s.alive).length}/${hs.length} standing`, r.timeout ? 'time ran out' : ''].filter(Boolean).join(' · ');
+    const foesDown = r.foes ? r.foes.filter(f => f.dead).length : null, fx = r.fx || {};
+    // v42 (review #51): short meta (time, foes down, heroes standing) as icons; 1-3 stars on a win: 1 for the win, 1 if
+    // nobody fell, 1 more if the team also kept 60% of its health. They light up one by one (celebrate()).
+    const meta = [r.time != null ? `<span title="Time">⏱ ${clock(r.time)}</span>` : '', r.foes ? `<span title="Enemies down">💥 ${foesDown}/${r.foes.length}</span>` : '', `<span title="Heroes standing">♥ ${hs.filter(o => o.s.alive).length}/${hs.length}</span>`, r.timeout ? '<span>time ran out</span>' : ''].filter(Boolean).join('');
+    const stars = r.stars || 0;
+    const starRow = r.win ? `<div class="rstars" aria-label="${stars} of 3 stars">${[0, 1, 2].map(i => `<i class="st ${i < (fx.stars || 0) ? 'lit' : ''} ${i < stars ? 'earn' : ''}">★</i>`).join('')}${stars === 3 ? `<b class="flawless ${fx.stars >= 3 ? 'on' : ''}">Flawless!</b>` : ''}</div>` : '';
     const chips = [];
-    if (r.win && !r.gauntlet) chips.push(`<span class="rw rw-gold"><i class="coin"></i><b>+${r.gold}</b><em>gold</em></span>`);
+    if (r.win && !r.gauntlet) chips.push(`<span class="rw rw-gold"><i class="coin"></i><b>+${fx.gold ? r.gold : 0}</b><em>gold</em></span>`);
     if (r.prize) chips.push(`<span class="rw rw-prize" style="--tier:${TIER_COLOR[ITEM[r.prize].tier]}">${ico('item', r.prize, 26)}<b>${esc(ITEM[r.prize].name)}</b><em>${B.RARITY[ITEM[r.prize].tier].name} ${B.TYPE[ITEM[r.prize].type].name.toLowerCase()}</em></span>`);
     const xp = hs.reduce((a, o) => a + o.x.gained, 0), ups = hs.filter(o => o.x.to > o.x.from).length;
     if (!r.gauntlet && xp) chips.push(`<span class="rw rw-xp"><i>✨</i><b>+${xp}</b><em>XP</em></span>`);
@@ -470,20 +508,52 @@
     const promo = r.lg && r.lg.promoted ? `<div class="promo" style="--lc:${B.LEAGUES[r.lg.league].color}">${emblem(r.lg.league, 40)}<b>Promoted to ${leagueName(r.lg.league)}!</b>${r.lg.crowns ? `<span class="crn">+${r.lg.crowns} 👑</span>` : ''}</div>` : '';
     const heroes = hs.map(({ x, h, s: st }) => {
       const mvp = mvpUid === x && st.dmg > 0, next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null, prev = CFG.xpLevels[h.lvl] || 0;
+      // the XP bar starts where it was before the fight (empty after a level up) and fills when the rewards play
+      const w1 = next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100, w0 = x.to > x.from ? 0 : next ? Math.max(0, Math.round(100 * (h.xp - x.gained - prev) / (next - prev))) : 100;
       return `<div class="rh ${mvp ? 'mvp' : ''} ${st.alive ? '' : 'ko'}"><span class="rhp">${img(h.key, 46, 'por')}${st.alive ? '' : '<i class="kox">✝</i>'}</span><div class="rhb">
-        <div class="rhn"><b>${esc(x.name)}</b>${mvp ? '<span class="mvpb">★ MVP</span>' : ''}<span class="grow"></span>${x.to > x.from ? `<b class="up">Lv ${x.to} ▲</b>` : `<span class="lv">Lv ${x.to}</span>`}</div>
-        <div class="dmgbar"><s style="width:${100 * st.dmg / top}%"></s><em>⚔ ${kfmt(st.dmg)} damage · ${Math.round(100 * st.dmg / total)}%</em></div>
-        <div class="rst"><span title="Damage taken">🛡 ${kfmt(st.taken)} taken</span><span title="Kills">💥 ${st.kills} kill${st.kills === 1 ? '' : 's'}</span>${r.gauntlet ? '' : `<span class="rxp"><span class="xpbar"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></span><span class="kw-xp">+${x.gained} XP</span></span>`}</div></div></div>`;
+        <div class="rhn"><b>${esc(x.name)}</b>${mvp ? `<span class="mvpb ${fx.done ? 'stamp' : 'wait'}">★ MVP</span>` : ''}<span class="grow"></span>${x.to > x.from ? `<b class="up ${fx.done ? 'on' : 'wait'}">Level up! Lv ${x.to}</b>` : `<span class="lv">Lv ${x.to}</span>`}</div>
+        <div class="dmgbar"><s style="width:${100 * st.dmg / top}%"></s><em>⚔ ${kfmt(st.dmg)} · ${Math.round(100 * st.dmg / total)}%</em></div>
+        <div class="rst"><span title="Damage taken">🛡 ${kfmt(st.taken)}</span><span title="Kills">💥 ${st.kills}</span>${r.gauntlet ? '' : `<span class="rxp"><span class="xpbar"><i style="width:${fx.xp ? w1 : w0}%" data-w="${w1}"></i></span><span class="kw-xp">+${x.gained} XP</span></span>`}</div></div></div>`;
     }).join('');
-    const foes = r.foes && r.foes.length ? `<div class="rfoes"><span class="dim small">${r.gauntlet ? 'Their team' : 'Enemies'}</span>${r.foes.map(f => `<span class="rf ${f.dead ? 'dead' : ''} ${f.boss ? 'boss' : ''} ${f.elite ? 'elite' : ''}">${img(f.key, f.boss ? 30 : 24, 'por')}</span>`).join('')}</div>` : '';
+    const foes = r.foes && r.foes.length && !r.win ? `<div class="rfoes">${r.foes.map(f => `<span class="rf ${f.dead ? 'dead' : ''} ${f.boss ? 'boss' : ''} ${f.elite ? 'elite' : ''}">${img(f.key, f.boss ? 30 : 24, 'por')}</span>`).join('')}</div>` : '';
     const bl = r.boss && r.bossElo && hasPerk('elo') ? `<p class="small dim ghostline">👹 ${esc(r.bossElo.name)}'s Elo: <b>${r.bossElo.elo}</b> (${r.bossElo.delta >= 0 ? '+' : ''}${r.bossElo.delta})</p>` : '';
     const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${plink(r.ghost.name, r.opp.code)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})</p>` : '';
     const lostRun = !r.win && !r.gauntlet ? '<p class="small dim center">Your run is over.</p>' : '';
-    return `<section class="result v2"><div class="rhead ${r.win ? 'win' : 'lose'}"><h2 class="sc headline ${r.win ? 'win' : 'lose'}">${r.win ? 'Victory' : 'Defeat'}</h2>
-        <p class="rwhat">${what}</p><p class="rmeta">${meta}</p></div>
+    return `<section class="result v2"><div class="rhead ${r.win ? 'win' : 'lose'}"><span class="rays"></span><h2 class="sc headline ${r.win ? 'win' : 'lose'}">${r.win ? 'Victory' : 'Defeat'}</h2>
+        ${starRow}<p class="rwhat">${what}</p><p class="rmeta">${meta}</p></div>
       ${eloLine(r)}${chips.length ? `<div class="rewards2">${chips.join('')}</div>` : ''}${promo}${lostRun}
       <div class="rheroes">${heroes}</div>${foes}${gh}${bl}
       <div class="bar"><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
+  }
+
+  // v42 (review #51, David: "more dopamine hits"): the rewards play in order. Confetti, the stars one by one, the gold
+  // counting up and flying into the top bar, the XP bars filling, then the level ups and the MVP stamp. Every step is
+  // written into r.fx, so a re-render mid-way (the Elo answer arriving) keeps what was already shown.
+  async function celebrate(r) {
+    if (r.fx) return;
+    const fx = r.fx = {}, J = B.Juice, live = () => ui.result === r && screen === 'result';
+    if (!J || J.reduced() || !r.win) { Object.assign(fx, { stars: r.stars || 0, gold: true, xp: true, done: true }); ui.goldHold = null; render(); return; }
+    const head = $('.rhead'); if (head) J.confettiAt(head, 70);
+    await J.wait(380);
+    for (let i = 0; i < (r.stars || 0); i++) {
+      if (!live()) return; fx.stars = i + 1;
+      const el = document.querySelectorAll('.rstars .st')[i]; if (el) { el.classList.add('lit'); J.bump(el, 'pop'); J.confettiAt(el, 10, { speed: 260 }); }
+      sfx('star', i); if (i === 2) { const fl = $('.flawless'); if (fl) fl.classList.add('on'); }
+      await J.wait(300);
+    }
+    if (!live()) return;
+    const chip = $('.rw-gold'), gold = !r.gauntlet ? r.gold || 0 : 0;
+    if (gold && chip) {
+      J.bump(chip, 'pop'); await J.countUp(chip.querySelector('b'), 0, gold, 520, v => '+' + v, k => sfx('tick', k)); fx.gold = true;
+      J.flyCoins(chip, $('#top .gold'), Math.min(12, 4 + Math.round(gold / 2)), () => sfx('coin')).then(() => { if (ui.goldHold != null) { ui.goldHold = null; animGold(); } });
+    } else { fx.gold = true; ui.goldHold = null; animGold(); }
+    await J.wait(260); if (!live()) return;
+    fx.xp = true; for (const i of document.querySelectorAll('.rh .xpbar i[data-w]')) i.style.width = i.dataset.w + '%';
+    await J.wait(750); if (!live()) return;
+    fx.done = true;
+    const ups = document.querySelectorAll('.rh .up.wait');
+    if (ups.length) { sfx('levelup'); ups.forEach(u => { u.classList.remove('wait'); u.classList.add('on'); J.confettiAt(u, 14, { speed: 280 }); }); }
+    const mvp = $('.mvpb.wait'); if (mvp) { mvp.classList.remove('wait'); mvp.classList.add('stamp'); setTimeout(() => sfx('slam'), 180); }
   }
 
   // ---------------- gauntlet (reviews #3 #4 by David)
@@ -557,19 +627,21 @@
     else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier t-relic">relic</div></div></div><div class="small">${fmt(r.desc)}</div>`; }
     // review #44: a stripe in the rarity colour (hero colour for heroes, gold for relics) makes the rarity readable at a glance
     const rc = s.kind === 'item' ? TIER_COLOR[ITEM[s.id].tier] : s.kind === 'hero' ? HEROES[s.id].color : '#ffd23f';
-    return `<div class="card stock k-${s.kind} ${s.sold ? 'sold' : ''}" style="--rc:${rc}">${body}<button class="${dis ? '' : 'primary'}" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''}>${s.sold ? 'Sold' : `Buy <span class="price">${s.price}</span>`}</button></div>`;
+    // v42 (review #51): epic, set, legendary and mythic items shine; a bought card gets a SOLD stamp
+    const shine = s.kind === 'item' && RANK(s.id) >= 3 ? ' shine' : s.kind === 'relic' ? ' shine soft' : '';
+    return `<div class="card stock k-${s.kind}${shine} ${s.sold ? 'sold' : ''} ${ui.justSold === i ? 'just' : ''}" style="--rc:${rc}" data-i="${i}">${body}<button class="${dis ? '' : 'primary'} buyb" data-act="buy" data-arg="${i}" ${dis ? 'disabled' : ''} aria-label="${s.sold ? 'Sold' : 'Buy for ' + s.price + ' gold'}">${s.sold ? 'Sold' : `<span class="price">${s.price}</span>`}</button></div>`;
   }
   function shopHTML() {
     const c = run.cur, rc = Run.rerollCost(run);
-    const note = c.kind === 'heroShop' ? `Team ${run.heroes.length}/${Run.teamMax(run)}` : c.kind === 'itemShop' ? `Items go to your bag. Each hero wears one item of each type.` : 'Relics affect every hero.';
-    return `<section class="shop">${trackHTML()}<h2>🛒 ${SHOP_NAME[c.kind]}</h2><p class="hint">${note}</p>
-      <div class="grid">${c.stock.map(stockCard).join('') || '<p>Nothing left to sell.</p>'}</div>
-      <div class="bar sticky"><button data-act="reroll" ${run.gold < rc ? 'disabled' : ''}>Reroll · ${rc}g</button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
+    const note = c.kind === 'heroShop' ? `<p class="center"><span class="lockpill">Team ${run.heroes.length}/${Run.teamMax(run)}</span></p>` : '';
+    return `<section class="shop">${trackHTML()}<h2>${c.kind === 'heroShop' ? '🦸' : c.kind === 'itemShop' ? '🛒' : '💎'} ${SHOP_NAME[c.kind]}</h2>${note}
+      <div class="grid ${ui.deal ? 'deal' : ''}">${c.stock.map(stockCard).join('') || '<p>Nothing left to sell.</p>'}</div>
+      <div class="bar sticky"><button data-act="reroll" class="reroll" ${run.gold < rc ? 'disabled' : ''} aria-label="Reroll for ${rc} gold">↻ <span class="price">${rc}</span></button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
   }
   // review #17: 3 choices with a visible price or risk; some ask you to pick the hero, item or item type they apply to
   function eventHTML() {
     const e = EVENT[run.cur.id], chs = Run.eventChoices(run);
-    const head = `<section class="event">${trackHTML()}<h2>❓ ${esc(e.name)}</h2><p>${esc(e.text)}</p>`;
+    const head = `<section class="event">${trackHTML()}<div class="evmed">${evIcon(e.id)}</div><h2>${esc(e.name)}</h2><p>${esc(e.text)}</p>`;
     if (run.cur.done) return head + `<div class="card result">${fmt(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div></section>`;
     const pickCh = run.cur.pick != null ? chs[run.cur.pick] : null;
     if (pickCh) {
@@ -585,7 +657,7 @@
     return head + `<div class="stack evchoices">${chs.map((ch, i) => {
       const c = Run.canChoose(run, ch), pic = ch.hero ? img(ch.hero, 40) : ch.item ? ico('item', ch.item, 40) : '';
       const tag = ch.item ? `<span class="itag" style="color:${TIER_COLOR[ITEM[ch.item].tier]}">${B.RARITY[ITEM[ch.item].tier].name} ${B.TYPE[ITEM[ch.item].type].name.toLowerCase()}</span>` : '';
-      return `<button class="evch ${pic ? 'haspic' : ''}" data-act="event" data-arg="${i}" ${c.ok ? '' : 'disabled'}>${pic}<span class="t">${tag}${fmt(ch.label)}${ch.target ? ' <i class="dim">(you choose)</i>' : ''}${c.ok ? '' : `<span class="why">${esc(c.why)}</span>`}</span>${ch.cost ? `<span class="price">${ch.cost}</span>` : ''}</button>`;
+      return `<button class="evch ${pic ? 'haspic' : ''}" data-act="event" data-arg="${i}" ${c.ok ? '' : 'disabled'}>${pic}<span class="t">${tag}${fmt(ch.label)}${c.ok ? '' : `<span class="why">${esc(c.why)}</span>`}</span>${ch.cost ? `<span class="price">${ch.cost}</span>` : ''}${ch.target ? '<i class="chev" title="You choose">›</i>' : ''}</button>`;
     }).join('')}</div></section>`;
   }
   function overHTML() {
@@ -600,7 +672,10 @@
         ${g.lgNow ? leagueLine(Object.assign({}, g.lgNow, { delta: g.lgGain, promoted: g.lgPromoted })) : ''}
         ${g.history.length ? towerHTML(g) : ''}`;
     } else {
-      body = `<h2 class="sc">Your run has ended</h2><p>You fell at fight ${run.fightNo}. Won ${run.won} fight${run.won === 1 ? '' : 's'}.</p>
+      // v42 (review #51): the end of a run as a small scoreboard: the team, fights won, the fight it fell at
+      body = `<div class="evmed over">🏳️</div><h2 class="sc">Your run has ended</h2>
+        <div class="overteam">${run.heroes.map(h => `<span>${img(h.key, 52, 'por')}<b>Lv ${h.lvl}</b></span>`).join('')}</div>
+        <div class="overstats"><div><b>${run.won}</b><span>fight${run.won === 1 ? '' : 's'} won</span></div><div><b>${run.fightNo}</b><span>fell at fight</span></div></div>
         ${run.eloEnd != null ? `<p class="elo-line">Elo <b>${run.eloEnd}</b> <span class="lose">(${run.eloDelta})</span></p>` : ''}${leagueLine(run.lgEnd)}`;
     }
     return `<section class="title">${body}
@@ -611,7 +686,7 @@
   // ------------------------------------------------------------------ unit info panel
   function infoHTML() {
     const W = battle ? battle.W : preview;
-    if (!W || !ui.info) return '<span class="dim">Tap a unit to see its stats.</span>';
+    if (!W || !ui.info) return '';
     if (typeof ui.info === 'string') { const T = B.TERRAIN[ui.info]; return T ? `<div class="hrow"><span class="ticon">${T.icon}</span><b>${T.name}</b><span class="dim small">terrain</span></div><div class="small">${esc(T.desc)}</div>` : ''; }
     const u = W.byId[ui.info]; if (!u) return '';
     const hd = HEROES[u.key];
@@ -686,6 +761,7 @@
     const W = worldFor(false);
     save();
     battle = { W, acc: 0, last: performance.now(), endAt: 0, gau };
+    store.set('balance.tips.deploy', (store.get('balance.tips.deploy', 0) | 0) + 1);
     ui.info = null; screen = 'battle'; render();
     requestAnimationFrame(loop);
   }
@@ -694,9 +770,11 @@
     const dt = Math.min(100, now - b.last); b.last = now;
     const TICK = 1000 / Sim.TPS;
     if (!b.W.over) { b.acc += dt * ui.speed; let n = 0; while (b.acc >= TICK && !b.W.over && n++ < 60) { Sim.step(b.W); b.acc -= TICK; } }
-    else if (!b.endAt) b.endAt = now + 1000;
-    const T = b.W.t + (b.W.over ? 0 : b.acc / TICK);
-    if (view) Render.draw(view, b.W, T, {});
+    // v42 (review #51): the last blow plays on in slow motion under a big VICTORY / DEFEAT (render.js drawEnd)
+    if (b.W.over && !b.overAt) { b.overAt = now; b.end = { win: b.W.winner === 0, k: 0 }; if (!b.endAt) b.endAt = now + 1800; sfx(b.end.win ? 'win' : 'lose'); }
+    const T = b.W.over ? b.W.t + (now - b.overAt) / TICK * 0.3 : b.W.t + b.acc / TICK;
+    if (b.end) b.end.k = (now - b.overAt) / 1600;
+    if (view) Render.draw(view, b.W, T, b.end ? { end: b.end } : {});
     const hud = $('#bhud');
     if (hud) {
       const secs = Math.floor(b.W.t / Sim.TPS);
@@ -721,7 +799,9 @@
     }
     for (const k in stats) dmg[k] = stats[k].dmg;
     const foes = W.units.filter(u => u.side === 1 && u.kind !== 'summon').map(u => ({ key: u.key, dead: !!u.dead, boss: !!u.boss, elite: !!u.elite }));
-    const extra = { stats, dmg, foes, time: W.t / Sim.TPS };
+    const hs = W.units.filter(u => u.side === 0 && u.kind === 'hero'), hpLeft = hs.reduce((a, u) => a + Math.max(0, u.hp), 0) / Math.max(1, hs.reduce((a, u) => a + u.maxHp, 0));
+    const stars = W.winner === 0 ? 1 + (hs.every(u => !u.dead) ? 1 : 0) + (hs.every(u => !u.dead) && hpLeft >= 0.6 ? 1 : 0) : 0;
+    const extra = { stats, dmg, foes, time: W.t / Sim.TPS, stars };
     if (b.gau) {
       const win = W.winner === 0;
       ui.result = Object.assign({ gauntlet: true, win, xp: run.heroes.map(h => ({ uid: h.uid, name: HEROES[h.key].name, gained: 0, from: h.lvl, to: h.lvl })), opp: run.g.opp, floor: run.g.round + 1, pending: true }, extra);
@@ -733,6 +813,7 @@
     const bossKey = run.cur && run.cur.diff === 'boss' ? (run.cur.enemies.find(e => B.BOSSES[e.key]) || {}).key : null;
     const fightName = run.cur && run.cur.diff && B.DIFF[run.cur.diff] ? `${B.DIFF[run.cur.diff].name} fight · #${run.cur.fightNo}` : 'Fight';
     ui.result = Object.assign(Run.finishFight(run, W), extra, { fightName, bossName: bossKey ? B.BOSSES[bossKey].name : null }); screen = 'result';
+    if (ui.result.win && ui.result.gold) ui.goldHold = run.gold - ui.result.gold;   // the top bar waits for the coins to fly in
     if (bossKey) {  // review #20: the boss's own Elo (never the player's); v27: shown with the Content Elo unlock
       const res = ui.result;
       Net.post('elo', { op: 'boss', pid: pid(), ref: refCode(), boss: bossKey, win: res.win }).then(r => { setAcct(r); if (r.boss) { res.bossElo = r.boss; if (ui.result === res && screen === 'result') render(); } }).catch(() => {});
@@ -789,12 +870,12 @@
       ${!sel && ui.heroInfo && run.heroes.some(h => h.uid === ui.heroInfo) ? heroCardHTML(run.heroes.find(h => h.uid === ui.heroInfo)) : ''}
       ${sel ? `<div class="idetail" style="--tier:${TIER_COLOR[sel.tier]}">${ico('item', selId, 44)}<div class="t"><div><b style="color:${TIER_COLOR[sel.tier]}">${esc(sel.name)}</b> ${itemTag(sel)}</div><div class="small">${fmt(sel.desc)}</div>${setInfo(sel)}</div>
         <button class="chip" data-act="sell">Sell ${Run.sellValue(sel.id)}g</button></div>`
-        : `<p class="hint">${run.bag.length ? 'Tap an item on the left, then a hero on the right. One item of each type per hero.' : 'Your bag is empty: buy items in the Item Shop. Tap a worn item to take it off.'}</p>`}
+        : run.bag.length ? '<p class="hint">Tap an item, then a hero.</p>' : ''}
       <div class="equip">
         <div class="eqcol bagcol"><h3>Bag</h3><div class="baggrid">${items || '<p class="dim small">Empty</p>'}</div></div>
         <div class="eqcol"><h3>Heroes (${run.heroes.length}/${Run.teamMax(run)})</h3>${heroes}</div>
       </div>
-      <div class="relicline"><b>Relics</b>${run.relics.length ? run.relics.map(id => `<button class="relicbtn" data-act="relic-info" data-arg="${id}" title="${esc(RELIC[id].name + ': ' + RELIC[id].desc)}" aria-label="${esc(RELIC[id].name)}">${ico('relic', id, 30)}</button>`).join('') + '<span class="dim small">tap one to read it</span>' : '<span class="dim small">none yet</span>'}</div>`;
+      <div class="relicline"><b>Relics</b>${run.relics.length ? run.relics.map(id => `<button class="relicbtn" data-act="relic-info" data-arg="${id}" title="${esc(RELIC[id].name + ': ' + RELIC[id].desc)}" aria-label="${esc(RELIC[id].name)}">${ico('relic', id, 30)}</button>`).join('') : '<span class="dim small">none yet</span>'}</div>`;
   }
 
   // review #19 (David: "include ability to read hero ability in item screen"): the hero card on top of the team sheet
@@ -1129,7 +1210,7 @@
 
   // ------------------------------------------------------------------ actions
   const ACT = {
-    'new-run': () => { run = Run.newRun((Math.random() * 2 ** 31) | 0, { locked: B.lockedFor(lvlNow()) }); ui.startPick = []; ui.startRelic = null; ui.focusRelic = null; screen = 'run'; save(); render(); },
+    'new-run': () => { run = Run.newRun((Math.random() * 2 ** 31) | 0, { locked: B.lockedFor(lvlNow()) }); ui.startPick = []; ui.startRelic = null; ui.focusRelic = null; ui.lastGold = null; ui.goldHold = null; screen = 'run'; save(); render(); },
     'continue-run': () => { screen = 'run'; render(); },
     menu: () => { if (battle) return; screen = 'title'; closeModal(); render(); },
     howto: () => openModal(HOWTO),
@@ -1141,11 +1222,21 @@
     fight: () => startBattle(),
     speed: s => { if (+s === 4 && !hasPerk('speed4')) { toast(`4× speed is a Crown Shop unlock (👑 ${B.SHOP_ITEM.speed4.price}). 2× is free.`); return; } ui.speed = +s; store.set('balance.speed', ui.speed); document.querySelectorAll('[data-act=speed]').forEach(b => b.classList.toggle('on', +b.dataset.arg === ui.speed)); },
     skip: () => { if (!hasPerk('skip')) { toast(`Skipping fights is a Crown Shop unlock (👑 ${B.SHOP_ITEM.skip.price}).`); return; } skipBattle(); },
-    'result-ok': () => { ui.result = null; screen = 'run'; render(); window.scrollTo(0, 0); },
+    'result-ok': () => { ui.result = null; ui.goldHold = null; screen = 'run'; render(); window.scrollTo(0, 0); },
     'to-duel': () => { run.phase = 'deploy'; run.cur = { type: 'gauntlet' }; ui.info = null; save(); render(); window.scrollTo(0, 0); },
     'retry-elo': () => { if (ui.result && ui.result.gauntlet) { const w = ui.result.win; ui.result.pending = true; render(); Net.post('elo', { op: 'result', pid: pid(), ref: refCode(), teamId: run.g.teamId, win: w, team: Run.teamSnapshot(run), relics: run.relics }).then(r => { setElo(r); Run.gauntletUpdate(run, r); ui.climb = w; Object.assign(ui.result, { delta: r.delta, elo: r.elo, ghost: r.ghost, pending: false, error: null }); save(); render(); }).catch(e => { Object.assign(ui.result, { pending: false, error: e.message }); render(); }); } },
-    buy: i => { const err = Run.buy(run, +i); if (err) toast(err); save(); render(); },
-    reroll: () => { if (!Run.reroll(run)) toast('Not enough gold'); save(); render(); },
+    // v42 (review #51): a bought card flies into the Team button with a coin sound and gets a SOLD stamp; a reroll deals
+    // the new cards in with a shuffle
+    buy: i => {
+      const card = $(`.card.stock[data-i="${+i}"]`), pic = card && card.querySelector('.ico.big, .por.big');
+      const err = Run.buy(run, +i);
+      if (err) { toast(err); sfx('deny'); if (B.Juice) B.Juice.bump(card, 'shake'); return; }
+      sfx('buy'); if (B.Juice && pic) { B.Juice.flyCopy(pic, '#top [data-act=team]'); B.Juice.confettiAt(card, 16, { speed: 300 }); }
+      ui.justSold = +i; save(); render(); ui.justSold = null;
+    },
+    reroll: () => { if (!Run.reroll(run)) { toast('Not enough gold'); sfx('deny'); return; } sfx('reroll'); ui.deal = true; save(); render(); ui.deal = false; },
+    sound: () => { if (!B.Sfx) return; B.Sfx.toggle(); for (const b of document.querySelectorAll('.sndbtn')) { b.textContent = B.Sfx.on ? '🔊' : '🔇'; b.setAttribute('aria-label', 'Sound ' + (B.Sfx.on ? 'on' : 'off')); } },
+    'form-info': t => toast(t),
     leave: () => { Run.leave(run); save(); render(); window.scrollTo(0, 0); },
     event: i => {
       const ch = Run.eventChoices(run)[+i]; if (!ch) return;
@@ -1190,10 +1281,15 @@
   B.Art.boot();
   function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = worldFor(true); drawPreview(); } }
 
+  // v42: every tap has a sound; these actions have their own (null = the action plays it, it depends on the outcome)
+  const ACT_SFX = { buy: null, reroll: null, sound: null, fight: 'go', 'start-go': 'go', 'to-duel': 'go', choose: 'pick', 'start-pick': 'pick', 'start-relic': 'pick',
+    spec: 'unlock', event: 'pick', 'event-target': 'pick', equip: 'pick', bag: 'pick', unequip: 'back', close: 'back', 'event-back': 'back', sell: 'coin', 'result-ok': 'pick' };
   document.addEventListener('click', e => {
     if (e.target.closest('#notice')) return;
     const el = e.target.closest('[data-act]'); if (!el || el.disabled) return;
-    e.preventDefault(); const f = ACT[el.dataset.act]; if (f) f(el.dataset.arg, el);
+    e.preventDefault(); const act = el.dataset.act, f = ACT[act];
+    const snd = act in ACT_SFX ? ACT_SFX[act] : 'tap'; if (snd) sfx(snd);
+    if (f) f(el.dataset.arg, el);
   });
   $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') ACT.close(); });
   document.addEventListener('input', e => { if (e.target.id === 'sugName') store.set('balance.name', e.target.value.trim()); });
@@ -1246,5 +1342,5 @@
   render();
   bootNotice();
   // test hook (headless Chrome tests drive the game through this)
-  window.__bal = { get run() { return run; }, get battle() { return battle; }, get acct() { return acct; }, loadAcct, ACT, render, skipBattle, poll, fmt, scaleParts, hexScreen: (c, r) => { const b = view.canvas.getBoundingClientRect(), p = Render.hexScreen(view, c, r); return { x: b.left + p.x, y: b.top + p.y }; } };
+  window.__bal = { get run() { return run; }, get battle() { return battle; }, get acct() { return acct; }, get result() { return ui.result; }, loadAcct, ACT, render, skipBattle, poll, fmt, scaleParts, hexScreen: (c, r) => { const b = view.canvas.getBoundingClientRect(), p = Render.hexScreen(view, c, r); return { x: b.left + p.x, y: b.top + p.y }; } };
 })();

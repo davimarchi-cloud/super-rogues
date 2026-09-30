@@ -58,11 +58,16 @@ for (const d of SIZES) {
     await ev(`(() => { __bal.run.cur.map = 'pond'; __bal.render(); })()`); await sleep(300); await shot('04b-deploy-pond');
     await ev(`(() => { __bal.run.cur.map = 'ridge'; __bal.render(); })()`); await sleep(300);
     await ev(`document.querySelector('[data-act=fight]').click()`); await sleep(2600); await shot('05-battle');
-    await ev(`__bal.skipBattle()`); await sleep(1800); await shot('06-result');
+    // review #51: the end of the fight in slow motion under VICTORY (the sim runs to the end without skipping the ending)
+    await ev(`(() => { const W = __bal.battle.W; let n = 0; while (!W.over && n++ < 20 * 150) B.Sim.step(W); })()`); await sleep(650); await shot('05b-victory');
+    for (let k = 0; k < 30 && !(await ev(`!!document.querySelector('[data-act=result-ok]')`)); k++) await sleep(100);
+    await sleep(3200); await shot('06-result');
   }
   await ev(`__bal.ACT['result-ok']()`); await sleep(150);
   await ev(`(() => { const r = __bal.run; r.pending = []; r.phase = 'map'; r.cur = null; r.gold = 40; r.opts = [{ type: 'shop', kind: 'itemShop' }]; B.Run.choose(r, 0); __bal.render(); })()`);
   await shot('07-shop');
+  // review #51: a bought card gets its SOLD stamp and flies into the Team button
+  await ev(`document.querySelector('.card.stock [data-act=buy]').click()`); await sleep(260); await shot('07b-bought');
   await ev(`(() => { const r = __bal.run; r.phase = 'map'; r.cur = null; r.opts = [{ type: 'event', id: 'smith' }]; r.bag.push('cap'); B.Run.choose(r, 0); __bal.render(); })()`);
   await shot('08-event');
   await ev(`__bal.ACT.team()`); await sleep(300); await shot('09-team'); await ev(`__bal.ACT.close()`);

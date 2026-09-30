@@ -33,6 +33,8 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `js/icons.js` | ícones de itens e relíquias desenhados em código (~60 desenhos; cada item/relíquia mapeado em `IT`/`RE`), moldura na cor da raridade (lendário com brilho, mítico com moldura dupla), `B.Icons.slot(tipo)` = espaço vazio, cache em data: URL |
 | `js/art.js` | arte em IMAGEM (v31, Art Lab): splash (recorte busto/banner por foco x/y + zoom) e 4 poses de batalha (parado/andando/ataque/habilidade; o movimento entre elas é feito em código). `OFFICIAL` lista a arte publicada em `art/<herói>/`; o teste do Art Lab fica só no aparelho (`localStorage balance.artlab`). Sem arte = modelo desenhado. `cutSheet` recorta a folha de poses (fundo = cor mais comum na borda) |
 | `js/artlab.js` | tela do Art Lab (botão no fim do menu inicial e link na caixa de sugestões): escolher herói, subir splash e folha de poses, ver nas cartas e numa luta de teste, "Use in my game" (só o aparelho) e **Send for review** (vai junto com um lote normal) |
+| `js/sfx.js` | v42: sons do jogo sintetizados com Web Audio (sem arquivo de áudio, CSP igual): `B.Sfx.play('coin')`; liga/desliga (🔊 no topo do menu e da batalha, guardado em `balance.sound`); sons repetidos (golpe, cura, contagem) têm intervalo mínimo |
+| `js/juice.js` | v42: efeitos de recompensa em DOM numa camada fixa `#fx`: confete, moedas voando até o ouro do topo, número contando, "bump", "+6" subindo, cópia voando (item comprado → Team). Sem animação se o sistema pedir menos movimento |
 | `js/render.js` | canvas 2.5D: tabuleiro achatado (K=0.6) com espessura, unidades pelos modelos, barras, efeitos. Interpola posição entre hexes |
 | `js/ui.js` | telas DOM + loop da batalha. Sem handler inline (CSP): todo botão tem `data-act` |
 | `js/net.js` | cliente JSON de `/api` |
@@ -124,6 +126,24 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v42 (2026-09-30), lote 39 do David (#51: "ainda parece jogo amador de gente pobre; precisa de mais dopamina; UI mais
+  profissional; cortar texto inútil").** Camada v42 no fim do style.css: fundo mais fundo (luz de cima, vinheta, padrão
+  de hexágonos quase invisível), cartões com borda de luz em cima, títulos com contorno de logo, barra do topo escura;
+  tela só anima quando MUDA (antes a loja inteira pulava a cada compra; `ui.lastKey`/`screenKey()`), cartões entram um a
+  um; brilho periódico no botão principal. Tabuleiro com céu pintado (nuvens, sol, 3 camadas de morro; `backdrop()` no
+  render.js, em cache por tamanho). Dopamina: sons (js/sfx.js), fim da luta em câmera lenta com VICTORY!/DEFEAT e
+  confete no tabuleiro (`drawEnd`; a morte usa T, não W.t, para seguir tocando), "Double KO!"/"Triple KO!" (2+ abates
+  do mesmo herói em 3 s), resultado com 1-3 estrelas (vitória; ninguém caiu; e 60% da vida do time) e sequência
+  `celebrate()` (confete, estrelas, ouro contando e voando para o topo, XP enchendo, "Level up!" e carimbo MVP; o ouro
+  do topo espera as moedas: `ui.goldHold`), loja com preço só na moeda, carimbo SOLD e item voando para o Team, itens
+  épicos+ brilhando, reroll embaralha as cartas, ouro do topo conta e mostra "+6"/"−3", tela de nível com confete,
+  medalhão com ícone próprio por evento, fim de run como placar. Texto cortado: parágrafo do título, dica da tela de
+  início (virou "🔒 18 more unlock"), "Day N ·" do mapa, "no items", dica de arrastar (só nas 3 primeiras lutas:
+  `balance.tips.deploy`), relíquias de formação viraram chips (tocar = detalhe), "Attacks from range"/"Fights up close"
+  (virou ➶), nota da loja de itens, "(you choose)" (virou ›), "damage/taken/kills" (ícones), inimigos no resultado da
+  vitória, dicas da tela de time. Troféu saiu do topo do menu (o Ladder está logo abaixo) para caber 🔊 no celular;
+  topo do celular com o Elo cabe (chip só com o escudo abaixo de 440 px). Vitrine ganhou 05b-victory e 07b-bought.
 
 - **v41 (2026-09-30), lote 38 do David.** (#49) Revisão das 36 habilidades e das 288 especializações contra o código
   (`tools/audit-abilities.js`: todo valor `ab` é lido pela habilidade ou por um ajudante e aparece no texto; toda chave de
