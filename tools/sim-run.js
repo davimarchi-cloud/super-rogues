@@ -54,14 +54,14 @@ for (let n = 0; n < RUNS; n++) {
         const k = open[Math.floor(Run.rnd(run) * open.length)], ts = chs[k].target ? Run.eventTargets(run, chs[k]) : null;
         Run.eventAct(run, k, ts ? ts[Math.floor(Run.rnd(run) * ts.length)].arg : undefined);
       }
-      Run.leave(run);
+      if (run.phase === 'event') Run.leave(run);   // v44: a challenge from the event goes to 'deploy' and is fought next
     } else if (run.phase === 'deploy') {
       equipAll(run);
       {
         const f = run.cur, W = playFight(run, Run.fightWorld(run));
-        const key = f.fightNo + (f.diff === 'boss' ? 'B' : f.diff[0]);
+        const key = f.challenge ? 'ch-' + f.challenge.kind : f.fightNo + (f.diff === 'boss' ? 'B' : f.diff[0]);
         stats.fights[key] = stats.fights[key] || [0, 0]; stats.fights[key][1]++; if (W.winner === 0) stats.fights[key][0]++;
-        if (f.diff === 'boss') { stats.boss[f.fightNo][1]++; if (W.winner === 0) stats.boss[f.fightNo][0]++; }
+        if (f.diff === 'boss' && !f.challenge) { stats.boss[f.fightNo][1]++; if (W.winner === 0) stats.boss[f.fightNo][0]++; }
         stats.fightSecs.push(W.t / 20);
         Run.finishFight(run, W);
       }

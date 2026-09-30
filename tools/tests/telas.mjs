@@ -182,7 +182,7 @@ if (!REMOTE) {
   await click('[data-act=new-run]'); await sleep(150);
   await click('[data-act=start-pick]'); await click('[data-act=start-relic]'); await click('[data-act=start-go]'); await sleep(150);
   await ev(`(() => { const r = __bal.run; r.gold = 30; r.bag.push('cap', 'bloodthirster'); r.phase = 'map'; r.opts = [{ type: 'event', id: 'smith' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(150);
-  ok(await ev(`document.querySelectorAll('[data-act=event]').length === 3 && !document.querySelector('[data-act=event][data-arg="2"]').disabled && !!document.querySelector('[data-act=event][data-arg="2"] .price')`), 'event: 3 choices, the priced one is available');
+  ok(await ev(`document.querySelectorAll('[data-act=event]').length === 4 && !document.querySelector('[data-act=event][data-arg="2"]').disabled && !!document.querySelector('[data-act=event][data-arg="2"] .price') && !!document.querySelector('[data-act=event][data-arg="3"] .etag.ereq')`), 'event: 4 choices (one needs a melee hero, tagged), the priced one is available');
   await shot('09-event'); await noHScroll('event'); await noVScroll('event');
   await click('[data-act=event][data-arg="2"]'); await sleep(120);
   ok(await ev(`document.querySelectorAll('[data-act=event-target]').length === 2 && /Choose an item/.test(document.querySelector('#screen').textContent)`), 'event: Reforge asks which item (the 2 in the bag)');
@@ -197,6 +197,18 @@ if (!REMOTE) {
   await click('[data-act=event][data-arg="0"]'); await sleep(100); await click('[data-act=leave]'); await sleep(150);
   ok(await ev(`/Next fight/.test((document.querySelector('.nextmod') || {}).textContent || '') && /legendary/.test(document.querySelector('.nextmod').textContent)`), 'the Arena challenge shows on the map as the next-fight modifier');
   await shot('09d-nextmod'); await noVScroll('map with a next-fight modifier');
+  // review #54: a challenge from an event: the Bounty Board's elite pack is fought right away; win or lose, the run goes on
+  await ev(`(() => { const r = __bal.run; r.cur = null; r.phase = 'map'; r.fightNo = 3; r.nextMod = null; r.opts = [{ type: 'event', id: 'bounty' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(150);
+  ok(await ev(`!!document.querySelector('.evch.isfight .etag.efight') && !!document.querySelector('.evch .etag.erisk')`), 'Bounty Board: the challenges are tagged (fight now, the risk)');
+  await shot('09f-challenge-event'); await noHScroll('challenge event');
+  await click('[data-act=event][data-arg="0"]'); await sleep(200);
+  ok(await ev(`__bal.run.phase === 'deploy' && /Elite Pack/.test(document.querySelector('.bhead').textContent) && /run goes on/.test(document.querySelector('.nextmod.chal').textContent)`), 'the challenge opens its deploy screen: its name, what it pays, and that losing does not end the run');
+  await shot('09g-challenge-deploy');
+  await click('[data-act=fight]'); await sleep(300); await ev(`__bal.skipBattle()`);
+  for (let k = 0; k < 40 && !(await ev(`!!document.querySelector('[data-act=result-ok]')`)); k++) await sleep(100);
+  ok(await ev(`/Challenge · Elite Pack/.test(document.querySelector('.rwhat').textContent) && (document.querySelector('.rhead.win') ? true : /run goes on/.test(document.querySelector('#screen').textContent))`), 'the challenge result names it (a loss says the run goes on)');
+  await click('[data-act=result-ok]'); await sleep(150);
+  ok(await ev(`__bal.run.phase !== 'over'`), 'after the challenge the run goes on');
   // review #18: the level-up screen (splash, gains, the 2 choices, the whole specialization path)
   await ev(`(() => { const r = __bal.run, h = r.heroes[0]; h.lvl = 3; h.specs = [B.HEROES[h.key].specs[0][1].id]; r.pending = [{ uid: h.uid, lvl: 3 }]; __bal.render(); })()`); await sleep(150);
   ok(await ev(`!!document.querySelector('.lufull') && document.querySelectorAll('.sp-row').length === 4 && !!document.querySelector('.sp-row.done .sp-n.on') && document.querySelectorAll('[data-act=spec]').length === 2`), 'level up: splash, 2 choices and the 4-step specialization path (the earlier pick marked)');

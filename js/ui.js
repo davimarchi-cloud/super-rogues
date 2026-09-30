@@ -192,9 +192,9 @@
   const NODE_ICON = { F: '⚔️', X: '❓', B: '👹', S: '🛒', G: '🏆' };  // v29: friendlier icons
   const SHOP_NAME = { heroShop: 'Hero Shop', itemShop: 'Item Shop', relicShop: 'Relic Shop' };
   const SHOP_DESC = { heroShop: 'Recruit new heroes.', itemShop: 'Buy items to equip.', relicShop: 'Team-wide relics.' };
-  // v42 (review #51): each event has its own picture (map card and a big medallion on the event screen)
-  const EVENT_ICON = { training: '🎯', merchant: '🧳', altar: '🗿', fountain: '⛲', mercs: '🪖', smith: '⚒️', library: '📜', caravan: '🐪', shrine: '🕯️', hut: '🌿', recruit: '🛡️', arena: '🏟️', armory: '🗡️', collector: '💎' };
-  const evIcon = id => EVENT_ICON[id] || '❓';
+  // v42 (review #51): each event has its own picture (map card and a big medallion on the event screen; icon in data.js)
+  const evIcon = id => (EVENT[id] && EVENT[id].icon) || '❓';
+  const EV_RAR = { uncommon: 'Uncommon', rare: '★ Rare event' };
 
   // ------------------------------------------------------------------ header
   function header() {
@@ -255,7 +255,7 @@
   function onEnter(key) {
     if (!B.Juice) return;
     if (key.startsWith('level:')) { sfx('levelup'); const el = $('.lufull'); if (el) setTimeout(() => B.Juice.confettiAt(el, 50), 150); }
-    else if (key.startsWith('event:') && key.endsWith('done')) sfx('unlock');
+    else if (key.startsWith('event:') && key.endsWith('done')) { const g = $('.gains'); if (g) { sfx('unlock'); B.Juice.confettiAt(g, 40); } else sfx('back'); }
   }
 
   function titleHTML() {
@@ -329,7 +329,7 @@
       return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔️⚔️' : o.diff === 'medium' ? '🗡️' : '⚔️', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>${mp}`, '+' + o.gold + ' gold' + (o.enemies.some(e => e.elite) ? ' · ★ elite' : ''));
     }
     if (o.type === 'shop') return bannerHTML(i, 'shop', o.kind === 'heroShop' ? '🦸' : o.kind === 'itemShop' ? '🛡️' : '💎', SHOP_NAME[o.kind] + (o.final ? ' (last)' : ''), `<span class="small">${SHOP_DESC[o.kind]}</span>`);
-    if (o.type === 'event') return bannerHTML(i, 'event', evIcon(o.id), esc(EVENT[o.id].name), `<span class="small">${esc(EVENT[o.id].text)}</span>`);
+    if (o.type === 'event') { const e = EVENT[o.id]; return bannerHTML(i, 'event' + (e.rar === 'rare' ? ' b-rare' : ''), evIcon(o.id), esc(e.name), `<span class="small">${esc(e.text)}</span>`, EV_RAR[e.rar] || ''); }
     return '';
   }
   // review #17: what an event did to the next fight, in words
@@ -404,8 +404,9 @@
     const f = run.cur;
     const map = Run.mapOf(run);
     return `<section class="deploy">
-      <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy${map ? ` <span class="mapchip" title="${esc(map.desc)}">🗺 ${esc(map.name)}</span>` : ''}</div>
-      ${!gau && f.mod ? `<p class="hint tight"><span class="nextmod">⚑ ${fmt(modText(f.mod))}</span></p>` : (store.get('balance.tips.deploy', 0) | 0) < 3 ? '<p class="hint tight tip">Drag your heroes: tanks in front, ranged behind.</p>' : ''}
+      <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.challenge ? `🏆 ${esc(f.challenge.name)}` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy${map ? ` <span class="mapchip" title="${esc(map.desc)}">🗺 ${esc(map.name)}</span>` : ''}</div>
+      ${!gau && f.challenge ? `<p class="hint tight"><span class="nextmod chal">${f.challenge.intro ? esc(f.challenge.intro) + ' ' : ''}${f.solo ? `Only ${esc(HEROES[f.challenge.hero].name)} fights. ` : ''}<b>Win:</b> ${esc(winText(f.challenge.win))}. <b>Lose:</b> your run goes on.</span></p>`
+        : !gau && f.mod ? `<p class="hint tight"><span class="nextmod">⚑ ${fmt(modText(f.mod))}</span></p>` : (store.get('balance.tips.deploy', 0) | 0) < 3 ? '<p class="hint tight tip">Drag your heroes: tanks in front, ranged behind.</p>' : ''}
       ${run.relics.some(id => RELIC[id] && RELIC[id].form) ? `<p class="formline" id="formline">${formHTML(worldFor(true))}</p>` : ''}
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
@@ -413,6 +414,16 @@
       <div class="bar sticky"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${gau ? 'Duel!' : 'Fight!'}</button></div>
       <div class="dparty">${partyHTML()}</div>
     </section>`;
+  }
+  // v44: what a challenge pays
+  function winText(w) {
+    const out = [];
+    if (w.gold) out.push('+' + w.gold + ' gold');
+    if (w.item) out.push((/^[aeiou]/.test(w.item) ? 'an ' : 'a ') + w.item + ' item');
+    if (w.relic) out.push('a relic');
+    if (w.boost) out.push('+' + Math.round((w.boost.hpPct || 0) * 100) + '% HP and attack for good');
+    if (w.xp) out.push('+' + w.xp + ' XP');
+    return out.join(', ');
   }
   // review #40 (David): who gets what from the formation relics, from where the heroes stand right now
   // v42 (review #51, "cut needless text"): one chip per formation relic with how many heroes it reaches; the chip's
@@ -498,6 +509,10 @@
     const starRow = r.win ? `<div class="rstars" aria-label="${stars} of 3 stars">${[0, 1, 2].map(i => `<i class="st ${i < (fx.stars || 0) ? 'lit' : ''} ${i < stars ? 'earn' : ''}">★</i>`).join('')}${stars === 3 ? `<b class="flawless ${fx.stars >= 3 ? 'on' : ''}">Flawless!</b>` : ''}</div>` : '';
     const chips = [];
     if (r.win && !r.gauntlet) chips.push(`<span class="rw rw-gold"><i class="coin"></i><b>+${fx.gold ? r.gold : 0}</b><em>gold</em></span>`);
+    if (r.relic && RELIC[r.relic]) chips.push(`<span class="rw rw-prize" style="--tier:#ffd23f">${ico('relic', r.relic, 26)}<b>${esc(RELIC[r.relic].name)}</b><em>relic</em></span>`);
+    if (r.bank) chips.push(`<span class="rw ${r.bank > 0 ? 'rw-pos' : 'rw-neg'}"><i>🏦</i><b>${r.bank > 0 ? '+' : ''}${r.bank}</b><em>${r.bank > 0 ? 'investment' : 'loan paid'}</em></span>`);
+    if (r.boost) chips.push(`<span class="rw rw-up">${img(r.boost.key, 22, 'por sm')}<b>${esc(r.boost.text)}</b><em>for good</em></span>`);
+    if (r.bonusXp) chips.push(`<span class="rw rw-xp"><i>🏆</i><b>+${r.bonusXp}</b><em>bonus XP</em></span>`);
     if (r.prize) chips.push(`<span class="rw rw-prize" style="--tier:${TIER_COLOR[ITEM[r.prize].tier]}">${ico('item', r.prize, 26)}<b>${esc(ITEM[r.prize].name)}</b><em>${B.RARITY[ITEM[r.prize].tier].name} ${B.TYPE[ITEM[r.prize].type].name.toLowerCase()}</em></span>`);
     const xp = hs.reduce((a, o) => a + o.x.gained, 0), ups = hs.filter(o => o.x.to > o.x.from).length;
     if (!r.gauntlet && xp) chips.push(`<span class="rw rw-xp"><i>✨</i><b>+${xp}</b><em>XP</em></span>`);
@@ -518,7 +533,7 @@
     const foes = r.foes && r.foes.length && !r.win ? `<div class="rfoes">${r.foes.map(f => `<span class="rf ${f.dead ? 'dead' : ''} ${f.boss ? 'boss' : ''} ${f.elite ? 'elite' : ''}">${img(f.key, f.boss ? 30 : 24, 'por')}</span>`).join('')}</div>` : '';
     const bl = r.boss && r.bossElo && hasPerk('elo') ? `<p class="small dim ghostline">👹 ${esc(r.bossElo.name)}'s Elo: <b>${r.bossElo.elo}</b> (${r.bossElo.delta >= 0 ? '+' : ''}${r.bossElo.delta})</p>` : '';
     const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${plink(r.ghost.name, r.opp.code)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})</p>` : '';
-    const lostRun = !r.win && !r.gauntlet ? '<p class="small dim center">Your run is over.</p>' : '';
+    const lostRun = !r.win && !r.gauntlet ? `<p class="small dim center">${r.challenge ? 'The challenge beat you. No reward, but your run goes on.' : 'Your run is over.'}</p>` : '';
     return `<section class="result v2"><div class="rhead ${r.win ? 'win' : 'lose'}"><span class="rays"></span><h2 class="sc headline ${r.win ? 'win' : 'lose'}">${r.win ? 'Victory' : 'Defeat'}</h2>
         ${starRow}<p class="rwhat">${what}</p><p class="rmeta">${meta}</p></div>
       ${eloLine(r)}${chips.length ? `<div class="rewards2">${chips.join('')}</div>` : ''}${promo}${lostRun}
@@ -638,11 +653,26 @@
       <div class="grid ${ui.deal ? 'deal' : ''}">${c.stock.map(stockCard).join('') || '<p>Nothing left to sell.</p>'}</div>
       <div class="bar sticky"><button data-act="reroll" class="reroll" ${run.gold < rc ? 'disabled' : ''} aria-label="Reroll for ${rc} gold">↻ <span class="price">${rc}</span></button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
   }
+  // v44: what an event gave, as pictures (items, relics, a hero joining, gold, XP, boosts)
+  function gainsHTML(G) {
+    if (!G || !G.length) return '';
+    const one = g => {
+      if (g.kind === 'item') { const it = ITEM[g.v]; return it ? `<div class="gain" style="--tier:${TIER_COLOR[it.tier]}">${ico('item', g.v, 56)}<b style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</b><span>${B.RARITY[it.tier].name} ${B.TYPE[it.type].name.toLowerCase()}</span></div>` : ''; }
+      if (g.kind === 'relic') { const r = RELIC[g.v]; return r ? `<div class="gain" style="--tier:#ffd23f">${ico('relic', g.v, 56)}<b class="relic">${esc(r.name)}</b><span>relic</span></div>` : ''; }
+      if (g.kind === 'hero') return `<div class="gain" style="--tier:${HEROES[g.v].color}">${img(g.v, 56, 'por')}<b>${esc(HEROES[g.v].name)}</b><span>joins the team</span></div>`;
+      if (g.kind === 'gold') return `<div class="gain gg"><i class="bigcoin"></i><b>+${g.v}</b><span>gold</span></div>`;
+      if (g.kind === 'bank') return `<div class="gain gg"><i class="gicon">🏦</i><b>+${g.v}</b><span>after your next win</span></div>`;
+      if (g.kind === 'xp') return `<div class="gain gx">${g.t ? img(g.t, 56, 'por') : '<i class="gicon">✨</i>'}<b>+${g.v} XP</b><span>${g.t ? esc(HEROES[g.t].name) : 'every hero'}</span></div>`;
+      if (g.kind === 'level') return '<div class="gain gx"><i class="gicon">▲</i><b>Level up!</b><span>every hero</span></div>';
+      return `<div class="gain gb">${g.t ? img(g.t, 56, 'por') : '<i class="gicon">💪</i>'}<b>${esc(g.v)}</b><span>${g.t ? esc(HEROES[g.t].name) : 'every hero'}</span></div>`;
+    };
+    return `<div class="gains">${G.map(one).join('')}</div>`;
+  }
   // review #17: 3 choices with a visible price or risk; some ask you to pick the hero, item or item type they apply to
   function eventHTML() {
     const e = EVENT[run.cur.id], chs = Run.eventChoices(run);
-    const head = `<section class="event">${trackHTML()}<div class="evmed">${evIcon(e.id)}</div><h2>${esc(e.name)}</h2><p>${esc(e.text)}</p>`;
-    if (run.cur.done) return head + `<div class="card result">${fmt(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div></section>`;
+    const head = `<section class="event ev-${e.rar || 'common'}">${trackHTML()}<div class="evmed">${evIcon(e.id)}</div>${EV_RAR[e.rar] ? `<p class="center"><span class="evrar">${EV_RAR[e.rar]}</span></p>` : ''}<h2>${esc(e.name)}</h2><p>${esc(e.text)}</p>`;
+    if (run.cur.done) return head + `${gainsHTML(run.cur.gains)}<div class="card result">${fmt(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div></section>`;
     const pickCh = run.cur.pick != null ? chs[run.cur.pick] : null;
     if (pickCh) {
       const ts = Run.eventTargets(run, pickCh);
@@ -655,9 +685,15 @@
         <div class="bar"><button data-act="event-back">Back</button></div></section>`;
     }
     return head + `<div class="stack evchoices">${chs.map((ch, i) => {
-      const c = Run.canChoose(run, ch), pic = ch.hero ? img(ch.hero, 40) : ch.item ? ico('item', ch.item, 40) : '';
+      const c = Run.canChoose(run, ch), pic = ch.hero ? img(ch.hero, 40) : ch.item ? ico('item', ch.item, 40) : ch.relic ? ico('relic', ch.relic, 40) : '';
       const tag = ch.item ? `<span class="itag" style="color:${TIER_COLOR[ITEM[ch.item].tier]}">${B.RARITY[ITEM[ch.item].tier].name} ${B.TYPE[ITEM[ch.item].type].name.toLowerCase()}</span>` : '';
-      return `<button class="evch ${pic ? 'haspic' : ''}" data-act="event" data-arg="${i}" ${c.ok ? '' : 'disabled'}>${pic}<span class="t">${tag}${fmt(ch.label)}${c.ok ? '' : `<span class="why">${esc(c.why)}</span>`}</span>${ch.cost ? `<span class="price">${ch.cost}</span>` : ''}${ch.target ? '<i class="chev" title="You choose">›</i>' : ''}</button>`;
+      // v44 (review #54): a challenge, a choice only some heroes unlock (FTL's blue options), a risk
+      const tags = [], rq = ch.req && B.EVENT_REQ[ch.req], who = rq ? Run.reqHeroes(run, ch.req) : [];
+      if (ch.fight) tags.push('<span class="etag efight">⚔ Challenge · fight now</span>');
+      if (rq) tags.push(who.length ? `<span class="etag ereq">${img(who[0].key, 18, 'por xs')}${esc(HEROES[who[0].key].name)} unlocks this</span>` : `<span class="etag ereq no">🔒 Needs ${esc(rq.name)}</span>`);
+      if (ch.risk) tags.push(`<span class="etag erisk">⚠ ${esc(ch.risk)}</span>`);
+      const cls = ['evch', pic ? 'haspic' : '', ch.fight ? 'isfight' : '', rq ? (who.length ? 'isreq' : 'isreq locked') : ''].filter(Boolean).join(' ');
+      return `<button class="${cls}" data-act="event" data-arg="${i}" ${c.ok ? '' : 'disabled'}>${pic}<span class="t">${tags.length ? `<span class="etags">${tags.join('')}</span>` : ''}${tag}${fmt(ch.label)}${c.ok || c.req ? '' : `<span class="why">${esc(c.why)}</span>`}</span>${ch.cost ? `<span class="price">${ch.cost}</span>` : ''}${ch.target ? '<i class="chev" title="You choose">›</i>' : ''}</button>`;
     }).join('')}</div></section>`;
   }
   function overHTML() {
@@ -778,7 +814,7 @@
     const hud = $('#bhud');
     if (hud) {
       const secs = Math.floor(b.W.t / Sim.TPS);
-      const title = b.gau ? `⚔ Floor ${run.g.round + 1} · ${esc(run.g.opp.name)}` : run.cur.diff === 'boss' ? '👹 Boss' : '⚔ ' + B.DIFF[run.cur.diff].name;
+      const title = b.gau ? `⚔ Floor ${run.g.round + 1} · ${esc(run.g.opp.name)}` : run.cur.challenge ? '🏆 ' + esc(run.cur.challenge.name) : run.cur.diff === 'boss' ? '👹 Boss' : '⚔ ' + B.DIFF[run.cur.diff].name;
       const toSd = CFG.suddenDeath - secs, clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
       const str = `<b>${title}</b><span class="clock ${toSd <= 0 ? 'sd' : toSd <= 10 ? 'warn' : ''}">⏱ ${clock}${toSd <= 0 ? ' · SUDDEN DEATH' : toSd <= 10 ? ' · sudden death in ' + toSd + 's' : ''}</span>`;
       if (str !== b.hudStr) { hud.innerHTML = str; b.hudStr = str; }
@@ -810,10 +846,10 @@
       catch (e) { Object.assign(ui.result, { pending: false, error: e.message }); }
       save(); render(); return;
     }
-    const bossKey = run.cur && run.cur.diff === 'boss' ? (run.cur.enemies.find(e => B.BOSSES[e.key]) || {}).key : null;
-    const fightName = run.cur && run.cur.diff && B.DIFF[run.cur.diff] ? `${B.DIFF[run.cur.diff].name} fight · #${run.cur.fightNo}` : 'Fight';
+    const bossKey = run.cur && run.cur.diff === 'boss' && !run.cur.challenge ? (run.cur.enemies.find(e => B.BOSSES[e.key]) || {}).key : null;
+    const fightName = run.cur && run.cur.challenge ? 'Challenge · ' + run.cur.challenge.name : run.cur && run.cur.diff && B.DIFF[run.cur.diff] ? `${B.DIFF[run.cur.diff].name} fight · #${run.cur.fightNo}` : 'Fight';
     ui.result = Object.assign(Run.finishFight(run, W), extra, { fightName, bossName: bossKey ? B.BOSSES[bossKey].name : null }); screen = 'result';
-    if (ui.result.win && ui.result.gold) ui.goldHold = run.gold - ui.result.gold;   // the top bar waits for the coins to fly in
+    if (ui.result.win && (ui.result.gold || ui.result.bank)) ui.goldHold = run.gold - (ui.result.gold || 0) - (ui.result.bank || 0);   // the top bar waits for the coins to fly in
     if (bossKey) {  // review #20: the boss's own Elo (never the player's); v27: shown with the Content Elo unlock
       const res = ui.result;
       Net.post('elo', { op: 'boss', pid: pid(), ref: refCode(), boss: bossKey, win: res.win }).then(r => { setAcct(r); if (r.boss) { res.bossElo = r.boss; if (ui.result === res && screen === 'result') render(); } }).catch(() => {});
@@ -1120,6 +1156,7 @@
     <ol class="small howto">
       <li>Start with 1 hero and 1 relic (3 of each offered). Each hero has a unique ability that fires when its blue mana bar is full. Recruit up to 3 heroes in the Hero Shop.</li>
       <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 4 and 8 are bosses.</li>
+      <li>❓ Events: trades, bets, relics and items to pick, and <b>challenges</b> (optional fights that start right away: win for a big reward; lose and only that reward is gone, the run goes on). Some choices only open with the right hero in your team. Rewards grow as the run goes on; rare events pay the most.</li>
       <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
       <li>⚑ Formation relics reward where you place your heroes (next to each other, alone, in the front or back row, in one line, next to terrain). While deploying, the line above the board shows who gets what.</li>
       <li>🗺 Every fight after the first is on a map with terrain: 🌳 trees, 🪨 boulders, ⛰️ ridges and 💧 ponds block the way (nobody can stand on them or walk through; arrows and spells fly over). Units pushed into a tree, boulder or ridge are slammed and stunned. Bosses fight at the Standing Stones.</li>

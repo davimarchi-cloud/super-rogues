@@ -1626,3 +1626,39 @@ section.enter .overstats div { animation: dealin .46s cubic-bezier(.2, .9, .3, 1
   #top .gold, #top .prog, #top .lgchip, #top .crownchip, #top button { padding: 0 11px; }
   #top .lgchip span { display: none; } #top .lgchip { padding: 0 8px; }
 }
+
+/* v44 (review #54, David: "redesign the events"): tags on the choices, challenge and "blue option" cards, rare events in
+   gold, and what an event gave as pictures */
+.etags { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 4px; }
+.etag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; font-family: var(--fun); font-weight: 600; font-size: 11.5px;
+  letter-spacing: .2px; line-height: 18px; text-shadow: none; white-space: nowrap; }
+.etag .por.xs { width: 16px; height: 16px; border-radius: 5px; box-shadow: 0 0 0 1.5px #fff; }
+.etag.efight { background: #ff7a3d; color: #fff; box-shadow: 0 2px 0 #b24a1a; }
+.etag.ereq { background: #5ff0e0; color: #07404a; box-shadow: 0 2px 0 #1d9c90; }
+.etag.ereq.no { background: #ffffff2e; color: #fff; box-shadow: none; }
+.etag.erisk { background: #0e14587a; color: #ffd0d6; border: 1px solid #ff8a9a88; }
+.evch.isfight { background: linear-gradient(180deg, #ff9a6a, #e8553a); box-shadow: 0 4px 0 #a8341c, 0 9px 20px #0d114655; }
+.evch.isreq { background: linear-gradient(180deg, #3fd6c8, #1f9aa8); box-shadow: 0 4px 0 #136a74, 0 0 18px #5ff0e066, 0 9px 20px #0d114655; }
+.evch.isreq.locked { background: linear-gradient(180deg, #7a86c8, #5a64a8); box-shadow: 0 4px 0 #3a4288; }
+.evch:disabled { opacity: .62; }
+.evch .t { min-width: 0; }
+.evrar { display: inline-block; padding: 2px 12px; border-radius: 999px; font-family: var(--fun); font-weight: 700; font-size: 13px; background: #ffffff26; color: #fff; }
+.ev-rare .evrar { background: linear-gradient(180deg, #ffe46b, #ffc21a); color: #5a3000; box-shadow: 0 3px 0 #c47f00, 0 0 20px #ffd23f88; }
+.ev-rare .evmed { background: radial-gradient(circle at 38% 30%, #ffffff77, #ffffff00 60%), linear-gradient(180deg, #ffe46b, #f5a300); box-shadow: 0 0 0 4px #fff, 0 6px 0 #b27200, 0 0 50px #ffd23fbb, 0 16px 30px #050a4a88; }
+.ev-uncommon .evmed { background: radial-gradient(circle at 38% 30%, #ffffff55, #ffffff00 60%), linear-gradient(180deg, #8fb8ff, #5a6ff0); box-shadow: 0 0 0 4px #ffffffaa, 0 6px 0 #2e3aa8, 0 0 40px #8fb8ff77, 0 16px 30px #050a4a88; }
+section.event > p.center { margin: 6px 0 0; }
+.banner.b-rare { --c1: #ffe07a; --c2: #f0a800; --c3: #b27200; color: #4a2600; }
+.banner.b-rare .bt { text-shadow: 0 2px 0 #fff8; } .banner.b-rare .bd, .banner.b-rare .small { color: #4a2600; }
+.banner.b-rare { animation: rarecard 2.4s ease-in-out infinite alternate; }
+@keyframes rarecard { to { box-shadow: inset 0 0 0 2px #fff8, 0 6px 0 var(--c3), 0 0 40px #ffd23fcc, 0 16px 30px #050a4a77; } }
+.nextmod.chal { border-style: solid; border-color: #ffb08a; background: #ff7a3d33; }
+.gains { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 10px 0 4px; }
+.gain { display: grid; justify-items: center; gap: 3px; min-width: 110px; max-width: 170px; padding: 12px 10px 10px; border-radius: 18px; text-align: center;
+  background: var(--card); border: 2px solid color-mix(in srgb, var(--tier, #ffffff) 70%, transparent); box-shadow: 0 0 22px color-mix(in srgb, var(--tier, #ffd23f) 45%, transparent), var(--card-shadow); }
+section.enter .gain { animation: popin .6s cubic-bezier(.3, 1.7, .5, 1) backwards; } section.enter .gain + .gain { animation-delay: .12s; }
+.gain .ico, .gain .por { width: 56px; height: 56px; }
+.gain b { font-family: var(--fun); font-size: 15px; line-height: 1.15; } .gain span { font-size: 11.5px; color: var(--dim); }
+.gain .gicon { font-style: normal; font-size: 38px; line-height: 56px; height: 56px; }
+.gain .bigcoin { width: 48px; height: 48px; margin: 4px 0; border-radius: 50%; background: radial-gradient(circle at 35% 32%, #fff8d2, #ffd23f 45%, #c47f00); box-shadow: 0 0 0 2px #8a5a14, 0 0 22px #ffd23fcc; }
+.gain.gg { --tier: #ffd23f; } .gain.gg b { color: #ffe46b; font-size: 22px; } .gain.gx { --tier: #5fd0ff; } .gain.gx b { color: #bfe9ff; } .gain.gb { --tier: #7dffb0; } .gain.gb b { color: #b6ffd0; }
+section.event .card.result { text-align: center; }

@@ -45,7 +45,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `api/_store.js` | Neon em produção, memória no dev/teste. Tabelas `suggestions`, `kv`, `scores`, `players`, `teams`, `ratings`, `phero` |
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote; avisa "📎 arte"), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma`, `arte <lote>` (salva as imagens em `art-inbox/`, fora do git) |
-| `tools/sim-run.js`, `tools/boss-matrix.js`, `tools/tune-heroes.js`, `tools/audit-abilities.js` | robô joga runs inteiras / todos os times de 3 contra os 2 chefes / vitória contra chefe por herói e ajuste automático (v34) |
+| `tools/sim-run.js`, `tools/boss-matrix.js`, `tools/tune-heroes.js`, `tools/audit-abilities.js`, `tools/challenge-odds.js` | robô joga runs inteiras / todos os times de 3 contra os 2 chefes / vitória contra chefe por herói e ajuste automático (v34) |
 | `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `vitrine.mjs` (fotos de todas as telas no celular e em 3 PCs, v29), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
 
 ## Regras do jogo que vieram do briefing (ponto de partida: os jogadores podem mudar qualquer uma)
@@ -126,6 +126,22 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v44 (2026-09-30), lote 42 do David (#54: "refazer os eventos: pouco interessantes e raramente valem a pena; mais
+  variedade, recompensas, desafios; ver o que jogos parecidos fazem").** 23 eventos (antes 16), com raridade (comum 1,
+  incomum 0,7, raro 0,3; nenhum repete na run, `run.evSeen`; o Dragon's Hoard só depois da luta 2) e peso de evento no mapa
+  0,25 → 0,3. Inspirado em Slay the Spire/Darkest Dungeon (troca de verdade), Hades/Monster Train (**desafios**: luta
+  opcional que começa na hora, `act: 'fight'` → `Run.startChallenge`; perdeu = sem prêmio e a run SEGUE; não conta como
+  luta do dia; `f.challenge`, `f.solo` no duelo), TFT (ver as relíquias/itens reais e escolher: Cursed Altar, Merchant,
+  Fairy Ring), FTL ("blue options": `req` melee/ranged/caster/healer/lvl3 em `B.EVENT_REQ`, visível para todos, trancada
+  sem o herói). Recompensas crescem com a run: `{gN}`/`{xN}` × (1 + 15% por luta depois da 1ª). Novos: Strange Chest
+  (Mimic), Moneylender (investimento/empréstimo em `run.bank`, pago na próxima vitória), Bounty Board (bando de elite,
+  horda), Alchemist (transmutar 2 itens em 1 melhor, poções), Fairy Ring (todo herói +1 nível ou item lendário),
+  Dragon's Hoard (guardião chefe), Wandering Legend (herói grátis no Lv 2). Força dos desafios em `Run.CH`, calibrada
+  com `tools/challenge-odds.js` (depois das lutas 3/5/7: bandidos ~85%, mimic ~70%, horda ~65%, bando ~60%, duelo ~55%,
+  guardião ~60%). Tela: etiquetas (⚔ Challenge, herói que desbloqueia, ⚠ risco), cartão laranja para desafio e
+  turquesa para "blue option", evento raro dourado no mapa, e o resultado mostra o que ganhou em figuras
+  (`run.cur.gains`). O robô que prefere eventos passou de 17% para 32% no 1º chefe.
 
 - **v43 (2026-09-30), lote 41 do David (#53): ajuda escondida na liga Bronze.** Em luta PvE (não no Gauntlet nem na luta
   de teste do Art Lab), quem está na Bronze (`acct.league` 0, inclusive quem ainda não tem conta) recebe 80% do dano no

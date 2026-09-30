@@ -70,6 +70,10 @@ for (const d of SIZES) {
   await ev(`document.querySelector('.card.stock [data-act=buy]').click()`); await sleep(260); await shot('07b-bought');
   await ev(`(() => { const r = __bal.run; r.phase = 'map'; r.cur = null; r.opts = [{ type: 'event', id: 'smith' }]; r.bag.push('cap'); B.Run.choose(r, 0); __bal.render(); })()`);
   await shot('08-event');
+  // review #54: the new events: relics to pick with a price each, a rare event on the map, what an event gave
+  await ev(`(() => { const r = __bal.run; r.phase = 'map'; r.cur = null; r.fightNo = 3; r.opts = [{ type: 'event', id: 'altar' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(900); await shot('08b-event-altar');
+  await ev(`(() => { const r = __bal.run; r.phase = 'map'; r.cur = null; r.opts = [{ type: 'event', id: 'fairy' }, { type: 'event', id: 'bounty' }]; __bal.render(); })()`); await sleep(900); await shot('08c-map-rare-event');
+  await ev(`(() => { const r = __bal.run; B.Run.choose(r, 0); B.Run.eventAct(r, 1); __bal.render(); })()`); await sleep(1100); await shot('08d-event-gains');
   await ev(`__bal.ACT.team()`); await sleep(300); await shot('09-team'); await ev(`__bal.ACT.close()`);
   await ev(`__bal.ACT.shop()`); await sleep(500); await shot('10-crown-shop'); await ev(`__bal.ACT.close()`);
   await ev(`__bal.ACT.scores()`); await sleep(700); await shot('14-ladder'); await ev(`__bal.ACT.close()`);
