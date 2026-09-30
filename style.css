@@ -1754,3 +1754,32 @@ button.cta.again { animation: againpulse 1.6s ease-in-out 2.4s infinite; }
 .stack.againrow { display: flex; flex-direction: row; gap: 8px; } .stack.againrow > .again { flex: 1; } .stack.againrow > button:not(.again) { flex: 0 0 64px; font-size: 22px; }
 
 .lvcard .lvm small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lvcard .lvm small b { font: inherit; color: #ffe46b; }
+
+/* v47 (review #58, David: "make every decision understandable in under 2 seconds ... reduce reading ... hide complexity
+   behind taps"): the journey behind the Day chip, formation relics as icons, result numbers behind Details, event
+   choices as a bold name + what it does, the level-up path folded, the team sheet without stat tables */
+#top button.prog { cursor: pointer; }
+.plegend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 10px 2px 4px; padding: 0; font-size: 14px; }
+.sheet .track { flex-wrap: wrap; row-gap: 6px; }
+button.nextboss { width: 100%; text-align: left; font: inherit; color: inherit; min-height: 0; }
+button.nextboss > div { flex: 1; min-width: 0; } button.nextboss .chev { font-style: normal; opacity: .8; }
+.formline .fr { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px 3px 4px; }
+.formline .fr .ico { width: 22px; height: 22px; margin: 0; vertical-align: 0; }
+.formline .fr span { font-weight: 800; } .formline .fr.none span { color: #ffffff99; }
+.result.v2:not(.more) .rmeta, .result.v2:not(.more) .dmgbar em, .result.v2:not(.more) .rst > span[title], .result.v2:not(.more) .rxp .kw-xp { display: none; }
+.result.v2:not(.more) .dmgbar { display: none; }
+.result .bar .rmorebtn { flex: 0 0 auto; padding-left: 14px; padding-right: 14px; }
+.evch .t .evn { display: block; font-family: var(--fun); font-size: 16px; line-height: 1.15; }
+.evch .t .eve { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.3; opacity: .95; }
+.lugain { font-size: 15px; line-height: 1.5; }
+details.sp-path { margin-top: 12px; } details.sp-path > summary { cursor: pointer; font-family: var(--fun); font-weight: 600; font-size: 14px; padding: 6px 2px; color: #ffe46b; }
+details.sp-path[open] > summary { margin-bottom: 6px; }
+.eqrole { display: grid; gap: 2px; align-content: center; font-size: 12.5px; min-width: 0; }
+.eqrole b { font-family: var(--fun); font-size: 14px; } .eqrole .dim { font-size: 11px; }
+.rangeline { font-size: 12px; font-weight: 700; margin: 4px 0 0; color: #ffffffcc; }
+
+/* v47: a smaller flag on game over (room for the XP panel on a phone) */
+section.title .evmed.over { width: 72px; height: 72px; font-size: 38px; margin-bottom: 0; }
+
+/* v47: game over a little shorter on a phone (team, then the two numbers side by side, then the XP) */
+@media (max-width: 700px) { .overteam { margin: 4px 0 6px; } .overteam .por { width: 44px; height: 44px; } .overstats { margin: 2px 0 4px; } .overstats div { min-width: 96px; padding: 6px 12px; } .overstats b { font-size: 28px; } section.title .evmed.over { width: 60px; height: 60px; font-size: 32px; margin-top: 4px; } }

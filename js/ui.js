@@ -277,7 +277,7 @@
     const prog = g ? (g.round != null ? '🏆 Floor ' + (g.round + 1) : '🏆 Gauntlet') : 'Day ' + (stepN + 1) + '/' + Run.seqOf(run).length;
     const lgs = store.get('balance.league', null);
     h.innerHTML = `${elo != null ? `<button class="lgchip" data-act="player-tab" title="${lgs ? leagueName(lgs.league) + ' league · ' : ''}Elo ${elo}" aria-label="Your league and Elo">${emblem(lgs ? lgs.league : 0, 18)}<span>${elo}</span></button>` : ''}
-      <span class="gold" title="Gold">${shownGold()}</span><span class="prog">${prog}</span>
+      <span class="gold" title="Gold">${shownGold()}</span><button class="prog" data-act="path" aria-label="${prog}: see the journey">${prog}</button>
       <span class="grow"></span>${battle ? soundBtn() : '<button data-act="team">Team</button>'}<button data-act="suggest" class="sugg">💡</button><button data-act="menu">☰</button>`;
     animGold();
   }
@@ -354,8 +354,17 @@
   }
   // review #44 (David: "Name → short effect → small scaling note"): the ability name, then its passive and its active
   // part on their own lines (same words, easier to scan); the scaling note stays small under it
-  function abilHTML(h) {
-    const d = String(h.abDesc || ''), m = d.match(/^Passive(?: \(([^)]+)\))?:\s*(.*?)\s*Active:\s*(.*)$/);
+  // v47 (review #58, David: "make every decision understandable in under 2 seconds ... showing consequences instead of
+  // mechanics ... hide complexity behind taps"): quick views (start, shops) say what an ability does without the
+  // "90% AP" formulas; the hero card in Team keeps every number
+  const ABTOK = '\\d+(?:\\.\\d+)?% (?:AD|AP)(?: \\+ \\d+(?:\\.\\d+)?% (?:AD|AP))?';
+  const AB_RX = [[/, each with [^.;]*? as attack/g, ''], [new RegExp(`(heal(?:s|ing)?(?: \\()?)(?: for)? ?${ABTOK} ?`, 'g'), '$1 '],
+    [new RegExp(` (?:for|of) ${ABTOK}(?! (?:as |physical|magic|true|damage|\\+))`, 'g'), ''], [new RegExp(`(?:an extra )?${ABTOK} (?:as )?(?=(?:physical|magic|true|damage)\\b)`, 'g'), m => /^an extra/.test(m) ? 'extra ' : ''],
+    [new RegExp(ABTOK, 'g'), 'damage'], [/\s+([.,;)])/g, '$1'], [/\(\s+/g, '('], [/\s{2,}/g, ' ']];
+  const plainAb = s => AB_RX.reduce((t, [rx, to]) => t.replace(rx, to), String(s || '')).trim();
+  function abilHTML(h, plain) {
+    const d = plain ? plainAb(h.abDesc) : String(h.abDesc || ''), m = d.match(/^Passive(?: \(([^)]+)\))?:\s*(.*?)\s*Active:\s*(.*)$/);
+    if (plain && m) return `<b class="abname">${esc(h.abName)}</b> ${fmt(m[3].charAt(0).toUpperCase() + m[3].slice(1))}`;   // quick view: what it does when it fires
     return `<b class="abname">${esc(h.abName)}</b>` + (m ? `<span class="abl"><i class="abk">Passive</i>${m[1] ? `<b>${esc(m[1])}</b>: ` : ''}${fmt(m[2])}</span><span class="abl"><i class="abk act">Active</i>${fmt(m[3].charAt(0).toUpperCase() + m[3].slice(1))}</span>` : ` ${fmt(d)}`);
   }
   function heroCard(key, extra = '') {
@@ -383,11 +392,15 @@
         return `<button class="hbanner ${on ? 'on' : ''} ${k === f ? 'focus' : ''}" data-act="start-pick" data-arg="${k}" style="--cloth:${d.color}">
           <span class="rod"></span><img src="${por(k, 120, true)}" alt=""><b>${esc(d.name)}</b><i>${d.role}</i>${on ? '<span class="chk">✓</span>' : ''}</button>`; }).join('')}</div>
       ${h ? `<div class="card detail"><div class="hrow">${img(f, 48)}<b>${esc(h.name)}</b><span class="role">${h.role} · ${h.range <= 1 ? '⚔️ fights up close' : '🏹 attacks from afar'}</span></div>
-        <div class="abil">${abilHTML(h)}</div></div>` : '<p class="ssub tap">👆 Tap a hero to see what it does</p>'}
+        <div class="abil">${abilHTML(h, true)}</div></div>` : '<p class="ssub tap">👆 Tap a hero to see what it does</p>'}
       ${(run.locked || []).length ? `<p class="center"><span class="lockpill" title="More heroes, items and relics unlock as your account levels up">🔒 ${run.locked.length} more unlock as you level up</span></p>` : ''}
       <div class="bar"><button class="primary big" data-act="start-next" ${n === CFG.startHeroes ? '' : 'disabled'}>${n === CFG.startHeroes ? (relics.length ? 'Next ▶' : 'Start the game!') : 'Tap a hero'}</button></div></section>`;
   }
 
+  function pathHTML() {
+    return `<div class="shead"><b>🗺 Your journey</b><button data-act="close">✕</button></div>${trackHTML()}
+      <ul class="plegend"><li>⚔️ Fight</li><li>❓ Shop or event</li><li>👹 Boss</li><li>🛒 Last shop</li><li>🏆 Gauntlet</li></ul>`;
+  }
   function trackHTML() {
     return `<div class="track">${Run.seqOf(run).map((t, i) => `<span class="node ${i < run.step ? 'done' : i === run.step ? 'cur' : ''} ${t === 'B' ? 'boss' : ''}" title="${t}">${NODE_ICON[t]}</span>`).join('')}</div>`;
   }
@@ -403,8 +416,7 @@
   function optHTML(o, i) {
     if (o.type === 'fight') {
       if (o.diff === 'boss') { const b = o.enemies.map(e => B.BOSSES[e.key]).find(Boolean); return bannerHTML(i, 'boss', img(b.key, 72, 'por emb-img'), esc(b.name), `<span class="small">${fmt(b.desc)}</span><span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold'); }
-      const mp = o.map && B.MAP[o.map] ? `<span class="small mapline">🗺 ${esc(B.MAP[o.map].name)}${B.MAP[o.map].cells.length ? ' · ' + [...new Set(B.MAP[o.map].cells.map(x => B.TERRAIN[x.k].icon))].join('') : ''}</span>` : '';
-      return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔️⚔️' : o.diff === 'medium' ? '🗡️' : '⚔️', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>${mp}`, '+' + o.gold + ' gold' + (o.enemies.some(e => e.elite) ? ' · ★ elite' : ''));
+      return bannerHTML(i, o.diff, o.diff === 'hard' ? '⚔️⚔️' : o.diff === 'medium' ? '🗡️' : '⚔️', B.DIFF[o.diff].name + ' fight', `<span class="ens">${enemyList(o)}</span>`, '+' + o.gold + ' gold');
     }
     if (o.type === 'shop') return bannerHTML(i, 'shop', o.kind === 'heroShop' ? '🦸' : o.kind === 'itemShop' ? '🛡️' : '💎', SHOP_NAME[o.kind] + (o.final ? ' (last)' : ''), `<span class="small">${SHOP_DESC[o.kind]}</span>`);
     if (o.type === 'event') { const e = EVENT[o.id]; return bannerHTML(i, 'event' + (e.rar === 'rare' ? ' b-rare' : ''), evIcon(o.id), esc(e.name), `<span class="small">${esc(e.text)}</span>`, EV_RAR[e.rar] || ''); }
@@ -426,7 +438,7 @@
   function mapHTML() {
     const t = Run.seqOf(run)[run.step];
     const title = t === 'B' ? 'A boss blocks the way' : t === 'S' ? 'One last shop' : 'Choose your path';
-    return `<section class="map"><div class="mapmain">${trackHTML()}<h2 class="sc">${title}</h2>${run.nextMod ? `<p class="nextmod">⚑ Next fight: ${fmt(modText(run.nextMod))}</p>` : ''}<div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
+    return `<section class="map"><div class="mapmain"><h2 class="sc">${title}</h2>${run.nextMod ? `<p class="nextmod">⚑ Next fight: ${fmt(modText(run.nextMod))}</p>` : ''}<div class="banners ${run.opts.length === 1 ? 'one' : ''}">${run.opts.map(optHTML).join('')}</div>
       </div><aside class="mapside">${partyHTML()}</aside></section>`;
   }
   // review #18: the party under the map (levels, XP, worn items, relics) and the next boss, so each choice is informed
@@ -441,10 +453,10 @@
     const seq = Run.seqOf(run);
     for (let k = Math.max(0, run.step); k < seq.length; k++) if (seq[k] === 'B') {
       const nth = seq.slice(0, k + 1).filter(x => x === 'B').length, b = nth === 1 ? B.BOSSES.gorewarden : B.BOSSES.hollowking, d = k - run.step;
-      boss = `<div class="nextboss">${img(b.key, 40, 'por')}<div><b>👹 ${esc(b.name)}</b> <span class="dim">${d <= 0 ? 'today' : 'in ' + d + ' day' + (d > 1 ? 's' : '')}</span><span class="small">${fmt(b.desc)}</span></div></div>`;
+      boss = `<button class="nextboss" data-act="form-info" data-arg="${esc(b.name + ': ' + b.desc)}">${img(b.key, 40, 'por')}<div><b>👹 ${esc(b.name)}</b> <span class="dim">${d <= 0 ? 'today' : 'in ' + d + ' day' + (d > 1 ? 's' : '')}</span></div><i class="chev">ⓘ</i></button>`;
       break;
     }
-    return `<div class="party"><div class="bph"><b>Party</b><span class="dim small">${run.bag.length ? `<a href="#" data-act="team" class="bagnote">🎒 ${run.bag.length} to equip</a>` : `${run.heroes.length}/${Run.teamMax(run)}`}</span></div>
+    return `<div class="party"><div class="bph"><b>Your team</b><span class="dim small">${run.bag.length ? `<a href="#" data-act="team" class="bagnote">🎒 ${run.bag.length} to equip</a>` : `${run.heroes.length}/${Run.teamMax(run)}`}</span></div>
       <div class="pgrid">${heroes}</div>${run.relics.length ? `<div class="relicline"><b>Relics</b>${run.relics.map(id => `<button class="relicbtn" data-act="relic-info" data-arg="${id}" aria-label="${esc(RELIC[id].name)}">${ico('relic', id, 26)}</button>`).join('')}</div>` : ''}${boss}</div>`;
   }
 
@@ -455,10 +467,10 @@
     const path = d.specs.map((pr, k) => { const lv = k + 2, chosen = h.specs[k]; return `<div class="sp-row ${lv === p.lvl ? 'now' : lv < p.lvl ? 'done' : 'later'}"><span class="sp-lv">Lv ${lv}</span>${pr.map(sp => `<span class="sp-n ${chosen === sp.id ? 'on' : ''}">${esc(sp.name)}</span>`).join('<i>or</i>')}</div>`; }).join('');
     return `<section class="levelup"><h2 class="sc headline win">Level up!</h2>
       <div class="luhero"><img class="lufull" src="${por(h.key, 104, true)}" alt=""><div><b class="luname">${esc(d.name)}</b><span class="lulv">Lv ${p.lvl - 1} → <b>Lv ${p.lvl}</b></span>
-        <p class="small">${fmt('+15% HP and attack, +30 AP, +4 armor and MR')}${p.lvl >= 3 ? ', <b class="kw-gold">+1 item slot</b>' : ''}.</p></div></div>
-      <h3>Choose a specialization</h3>
-      <div class="opts spec2">${pair.map((sp, i) => `<button class="card opt" data-act="spec" data-arg="${i}"><div class="ctitle spec">★ ${esc(sp.name)}</div><div class="small">${fmt(sp.desc)}</div></button>`).join('')}</div>
-      <div class="sp-path"><div class="bph"><b>Specialization path</b><span class="dim small">one choice at each level</span></div>${path}</div></section>`;
+        <p class="small lugain" title="+15% HP and attack, +30 AP, +4 armor and MR">💪 Stronger in every way${p.lvl >= 3 ? '<br><b class="kw-gold">🎒 +1 item slot</b>' : ''}</p></div></div>
+      <h3>Pick a new power</h3>
+      <div class="opts spec2">${pair.map((sp, i) => `<button class="card opt" data-act="spec" data-arg="${i}" title="${esc(sp.desc)}"><div class="ctitle spec">★ ${esc(sp.name)}</div><div class="small">${fmt(plainAb(sp.desc))}</div></button>`).join('')}</div>
+      <details class="sp-path"><summary>See every level's powers</summary>${path}</details></section>`;
   }
 
   // review #18: the enemy roster on the deploy screen, grouped, with what each one does (positioning is the decision here)
@@ -482,14 +494,14 @@
     const f = run.cur;
     const map = Run.mapOf(run);
     return `<section class="deploy">
-      <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.challenge ? `🏆 ${esc(f.challenge.name)}` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy${map ? ` <span class="mapchip" title="${esc(map.desc)}">🗺 ${esc(map.name)}</span>` : ''}</div>
+      <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.challenge ? `🏆 ${esc(f.challenge.name)}` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'}</div>
       ${!gau && f.challenge ? `<p class="hint tight"><span class="nextmod chal">${f.challenge.intro ? esc(f.challenge.intro) + ' ' : ''}${f.solo ? `Only ${esc(HEROES[f.challenge.hero].name)} fights. ` : ''}<b>Win:</b> ${esc(winText(f.challenge.win))}. <b>Lose:</b> the game goes on.</span></p>`
         : !gau && f.mod ? `<p class="hint tight"><span class="nextmod">⚑ ${fmt(modText(f.mod))}</span></p>` : (store.get('balance.tips.deploy', 0) | 0) < 3 ? '<p class="hint tight tip">Drag your heroes: tanks in front, ranged behind.</p>' : ''}
       ${run.relics.some(id => RELIC[id] && RELIC[id].form) ? `<p class="formline" id="formline">${formHTML(worldFor(true))}</p>` : ''}
       <div class="boardwrap"><canvas id="board"></canvas></div>
       <div id="info" class="info mini ${ui.info ? '' : 'empty'}">${infoHTML()}</div>
       ${foesHTML(gau, f)}
-      <div class="bar sticky"><button data-act="team">Team & items</button><button class="primary big" data-act="fight">${gau ? 'Duel!' : 'Fight!'}</button></div>
+      <div class="bar sticky"><button data-act="team">🎒 Items</button><button class="primary big" data-act="fight">${gau ? 'Duel!' : 'Fight!'}</button></div>
       <div class="dparty">${partyHTML()}</div>
     </section>`;
   }
@@ -511,7 +523,7 @@
     return run.relics.filter(id => RELIC[id] && RELIC[id].form).map(id => {
       const r = RELIC[id], who = got.filter(b => b.fl === r.fl);
       const full = `${r.name}: ` + (who.length ? who.map(b => `${b.u.name} ${B.FORMATION[b.fl](b.n)}`).join(', ') : 'nobody yet (move your heroes)');
-      return `<button class="fr ${who.length ? 'got' : 'none'}" data-act="form-info" data-arg="${esc(full)}" title="${esc(full)}">${ico('relic', id, 20)}<b>${esc(r.name)}</b><span>${who.length ? '✓ ' + who.length : '—'}</span></button>`;
+      return `<button class="fr ${who.length ? 'got' : 'none'}" data-act="form-info" data-arg="${esc(full)}" title="${esc(full)}" aria-label="${esc(r.name)}">${ico('relic', id, 22)}<span>${who.length ? '✓' : '✗'}</span></button>`;
     }).join('');
   }
   // review #18 (David: "another pass of the ui and battle ui ... pretty, functional, visible, engaging"): under the
@@ -612,11 +624,11 @@
     const bl = r.boss && r.bossElo && hasPerk('elo') ? `<p class="small dim ghostline">👹 ${esc(r.bossElo.name)}'s Elo: <b>${r.bossElo.elo}</b> (${r.bossElo.delta >= 0 ? '+' : ''}${r.bossElo.delta})</p>` : '';
     const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${plink(r.ghost.name, r.opp.code)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})</p>` : '';
     const lostRun = !r.win && !r.gauntlet ? `<p class="small dim center">${r.challenge ? 'The challenge beat you. No reward, but the game goes on.' : 'Game over.'}</p>` : '';
-    return `<section class="result v2"><div class="rhead ${r.win ? 'win' : 'lose'}"><span class="rays"></span><h2 class="sc headline ${r.win ? 'win' : 'lose'}">${r.win ? 'Victory' : 'Defeat'}</h2>
+    return `<section class="result v2 ${ui.rmore ? 'more' : ''}"><div class="rhead ${r.win ? 'win' : 'lose'}"><span class="rays"></span><h2 class="sc headline ${r.win ? 'win' : 'lose'}">${r.win ? 'Victory' : 'Defeat'}</h2>
         ${starRow}<p class="rwhat">${what}</p><p class="rmeta">${meta}</p></div>
       ${eloLine(r)}${chips.length ? `<div class="rewards2">${chips.join('')}</div>` : ''}${promo}${lostRun}
       <div class="rheroes">${heroes}</div>${foes}${gh}${bl}
-      <div class="bar"><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
+      <div class="bar"><button class="rmorebtn" data-act="result-more">${ui.rmore ? 'Less' : '📊 Details'}</button><button class="primary big" data-act="result-ok" ${r.pending ? 'disabled' : ''}>Continue</button></div></section>`;
   }
 
   // v42 (review #51, David: "more dopamine hits"): the rewards play in order. Confetti, the stars one by one, the gold
@@ -715,7 +727,7 @@
   function stockCard(s, i) {
     const dis = s.sold || run.gold < s.price || (s.kind === 'hero' && run.heroes.length >= Run.teamMax(run));
     let body = '';
-    if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><div class="small">${abilHTML(h)}</div>${scaleTag(s.id)}`; }
+    if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><div class="small">${abilHTML(h, true)}</div><div class="rangeline">${h.range <= 1 ? '⚔️ Fights up close' : '🏹 Attacks from afar'}</div>`; }
     else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div>${itemTag(it)}</div></div><div class="small">${fmt(it.desc)}</div>${setInfo(it)}`; }
     else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier t-relic">relic</div></div></div><div class="small">${fmt(r.desc)}</div>`; }
     // review #44: a stripe in the rarity colour (hero colour for heroes, gold for relics) makes the rarity readable at a glance
@@ -727,9 +739,9 @@
   function shopHTML() {
     const c = run.cur, rc = Run.rerollCost(run);
     const note = c.kind === 'heroShop' ? `<p class="center"><span class="lockpill">Team ${run.heroes.length}/${Run.teamMax(run)}</span></p>` : '';
-    return `<section class="shop">${trackHTML()}<h2>${c.kind === 'heroShop' ? '🦸' : c.kind === 'itemShop' ? '🛒' : '💎'} ${SHOP_NAME[c.kind]}</h2>${note}
+    return `<section class="shop"><h2>${c.kind === 'heroShop' ? '🦸' : c.kind === 'itemShop' ? '🛒' : '💎'} ${SHOP_NAME[c.kind]}</h2>${note}
       <div class="grid ${ui.deal ? 'deal' : ''}">${c.stock.map(stockCard).join('') || '<p>Nothing left to sell.</p>'}</div>
-      <div class="bar sticky"><button data-act="reroll" class="reroll" ${run.gold < rc ? 'disabled' : ''} aria-label="Reroll for ${rc} gold">↻ <span class="price">${rc}</span></button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
+      <div class="bar sticky"><button data-act="reroll" class="reroll" ${run.gold < rc ? 'disabled' : ''} aria-label="New offers for ${rc} gold">↻ New <span class="price">${rc}</span></button><button data-act="team">Team</button><button class="primary" data-act="leave">Continue ➜</button></div></section>`;
   }
   // v44: what an event gave, as pictures (items, relics, a hero joining, gold, XP, boosts)
   function gainsHTML(G) {
@@ -746,10 +758,15 @@
     };
     return `<div class="gains">${G.map(one).join('')}</div>`;
   }
+  // v47 (review #58): "Sharpen: +10 attack to one hero" reads as a bold name and what it does, on two lines
+  function evLabel(t) {
+    const m = String(t).match(/^([^:0-9]{2,32}):\s+(.+)$/);
+    return m ? `<b class="evn">${esc(m[1])}</b><span class="eve">${fmt(m[2].charAt(0).toUpperCase() + m[2].slice(1))}</span>` : fmt(t);
+  }
   // review #17: 3 choices with a visible price or risk; some ask you to pick the hero, item or item type they apply to
   function eventHTML() {
     const e = EVENT[run.cur.id], chs = Run.eventChoices(run);
-    const head = `<section class="event ev-${e.rar || 'common'}">${trackHTML()}<div class="evmed">${evIcon(e.id)}</div>${EV_RAR[e.rar] ? `<p class="center"><span class="evrar">${EV_RAR[e.rar]}</span></p>` : ''}<h2>${esc(e.name)}</h2><p>${esc(e.text)}</p>`;
+    const head = `<section class="event ev-${e.rar || 'common'}"><div class="evmed">${evIcon(e.id)}</div>${EV_RAR[e.rar] ? `<p class="center"><span class="evrar">${EV_RAR[e.rar]}</span></p>` : ''}<h2>${esc(e.name)}</h2><p>${esc(e.text)}</p>`;
     if (run.cur.done) return head + `${gainsHTML(run.cur.gains)}<div class="card result">${fmt(run.cur.done)}</div><div class="bar"><button class="primary big" data-act="leave">Continue ➜</button></div></section>`;
     const pickCh = run.cur.pick != null ? chs[run.cur.pick] : null;
     if (pickCh) {
@@ -771,7 +788,7 @@
       if (rq) tags.push(who.length ? `<span class="etag ereq">${img(who[0].key, 18, 'por xs')}${esc(HEROES[who[0].key].name)} unlocks this</span>` : `<span class="etag ereq no">🔒 Needs ${esc(rq.name)}</span>`);
       if (ch.risk) tags.push(`<span class="etag erisk">⚠ ${esc(ch.risk)}</span>`);
       const cls = ['evch', pic ? 'haspic' : '', ch.fight ? 'isfight' : '', rq ? (who.length ? 'isreq' : 'isreq locked') : ''].filter(Boolean).join(' ');
-      return `<button class="${cls}" data-act="event" data-arg="${i}" ${c.ok ? '' : 'disabled'}>${pic}<span class="t">${tags.length ? `<span class="etags">${tags.join('')}</span>` : ''}${tag}${fmt(ch.label)}${c.ok || c.req ? '' : `<span class="why">${esc(c.why)}</span>`}</span>${ch.cost ? `<span class="price">${ch.cost}</span>` : ''}${ch.target ? '<i class="chev" title="You choose">›</i>' : ''}</button>`;
+      return `<button class="${cls}" data-act="event" data-arg="${i}" ${c.ok ? '' : 'disabled'}>${pic}<span class="t">${tags.length ? `<span class="etags">${tags.join('')}</span>` : ''}${tag}${evLabel(ch.label)}${c.ok || c.req ? '' : `<span class="why">${esc(c.why)}</span>`}</span>${ch.cost ? `<span class="price">${ch.cost}</span>` : ''}${ch.target ? '<i class="chev" title="You choose">›</i>' : ''}</button>`;
     }).join('')}</div></section>`;
   }
   function overHTML() {
@@ -973,11 +990,11 @@
       const sc = Run.setCounts(h.items);
       const sets = Object.keys(sc).map(sid => { const S = B.SETS[sid], n = sc[sid]; return `<div class="setline ${n >= 2 ? 'on' : ''}">◆ <b>${esc(S.name)}</b> ${n}/3${n >= 2 ? ' · ' + fmt(S.bonus[2].desc) : ''}${n >= 3 ? ' · ' + fmt(S.bonus[3].desc) : ''}</div>`; }).join('');
       return `<div class="eqhero ${can ? 'target' : ''} ${sel && !can ? 'full' : ''}" ${sel ? `data-act="equip" data-arg="${h.uid}"` : ''}>
-        <div class="hrow"><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span> <span class="dim small">items ${h.items.length}/${sl}</span>
+        <div class="hrow"><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span>
           <div class="xpbar" title="XP"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></div>
           ${can ? `<span class="tap">${swap ? 'tap to swap' : 'tap to equip'}</span>` : sel ? '<span class="tap dim">no free slot</span>' : ''}</div>
         <div class="hbody"><div class="doll">${DOLL.map(cell).join('')}<button class="dpor" data-act="hero-info" data-arg="${h.uid}" aria-label="${esc(d.name)}: ability">${img(h.key, 52)}</button></div>
-        ${chips({ hp: Math.round(def.hp), atk: Math.round(def.atk), ap: Math.round(def.ap), armor: Math.round(def.armor), mr: Math.round(def.mr), as: def.as.toFixed(2), range: def.range, crit: def.crit ? pct(def.crit) : 0, dodge: def.dodge ? pct(def.dodge) : 0 }, true)}</div>${sets}
+        <div class="eqrole"><b>${esc(d.role)}</b><span>${d.range <= 1 ? '⚔️ Fights up close' : '🏹 Attacks from afar'}</span><span class="dim">Tap the portrait for stats</span></div></div>${sets}
         <button class="small abline" data-act="hero-info" data-arg="${h.uid}"><span class="ib">ⓘ</span> <b>${esc(d.abName)}</b>${specs.length ? ' · ' + specs.map(sp => `<span class="spec">★ ${esc(sp.name)}</span>`).join(' ') : ''}</button>
       </div>`;
     }).join('');
@@ -1366,6 +1383,8 @@
     reroll: () => { if (!Run.reroll(run)) { toast('Not enough gold'); sfx('deny'); return; } sfx('reroll'); ui.deal = true; save(); render(); ui.deal = false; },
     sound: () => { if (!B.Sfx) return; B.Sfx.toggle(); for (const b of document.querySelectorAll('.sndbtn')) { b.textContent = B.Sfx.on ? '🔊' : '🔇'; b.setAttribute('aria-label', 'Sound ' + (B.Sfx.on ? 'on' : 'off')); } },
     'form-info': t => toast(t),
+    path: () => { if (run) { openModal(pathHTML()); ui.modal = 'path'; } },
+    'result-more': () => { ui.rmore = !ui.rmore; render(); },
     leave: () => { Run.leave(run); save(); render(); window.scrollTo(0, 0); },
     event: i => {
       const ch = Run.eventChoices(run)[+i]; if (!ch) return;

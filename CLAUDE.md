@@ -127,6 +127,23 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v47 (2026-09-30), lote 45 do David (#58: "toda decisão entendida em menos de 2 s; sem mecânica, número, porcentagem
+  ou contador novo; menos leitura; linguagem simples; o próximo toque óbvio; o time antes do secundário; profundidade
+  atrás de toques").**
+  - **Trilha e mapa:** a trilha de 17 ícones saiu do mapa, das lojas e dos eventos e abre ao tocar no "Day" do topo
+    (`pathHTML`, com legenda). Os cartões de luta mostram só inimigos e ouro: sem nome do mapa e sem "★ elite" (a ★ fica
+    no inimigo). "Party" virou "Your team". O chefe mostra nome e quando, com o texto num toque.
+  - **Posicionamento:** saíram "deploy" e o nome do mapa; as relíquias de formação viraram só ícone com ✓/✗ (quem ganha o
+    quê fica no toque); "Team & items" virou "🎒 Items".
+  - **Resultado:** tempo, dano, abates e XP por herói ficam atrás de "📊 Details" (`ui.rmore`, classe `.more`).
+  - **Lojas e início:** as habilidades usam `plainAb` (tira as fórmulas "90% AP", mostra só a ativa; o cartão do herói
+    em Team mantém tudo) e ganham "⚔️ Fights up close"/"🏹 Attacks from afar"; o reroll diz "↻ New".
+  - **Evento:** cada escolha tem o nome em negrito e o efeito embaixo (`evLabel`).
+  - **Subir de nível:** "💪 Stronger in every way" (+1 item slot), "Pick a new power" com texto simples e o caminho
+    inteiro num `<details>`.
+  - **Time:** saíram a tabela de status e o "items n/m"; ficam a função e o alcance ("Tap the portrait for stats").
+  - **Fim de jogo:** mais compacto no celular.
+  - **Filtro `plainAb`:** conferido nas 36 habilidades e 288 especializações, sem frase quebrada.
 - **v46 (2026-09-30), lote 44 do David (#57: "trazer a progressão de XP do jogador para a frente; XP por nível
   crescente; XP depois de cada partida conforme foi; mostrar o progresso com as recompensas por vir; dopamina que chame
   a jogar de novo").**

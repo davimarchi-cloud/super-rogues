@@ -87,6 +87,11 @@ ok(await click('[data-act=start-go]'), 'start the game');
 await sleep(200);
 ok(await ev(`document.querySelectorAll('[data-act=choose]').length`) === 2, 'first map step shows 2 options');
 await shot('03-map'); await noHScroll('map'); await noVScroll('map');
+// v47 (review #58): the journey sits behind the Day chip; the map itself has no 17-icon strip
+ok(await ev(`!document.querySelector('#screen .track') && !!document.querySelector('#top button.prog[data-act=path]')`), 'v47: no journey strip on the map; the Day chip is a button');
+await click('#top [data-act=path]'); await sleep(150);
+ok(await ev(`document.querySelectorAll('#modal .track .node').length > 10 && document.querySelectorAll('#modal .plegend li').length === 5`), 'v47: tapping the Day chip shows the whole journey with a legend');
+await click('[data-act=close]'); await sleep(100);
 
 let fightsSeen = 0, sawSmooth = false, sawShop = false, sawEvent = false, sawPicker = false, sawLevel = false, sawBoss = 0, steps = 0;
 while (steps++ < 80) {
@@ -101,7 +106,9 @@ while (steps++ < 80) {
       // review #51: the rewards play in order and end with the stars lit, the gold counted and the top bar showing the new gold
       for (let k = 0; k < 40 && !(await ev(`!!(__bal.result && __bal.result.fx && __bal.result.fx.done)`)); k++) await sleep(150);
       for (let k = 0; k < 25 && !(await ev(`+document.querySelector('#top .gold').textContent === __bal.run.gold`)); k++) await sleep(120);
-      ok(await ev(`(() => { const r = __bal.result; if (!r || !r.win) return true; const lit = document.querySelectorAll('.rstars .st.lit').length; return r.stars >= 1 && lit === r.stars && document.querySelector('.rw-gold b').textContent === '+' + r.gold && +document.querySelector('#top .gold').textContent === __bal.run.gold; })()`), 'review #51: after the reward animation: the stars lit, +gold counted, the top bar shows the new gold'); } await click('[data-act=result-ok]'); await sleep(100); continue; }
+      ok(await ev(`(() => { const r = __bal.result; if (!r || !r.win) return true; const lit = document.querySelectorAll('.rstars .st.lit').length; return r.stars >= 1 && lit === r.stars && document.querySelector('.rw-gold b').textContent === '+' + r.gold && +document.querySelector('#top .gold').textContent === __bal.run.gold; })()`), 'review #51: after the reward animation: the stars lit, +gold counted, the top bar shows the new gold');
+      // v47 (review #58): the numbers wait behind Details
+      ok(await ev(`!document.querySelector('.result.v2.more') && getComputedStyle(document.querySelector('.rmeta')).display === 'none' && !!document.querySelector('[data-act=result-more]')`), 'v47: the result shows the win and the rewards; the numbers wait behind Details'); await click('[data-act=result-more]'); await sleep(80); ok(await ev(`!!document.querySelector('.result.v2.more') && getComputedStyle(document.querySelector('.rmeta')).display !== 'none'`), 'v47: Details shows the time, the damage and the kills'); await click('[data-act=result-more]'); await sleep(80); } await click('[data-act=result-ok]'); await sleep(100); continue; }
   if (st.phase === 'over') break;
   if (await ev(`!!document.querySelector('[data-act=spec]')`)) { if (!sawLevel) { await shot('07-levelup'); await noVScroll('level up'); sawLevel = true; } await click('[data-act=spec]'); await sleep(80); continue; }
   if (st.phase === 'map') {
