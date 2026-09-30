@@ -407,8 +407,9 @@
   const RAR_UP = { common: 'uncommon', uncommon: 'rare', rare: 'epic', epic: 'legendary', set: 'legendary', legendary: 'mythic' };
   const RAR_ORDER = ['common', 'uncommon', 'rare', 'epic', 'set', 'legendary', 'mythic'];
   function makeEvent(run, id) { return { type: 'event', id, done: null, offer: rollOffer(run, id) }; }
-  // v44 (review #54): rewards grow with the run. {gN} / {xN} in a label or act = N gold / N XP x (1 + 15% per fight after the first)
-  const evScale = run => 1 + 0.15 * Math.max(0, (run.fightNo || 1) - 1);
+  // v44 (review #54): rewards grow with the run. {gN} / {xN} in a label or act = N gold / N XP x (1 + 5% per fight after the first)
+  // (v45, review #55 "the new events are way too op": was +15% per fight, and every number went down)
+  const evScale = run => 1 + 0.05 * Math.max(0, (run.fightNo || 1) - 1);
   const tok = (run, t) => String(t).replace(/\{([gx])(\d+)\}/g, (m, k, n) => String(Math.round(+n * evScale(run))));
   function resolve(run, ch) {
     const o = Object.assign({}, ch, { label: tok(run, ch.label), act: tok(run, ch.act) });
@@ -444,23 +445,23 @@
     cur.offer = cur.offer || rollOffer(run, cur.id);
     const o = cur.offer;
     if (cur.id === 'mercs') return o.heroes.map(k => ({ label: `Hire ${B.HEROES[k].name}, ${B.HEROES[k].role.toLowerCase()}: ${B.HEROES[k].abName}`, act: 'hire:' + k, cost: 6, hero: k }))
-      .concat([resolve(run, { label: 'Spar with them: +{x30} XP to all heroes', act: 'xpAll:{x30}' })]);
+      .concat([resolve(run, { label: 'Spar with them: +{x10} XP to all heroes', act: 'xpAll:{x10}' })]);
     // v44 (review #54): the actual relics and items on offer, to pick from
     if (cur.id === 'altar') {
       const r = o.relics || [], R = id => B.RELIC[id].name + ': ' + B.RELIC[id].desc, out = [];
       if (r[0]) out.push({ label: `Take ${R(r[0])} The next fight: enemies +30% HP`, act: 'relicPick:' + r[0], relic: r[0], next: { enemyHp: 0.3 }, risk: 'Enemies +30% HP next fight' });
       if (r[1]) out.push({ label: `Take ${R(r[1])} One hero pays: 10% less max HP for good`, act: 'relicBlood:0.1:' + r[1], relic: r[1], target: 'hero', risk: 'A hero loses 10% max HP' });
-      if (r[2]) out.push({ label: `Buy ${R(r[2])}`, act: 'relicPick:' + r[2], relic: r[2], cost: 6 });
-      return out.length ? out : [resolve(run, { label: 'The altar is empty: pray for +{x20} XP to all heroes', act: 'xpAll:{x20}' })];
+      if (r[2]) out.push({ label: `Buy ${R(r[2])}`, act: 'relicPick:' + r[2], relic: r[2], cost: 8 });
+      return out.length ? out : [resolve(run, { label: 'The altar is empty: pray for +{x10} XP to all heroes', act: 'xpAll:{x10}' })];
     }
-    if (cur.id === 'merchant') return o.items.map(id => ({ label: `${B.ITEM[id].name}: ${B.ITEM[id].desc}`, act: 'take:' + id, item: id, cost: Math.max(2, Math.round(C.itemCost[B.ITEM[id].tier] * 0.6)) }))
+    if (cur.id === 'merchant') return o.items.map(id => ({ label: `${B.ITEM[id].name}: ${B.ITEM[id].desc}`, act: 'take:' + id, item: id, cost: Math.max(2, Math.round(C.itemCost[B.ITEM[id].tier] * 0.8)) }))
       .concat([{ label: 'Mystery box: 50% an epic item, 50% a common one', act: 'mystery', cost: 4, risk: 'It may be a common item' }]);
-    if (cur.id === 'fairy') return [{ label: 'Dance with them: every hero gains a level', act: 'levelAll' }]
+    if (cur.id === 'fairy') return [{ label: 'Dance with them: one hero gains a level', act: 'levelHero', target: 'hero' }]
       .concat(o.items.map(id => ({ label: `Make a wish: ${B.ITEM[id].name}: ${B.ITEM[id].desc}`, act: 'take:' + id, item: id })));
     if (cur.id === 'legend') {
       const k = o.heroes[0], h = k && B.HEROES[k];
-      return (h ? [{ label: `${h.name} joins your team for free, already at Lv 2 (${h.role.toLowerCase()}: ${h.abName})`, act: 'join:' + k, hero: k }] : [])
-        .concat([resolve(run, { label: `Train with ${h ? h.name : 'the legend'}: +{x45} XP to all heroes`, act: 'xpAll:{x45}' }), { label: 'Ask for their old blade: a random epic item', act: 'item:epic' }]);
+      return (h ? [{ label: `${h.name} joins your team (${h.role.toLowerCase()}: ${h.abName})`, act: 'join:' + k, hero: k, cost: 4 }] : [])
+        .concat([resolve(run, { label: `Train with ${h ? h.name : 'the legend'}: +{x20} XP to all heroes`, act: 'xpAll:{x20}' }), { label: 'Ask for their old blade: a random rare item', act: 'item:rare' }]);
     }
     if (cur.id === 'armory') return o.items.map(id => ({ label: `Take ${B.ITEM[id].name}: ${B.ITEM[id].desc}`, act: 'take:' + id, item: id }));
     if (cur.id === 'collector') {
@@ -534,7 +535,7 @@
     else if (a === 'upgradeItem') { const nid = upgradedOf(run, it.id); if (nid) { msg = iname(it.id) + ' was reforged into ' + iname(nid) + '.'; it.set(nid); got('item', nid); } else { run.gold += ch.cost || 0; msg = 'Nothing better exists for that item. Your gold is returned.'; } }
     else if (a === 'gambleItem') {
       const nid = upgradedOf(run, it.id);
-      if (nid && rnd(run) < 0.55) { msg = 'Luck! ' + iname(it.id) + ' became ' + iname(nid) + '.'; it.set(nid); got('item', nid); } else { msg = 'You lost ' + iname(it.id) + '.'; it.drop(); }
+      if (nid && rnd(run) < 0.5) { msg = 'Luck! ' + iname(it.id) + ' became ' + iname(nid) + '.'; it.set(nid); got('item', nid); } else { msg = 'You lost ' + iname(it.id) + '.'; it.drop(); }
     }
     else if (a === 'gamble') { if (rnd(run) < +y) { run.gold += +z; msg = 'You won ' + z + ' gold!'; got('gold', +z); } else msg = 'You lost the bet.'; }
     else if (a === 'relic') { const r = randomRelic(run); msg = r ? 'You gained ' + r.name + '.' : 'You already own every relic.'; if (r) got('relic', r.id); }
@@ -550,11 +551,12 @@
       hero.specs[k] = now.id; msg = name(hero) + ' now follows ' + now.name + '.'; got('boost', '★ ' + now.name, hero.key);
     }
     else if (a === 'hire') { const h = addHero(run, x); msg = name(h) + ' joins your team!'; got('hero', x); }
-    else if (a === 'join') { const h = addHero(run, x); gainXp(run, h, C.xpLevels[2] - h.xp); msg = name(h) + ' joins your team at Lv 2!'; got('hero', x); }
+    else if (a === 'join') { const h = addHero(run, x); msg = name(h) + ' joins your team!'; got('hero', x); }
     else if (a === 'take') { run.bag.push(x); msg = 'You took ' + iname(x) + '.'; got('item', x); }
     else if (a === 'invest') { (run.bank = run.bank || []).push(+x); msg = 'The banker writes it down: ' + x + ' gold comes back after your next won fight.'; got('bank', +x); }
     else if (a === 'loan') { run.gold += +x; (run.bank = run.bank || []).push(-y); msg = '+' + x + ' gold now. ' + y + ' gold is paid back after your next won fight.'; got('gold', +x); }
     else if (a === 'levelAll') { for (const h of run.heroes) if (h.lvl < C.maxLevel) gainXp(run, h, C.xpLevels[h.lvl + 1] - h.xp); msg = 'The fairies dance with your team. Every hero gains a level!'; got('level', 1); }
+    else if (a === 'levelHero') { if (hero.lvl < C.maxLevel) gainXp(run, hero, C.xpLevels[hero.lvl + 1] - hero.xp); msg = 'The fairies dance with ' + name(hero) + '. ' + name(hero) + ' gains a level!'; got('level', 1, hero.key); }
     else if (a === 'transmute') {
       const refs = itemRefs(run).sort((p, q) => RAR_ORDER.indexOf(B.ITEM[p.id].tier) - RAR_ORDER.indexOf(B.ITEM[q.id].tier) || (p.arg[0] === 'b' ? -1 : 1)).slice(0, 2);
       const top = refs.map(r => B.ITEM[r.id].tier).sort((p, q) => RAR_ORDER.indexOf(q) - RAR_ORDER.indexOf(p))[0], names = refs.map(r => iname(r.id));
@@ -564,12 +566,12 @@
       const id = randomItem(run, t || top); run.bag.push(id); msg = names.join(' and ') + ' became ' + iname(id) + '.'; got('item', id);
     }
     else if (a === 'potion') {
-      const h = pick(run, run.heroes), P = [{ hpPct: 0.15 }, { atkPct: 0.12 }, { ap: 30 }, { asPct: 0.12 }, { armor: 25, mr: 25 }, { crit: 0.1 }], m = pick(run, P);
+      const h = pick(run, run.heroes), P = [{ hpPct: 0.1 }, { atkPct: 0.08 }, { ap: 20 }, { asPct: 0.08 }, { armor: 15, mr: 15 }, { crit: 0.06 }], m = pick(run, P);
       for (const k in m) h.bonus[k] = (h.bonus[k] || 0) + m[k]; msg = name(h) + ' drinks it: ' + modsText(m) + ' for good.'; got('boost', modsText(m), h.key);
     }
     else if (a === 'mimic') {
-      if (rnd(run) < 0.65) { const id = randomItem(run, 'epic'); run.bag.push(id); msg = 'Just a chest! Inside: ' + iname(id) + '.'; got('item', id); }
-      else { startChallenge(run, { kind: 'mimic', name: 'Mimic', win: { item: 'legendary' } }, null, 'The chest was a Mimic! Beat it for a legendary item.'); return 'mimic'; }
+      if (rnd(run) < 0.6) { const id = randomItem(run, 'rare'); run.bag.push(id); msg = 'Just a chest! Inside: ' + iname(id) + '.'; got('item', id); }
+      else { startChallenge(run, { kind: 'mimic', name: 'Mimic', win: { item: 'epic' } }, null, 'The chest was a Mimic! Beat it for an epic item.'); return 'mimic'; }
     }
     else if (a === 'fight') { startChallenge(run, ch.fight, hero); return 'fight'; }
     else if (a === 'setPiece') {

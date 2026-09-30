@@ -227,7 +227,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   // targeted XP goes to the chosen hero only
   let run = fresh(4, 'training'); const lu = run.heroes[1], xp0 = lu.xp, bx0 = run.heroes[0].xp, lessons = +Run.eventChoices(run)[1].act.split(':')[1];
   Run.eventAct(run, 1, String(lu.uid));
-  ok(lu.xp === xp0 + lessons && lessons === Math.round(70 * 1.15) && run.heroes[0].xp === bx0, `Private lessons: the XP (${lessons}, 70 grown 15% after fight 2) goes to the hero you choose`);
+  ok(lu.xp === xp0 + lessons && lessons === Math.round(40 * 1.05) && run.heroes[0].xp === bx0, `Private lessons: the XP (${lessons}, 40 grown 5% after fight 2) goes to the hero you choose`);
   // reforge keeps the type and raises the rarity
   run = fresh(5, 'smith'); Run.eventAct(run, 2, 'b:0');
   ok(B.ITEM[run.bag[0]].type === 'helmet' && B.ITEM[run.bag[0]].tier === 'rare' && run.gold === 45, `Reforge: Scout's Cap (uncommon helmet) became ${B.ITEM[run.bag[0]].name} (rare helmet) for 5 gold`);
@@ -270,7 +270,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(hb.mana >= Math.min(hb.maxMana, 40), 'Battle tactics: your heroes start the next fight with +40 mana');
   // ---- v44 (review #54): rewards grow with the run, blue options, challenges, investments, transmute, rarity
   run = fresh(16, 'training'); run.fightNo = 5;
-  ok(/\+40 XP to all heroes/.test(Run.eventChoices(run)[0].label) && Run.eventChoices(run)[0].act === 'xpAll:40', 'rewards grow: +25 XP after fight 1 is +40 after fight 5');
+  ok(/\+18 XP to all heroes/.test(Run.eventChoices(run)[0].label) && Run.eventChoices(run)[0].act === 'xpAll:18', 'rewards grow (v45: +5% a fight): +15 XP after fight 1 is +18 after fight 5');
   run = fresh(17, 'scout'); ok(Run.canChoose(run, Run.eventChoices(run)[3]).ok, 'a team with a ranged hero (Brigid) can take the archer choice');
   run.heroes = run.heroes.filter(h => h.key === 'brakk');
   ok(Run.canChoose(run, Run.eventChoices(run)[3]).why === 'Needs a ranged hero' && Run.eventAct(run, 3) === null, 'a melee-only team cannot: "Needs a ranged hero"');
@@ -278,26 +278,26 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   run = fresh(19, 'bounty'); const g19 = run.gold; Run.eventAct(run, 0);
   ok(run.phase === 'deploy' && run.cur.challenge && run.cur.challenge.name === 'Elite Pack' && run.cur.enemies.some(e => e.elite) && run.fightNo === 2, 'Bounty Board: the elite pack challenge starts right away (the fight count does not move)');
   let rs = Run.finishFight(run, { winner: 0, units: [], kills: 0 });
-  ok(rs.challenge && rs.relic && run.relics.includes(rs.relic) && run.gold > g19 && run.phase === 'map', `won: a relic (${rs.relic}) and gold, then the run goes on`);
+  ok(rs.challenge && rs.relic && run.relics.includes(rs.relic) && run.gold >= g19 && run.phase === 'map', `won: a relic (${rs.relic}), then the run goes on`);
   run = fresh(20, 'caravan'); Run.eventAct(run, 2); rs = Run.finishFight(run, { winner: 1, units: [], kills: 0 });
   ok(!rs.win && run.phase === 'map' && run.phase !== 'over' && !rs.prize, 'a lost challenge does not end the run');
   run = fresh(21, 'arena'); Run.eventAct(run, 1, String(run.heroes[1].uid));
   const WS = Run.fightWorld(run); ok(run.cur.solo === run.heroes[1].uid && WS.units.filter(u => u.side === 0).length === 1 && WS.units.filter(u => u.side === 1).length === 1, 'Duel of champions: only the chosen hero fights, against one champion');
   const hp21 = run.heroes[1].bonus.hpPct || 0; rs = Run.finishFight(run, { winner: 0, units: [], kills: 0 });
-  ok(Math.abs((run.heroes[1].bonus.hpPct || 0) - hp21 - 0.15) < 1e-9 && rs.boost && rs.bonusXp > 0, 'won the duel: +15% HP and attack for good and bonus XP');
+  ok(Math.abs((run.heroes[1].bonus.hpPct || 0) - hp21 - 0.08) < 1e-9 && rs.boost && !rs.bonusXp, 'won the duel: +8% HP and attack for good (v45: no bonus XP)');
   run = fresh(22, 'lender'); Run.eventAct(run, 0); const back = run.bank[0];
   run.phase = 'map'; run.cur = null; run.opts = [Run.makeFight(run, 'easy', 3)]; Run.choose(run, 0); const g22 = run.gold; rs = Run.finishFight(run, { winner: 0, units: [], kills: 0 });
-  ok(back === Math.round(18 * 1.15) && rs.bank === back && run.gold === g22 + rs.gold + back && !run.bank.length, `Moneylender: 8 gold in, ${back} back after the next won fight`);
+  ok(back === Math.round(10 * 1.05) && rs.bank === back && run.gold === g22 + rs.gold + back && !run.bank.length, `Moneylender: 8 gold in, ${back} back after the next won fight`);
   run = fresh(23, 'lender'); const g23 = run.gold; Run.eventAct(run, 2);
-  ok(run.gold === g23 + Math.round(15 * 1.15) && run.bank[0] === -Math.round(24 * 1.15), 'a loan: gold now, a debt paid on the next win');
+  ok(run.gold === g23 + Math.round(10 * 1.05) && run.bank[0] === -Math.round(15 * 1.05), 'a loan: gold now, a debt paid on the next win');
   run = fresh(24, 'alchemist'); const n24 = Run.itemRefs(run).length; Run.eventAct(run, 0);
   ok(Run.itemRefs(run).length === n24 - 1 && B.ITEM[run.bag[run.bag.length - 1]].tier === 'uncommon' && !run.heroes[0].items.length, `Transmute: the two weakest items (the common sword and mail) became one uncommon item (${B.ITEM[run.bag[run.bag.length - 1]].name})`);
   run = Run.newRun(25); run.fightNo = 1; const firsts = new Set(); for (let i = 0; i < 40; i++) firsts.add(Run.pickEvent(run));
   ok(!firsts.has('hoard') || run.evSeen.indexOf('hoard') > B.EVENTS.length - 2, "the Dragon's Hoard is not offered after the first fight");
   run = Run.newRun(26); run.fightNo = 5; const picks = Array.from({ length: B.EVENTS.length }, () => Run.pickEvent(run));
   ok(new Set(picks).size === B.EVENTS.length, `no event is offered twice in a run (${B.EVENTS.length} different in ${B.EVENTS.length} picks)`);
-  run = fresh(27, 'fairy'); const lv27 = run.heroes.map(h => h.lvl); Run.eventAct(run, 0);
-  ok(run.heroes.every((h, i) => h.lvl === Math.min(5, lv27[i] + 1)), 'Fairy Ring: every hero gains a level');
+  run = fresh(27, 'fairy'); const lv27 = run.heroes.map(h => h.lvl); Run.eventAct(run, 0, String(run.heroes[1].uid));
+  ok(run.heroes.every((h, i) => h.lvl === (i === 1 ? Math.min(5, lv27[i] + 1) : lv27[i])), 'Fairy Ring (v45): the hero you choose gains a level, the others do not');
   // old saved runs: an event opened before this change still works
   run = fresh(15, 'mercs'); delete run.cur.offer;
   ok(Run.eventChoices(run).length === 3 && run.cur.offer.heroes.length === 2, 'an event saved without an offer rolls one when opened');

@@ -56,21 +56,33 @@ await shot('01-title'); await noHScroll('title'); await noVScroll('title');
 ok(await ev(`!!document.querySelector('#top [data-act=shop].crownchip') && document.querySelectorAll('.homeicons button').length === 3 && !!document.querySelector('.homeicons [data-act=shop]') && !!document.querySelector('.homeicons [data-act=my-profile]') && !document.querySelector('.live') && document.querySelectorAll('[data-act=suggest]').length === 1 && !!document.querySelector('#top [data-act=suggest]')`), 'start menu: crown icon + Crown Shop and Profile tiles; the suggestion box only at the top');
 ok(await ev(`!!document.querySelector('.title .labtile[data-act=art-lab]')`), 'start menu: the Art Lab at the bottom');
 await click('.homeicons [data-act=my-profile]'); await sleep(400);
-ok(await ev(`/first run/.test(document.querySelector('#modal').textContent)`), 'profile before the first run: explains when it starts');
+ok(await ev(`/first game/.test(document.querySelector('#modal').textContent)`), 'profile before the first game: explains when it starts');
 await click('[data-act=close]'); await sleep(100);
 
-// new run, pick 1 hero and 1 relic (review #22)
+// v45 (review #56): the title explains the game in 3 steps, no portraits, never says "roguelike" or "run"
+ok(await ev(`document.querySelectorAll('.title .how3 li').length === 3 && !document.querySelector('.title .lineup') && !/roguelike|\\brun\\b/i.test(document.querySelector('.title').textContent) && /Play/.test(document.querySelector('[data-act=new-run]').textContent)`), 'v45 title: 3 steps (pick, place, fight), a Play button, no portraits, no "roguelike" or "run"');
+await click('[data-act=howto]'); await sleep(200);
+ok(await ev(`document.querySelectorAll('#modal .howbasics li').length === 5 && !!document.querySelector('#modal details.howmore') && !document.querySelector('#modal details.howmore').open`), 'v45 How to play: 5 short basics first, the full rules folded under them');
+await click('[data-act=close]'); await sleep(100);
+
+// new game, pick 1 hero and 1 relic (review #22), in two steps (v45, review #56)
 await click('[data-act=new-run]'); await sleep(200);
 const picks = await ev(`[...document.querySelectorAll('[data-act=start-pick]')].length`);
 ok(picks === 3, 'start offers 3 heroes side by side');
+ok(await ev(`!!document.querySelector('.start .ssteps li.on') && !!document.querySelector('.ssub.tap') && document.querySelector('[data-act=start-next]').disabled && !document.querySelector('[data-act=start-relic]')`), 'v45 step 1: "Tap a hero", Next is off until you pick, no relics yet');
 const fmtOut = await ev(`__bal.fmt('<b>x</b> deals 20% magic damage and stuns for 1.5s')`);
 ok(/&lt;b&gt;/.test(fmtOut) && /class="num">20%/.test(fmtOut) && /kw-ap/.test(fmtOut) && /kw-cc/.test(fmtOut) && /class="dur">1.5s/.test(fmtOut), 'review #10: descriptions colour terms, bold numbers, italic durations, and stay escaped');
-ok(await ev(`document.querySelectorAll('.detail .stat').length >= 6`), 'stat chips on the hero detail');
 await click('[data-act=start-pick]');
-ok(await ev(`document.querySelectorAll('[data-act=start-relic]').length === 3 && document.querySelector('[data-act=start-go]').disabled`), 'review #22: 3 relics offered; you need a hero AND a relic to begin');
+ok(await ev(`!!document.querySelector('.detail .abil') && !document.querySelector('.detail .stat') && !document.querySelector('[data-act=start-next]').disabled`), 'v45 step 1: the picked hero shows its ability (no stat table) and Next turns on');
+await shot('02a-start-hero'); await noHScroll('start hero'); await noVScroll('start hero');
+await click('[data-act=start-next]'); await sleep(100);
+ok(await ev(`document.querySelectorAll('[data-act=start-relic]').length === 3 && document.querySelector('[data-act=start-go]').disabled && document.querySelectorAll('.srelic .srd').length === 3 && document.querySelectorAll('.ssteps li.done').length === 1`), 'review #22 + v45 step 2: 3 relics with what they do written on them; you need a relic to begin');
+await click('[data-act=start-back]'); await sleep(100);
+ok(await ev(`!!document.querySelector('.hbanner.on') && !document.querySelector('[data-act=start-next]').disabled`), 'v45: Back returns to the heroes and keeps your pick');
+await click('[data-act=start-next]'); await sleep(100);
 await click('[data-act=start-relic]');
 await shot('02-start'); await noHScroll('start'); await noVScroll('start');
-ok(await click('[data-act=start-go]'), 'start run');
+ok(await click('[data-act=start-go]'), 'start the game');
 await sleep(200);
 ok(await ev(`document.querySelectorAll('[data-act=choose]').length`) === 2, 'first map step shows 2 options');
 await shot('03-map'); await noHScroll('map'); await noVScroll('map');
@@ -120,7 +132,7 @@ while (steps++ < 80) {
   if (st.phase === 'event') {
     if (!sawEvent) { await shot('09-event'); await noVScroll('event'); sawEvent = true; }
     if (await ev(`!!(__bal.run.cur && __bal.run.cur.done)`)) { await click('[data-act=leave]'); await sleep(80); continue; }  // back from a level-up the event gave
-    ok(await ev(`document.querySelectorAll('[data-act=event]').length === 3`), 'review #17: the event offers 3 choices');
+    ok(await ev(`document.querySelectorAll('[data-act=event]').length >= 3`), 'review #17 + v44: the event offers 3 or 4 choices');
     await click('[data-act=event]:not([disabled])'); await sleep(80);
     if (await ev(`!!document.querySelector('[data-act=event-target]')`)) {  // a targeted choice: pick the hero / item / type
       if (!sawPicker) { await shot('09b-event-target'); await noVScroll('event target picker'); sawPicker = true; }
@@ -180,7 +192,7 @@ ok(await ev(`Object.keys(B.HEROES).every(k => { const d = B.Run.heroDef({ relics
 // and a next-fight modifier shown on the map
 if (!REMOTE) {
   await click('[data-act=new-run]'); await sleep(150);
-  await click('[data-act=start-pick]'); await click('[data-act=start-relic]'); await click('[data-act=start-go]'); await sleep(150);
+  await click('[data-act=start-pick]'); await click('[data-act=start-next]'); await click('[data-act=start-relic]'); await click('[data-act=start-go]'); await sleep(150);
   await ev(`(() => { const r = __bal.run; r.gold = 30; r.bag.push('cap', 'bloodthirster'); r.phase = 'map'; r.opts = [{ type: 'event', id: 'smith' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(150);
   ok(await ev(`document.querySelectorAll('[data-act=event]').length === 4 && !document.querySelector('[data-act=event][data-arg="2"]').disabled && !!document.querySelector('[data-act=event][data-arg="2"] .price') && !!document.querySelector('[data-act=event][data-arg="3"] .etag.ereq')`), 'event: 4 choices (one needs a melee hero, tagged), the priced one is available');
   await shot('09-event'); await noHScroll('event'); await noVScroll('event');
@@ -202,11 +214,11 @@ if (!REMOTE) {
   ok(await ev(`!!document.querySelector('.evch.isfight .etag.efight') && !!document.querySelector('.evch .etag.erisk')`), 'Bounty Board: the challenges are tagged (fight now, the risk)');
   await shot('09f-challenge-event'); await noHScroll('challenge event');
   await click('[data-act=event][data-arg="0"]'); await sleep(200);
-  ok(await ev(`__bal.run.phase === 'deploy' && /Elite Pack/.test(document.querySelector('.bhead').textContent) && /run goes on/.test(document.querySelector('.nextmod.chal').textContent)`), 'the challenge opens its deploy screen: its name, what it pays, and that losing does not end the run');
+  ok(await ev(`__bal.run.phase === 'deploy' && /Elite Pack/.test(document.querySelector('.bhead').textContent) && /game goes on/.test(document.querySelector('.nextmod.chal').textContent)`), 'the challenge opens its deploy screen: its name, what it pays, and that losing does not end the game');
   await shot('09g-challenge-deploy');
   await click('[data-act=fight]'); await sleep(300); await ev(`__bal.skipBattle()`);
   for (let k = 0; k < 40 && !(await ev(`!!document.querySelector('[data-act=result-ok]')`)); k++) await sleep(100);
-  ok(await ev(`/Challenge · Elite Pack/.test(document.querySelector('.rwhat').textContent) && (document.querySelector('.rhead.win') ? true : /run goes on/.test(document.querySelector('#screen').textContent))`), 'the challenge result names it (a loss says the run goes on)');
+  ok(await ev(`/Challenge · Elite Pack/.test(document.querySelector('.rwhat').textContent) && (document.querySelector('.rhead.win') ? true : /game goes on/.test(document.querySelector('#screen').textContent))`), 'the challenge result names it (a loss says the game goes on)');
   await click('[data-act=result-ok]'); await sleep(150);
   ok(await ev(`__bal.run.phase !== 'over'`), 'after the challenge the run goes on');
   // review #18: the level-up screen (splash, gains, the 2 choices, the whole specialization path)
@@ -221,7 +233,7 @@ if (!REMOTE) {
 if (!REMOTE) {
   await ev(`fetch('/api/elo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'enter', pid: 'b'.repeat(32), name: 'Rival', team: [{ key: 'bastion', lvl: 3, specs: [], items: ['warmog', 'longsword'], bonus: {}, pos: { c: 3, r: 4 } }], relics: ['feather'] }) })`);
   await click('[data-act=new-run]'); await sleep(150);
-  await click('[data-act=start-pick]'); await click('[data-act=start-relic]'); await click('[data-act=start-go]'); await sleep(150);
+  await click('[data-act=start-pick]'); await click('[data-act=start-next]'); await click('[data-act=start-relic]'); await click('[data-act=start-go]'); await sleep(150);
   await ev(`(() => { const r = __bal.run; while (r.heroes.length < 3) B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k)));
     r.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[0].id); h.items = ['bloodthirster', 'warmog', 'deathcap', 'guardian']; }); r.heroes[0].items = ['obs_blade', 'obs_plate', 'obs_helm', 'mountainheart']; r.bag.push('worldsplitter', 'aegis', 'storm_boots');
     r.relics.push('drum'); r.step = B.Run.seqOf(r).length - 2; r.fightNo = 8; B.Run.advance(r); __bal.render(); })()`);

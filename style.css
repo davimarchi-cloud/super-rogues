@@ -1662,3 +1662,45 @@ section.enter .gain { animation: popin .6s cubic-bezier(.3, 1.7, .5, 1) backward
 .gain .bigcoin { width: 48px; height: 48px; margin: 4px 0; border-radius: 50%; background: radial-gradient(circle at 35% 32%, #fff8d2, #ffd23f 45%, #c47f00); box-shadow: 0 0 0 2px #8a5a14, 0 0 22px #ffd23fcc; }
 .gain.gg { --tier: #ffd23f; } .gain.gg b { color: #ffe46b; font-size: 22px; } .gain.gx { --tier: #5fd0ff; } .gain.gx b { color: #bfe9ff; } .gain.gb { --tier: #7dffb0; } .gain.gb b { color: #b6ffd0; }
 section.event .card.result { text-align: center; }
+
+/* v45 (review #56, David: "We are losing new players ... make the intro screen and the selection to start ... more simple
+   and intuitive"): the title says what you do in three numbered steps (no portraits), the start is two short steps with
+   a progress line, relics show what they do, and How to play opens with five short basics */
+.how3 { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px auto 6px; padding: 0; max-width: 420px; counter-reset: st; }
+.how3 li { position: relative; display: grid; justify-items: center; align-content: start; gap: 6px; padding: 14px 6px 12px; border-radius: 18px; background: var(--card); box-shadow: var(--card-shadow); counter-increment: st; }
+.how3 li::before { content: counter(st); position: absolute; top: -8px; left: -6px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: linear-gradient(180deg, #ffe46b, #ffc21a); color: #5a3000; font: 700 15px/1 var(--fun); box-shadow: 0 2px 0 #c47f00; }
+.how3 i { font-style: normal; font-size: 32px; line-height: 1; }
+.how3 b { font-family: var(--fun); font-size: 14px; line-height: 1.15; text-align: center; }
+section.enter .how3 li { animation: popin .55s cubic-bezier(.3, 1.7, .5, 1) backwards; }
+section.enter .how3 li:nth-child(2) { animation-delay: .12s; } section.enter .how3 li:nth-child(3) { animation-delay: .24s; }
+body.desk .title .how3 { grid-area: art; align-self: center; grid-template-columns: 1fr; width: 100%; max-width: 440px; gap: 20px; margin: 0; }
+body.desk .how3 li { grid-template-columns: 64px 1fr; justify-items: start; align-items: center; padding: 24px 28px; }
+body.desk .how3 li::before { width: 34px; height: 34px; font-size: 20px; top: -10px; left: -10px; }
+body.desk .how3 i { font-size: 52px; } body.desk .how3 b { font-size: 28px; text-align: left; }
+body.landscape .title .how3 { margin: 6px auto 0; }
+
+.ssteps { list-style: none; display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; padding: 0; }
+.ssteps li { display: flex; align-items: center; gap: 6px; padding: 3px 12px 3px 4px; border-radius: 999px; background: #ffffff1f; font: 600 13px/1.2 var(--fun); color: #ffffffb3; }
+.ssteps i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #ffffff33; font-size: 12px; }
+.ssteps li.on { background: #fff; color: #1c2690; } .ssteps li.on i { background: linear-gradient(180deg, #ffe46b, #ffc21a); color: #5a3000; }
+.ssteps li.done { color: #fff; } .ssteps li.done i { background: #3ddc84; color: #fff; }
+.ssub { text-align: center; margin: 4px 0 8px; font-size: 14px; color: #ffffffcc; }
+.ssub.tap { font-family: var(--fun); font-size: 17px; font-weight: 600; color: #fff; margin: 16px 0; animation: tapnudge 1.4s ease-in-out infinite; }
+@keyframes tapnudge { 50% { translate: 0 -5px; } }
+.srelics.big { grid-template-columns: 1fr; gap: 10px; max-width: 580px; margin: 10px auto; }
+.srelics.big .srelic { flex-direction: row; justify-content: flex-start; text-align: left; gap: 12px; padding: 12px 46px 12px 12px; }
+.srelics.big .srelic .ico { width: 48px; height: 48px; }
+.srelics.big .srt { display: grid; gap: 3px; } .srelics.big .srt b { font-size: 17px; line-height: 1.2; }
+.srelics.big .srd { display: block; font-size: 13.5px; line-height: 1.35; color: #eef1ff; } .srelics.big .srd * { display: inline; }
+.srelics.big .srelic.on .srd, .srelics.big .srelic.on .srd * { color: #5a3000; text-shadow: none; }
+.srelics.big .srelic .chk { top: 50%; right: 12px; translate: 0 -50%; }
+.start .bar { max-width: 580px; margin-left: auto; margin-right: auto; }
+.start .bar > button:not(.primary) { flex: 0 0 auto; }
+body.wide .start .srelics.big { max-width: 720px; }
+
+.howbasics { list-style: none; padding: 0; margin: 6px 0 12px; display: grid; gap: 8px; }
+.howbasics li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: #ffffff14; font-size: 14.5px; line-height: 1.4; }
+.howbasics i { font-style: normal; font-size: 26px; line-height: 1; flex: none; }
+.howmore { margin: 4px 0 0; }
+.howmore summary { cursor: pointer; font-family: var(--fun); font-weight: 600; font-size: 15px; padding: 8px 2px; }

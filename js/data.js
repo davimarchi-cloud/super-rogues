@@ -852,12 +852,17 @@
   //   - FTL's "blue options": extra choices only a team with the right hero can take (a melee hero, a ranged hero, a
   //     caster, a healer, a hero at Lv 3); everyone sees them, so players learn they exist;
   //   - rarity: common, uncommon and rare events (rare ones pay a lot); an event is not offered twice in a run;
-  //   - rewards grow with the run: {gN} = N gold, {xN} = N XP, times 1 + 15% for each fight after the first.
+  //   - rewards grow with the run: {gN} = N gold, {xN} = N XP, times 1 + 5% for each fight after the first.
+  // v45 (review #55, David: "The new events are way too op. The fight bounties, gold gain, xp gain, etc is just way
+  // too much. I like the hero specific unlocked choices though"): every reward is smaller (about the size of the old
+  // v43 events, some below), growth is +5% per fight (was +15%), challenges pay one prize and no gold on top, and bets
+  // are close to fair. Measured with tools/sim-run.js: a bot that prefers events now does about as well as one that
+  // prefers shops. The hero-specific choices stay, a little better than the plain ones.
   // A choice can have:
   //   act     what it does (run.js eventAct): xpAll:n, xpHero:n, hpAll:p, hpHero:p, buffHero / buffAll (+mods), gold:n,
   //           item:any|common|rare|epic, typeItem:rarity, mystery, sellFull, upgradeItem, gambleItem, gamble:bet:odds:win,
   //           relic, relicPick:id, relicBlood:p[:id], relicItem, respec, hire:key, join:key, take:itemId, setPiece,
-  //           tradeSet, invest:back, loan:now:later, levelAll, transmute, potion, mimic, fight, none
+  //           tradeSet, invest:back, loan:now:later, levelAll, levelHero, transmute, potion, mimic, fight, none
   //   cost    gold paid up front              target  'hero' | 'item' | 'type': the player picks what it applies to
   //   next    a modifier for the NEXT fight: enemyHp / enemyAtk (+-%), manaStart, regen, atkPct (your heroes),
   //           goldPct, reward ('legendary' item if you win it), rewardGold
@@ -869,80 +874,80 @@
   // Events marked dyn build their choices from an offer rolled when the event opens (run.js eventChoices).
   B.EVENTS = [
     { id: 'training', rar: 'common', icon: '🎯', name: 'Training Grounds', text: 'Old veterans offer to drill your team.', choices: [
-      { label: 'Drill everyone: +{x25} XP to all heroes', act: 'xpAll:{x25}' },
-      { label: 'Private lessons: +{x70} XP to one hero', act: 'xpHero:{x70}', target: 'hero' },
-      { label: 'Hire the masters: +{x50} XP to all heroes', act: 'xpAll:{x50}', cost: 6 },
-      { label: 'Your veteran runs the drill: +{x60} XP to all heroes', act: 'xpAll:{x60}', req: 'lvl3' }] },
+      { label: 'Drill everyone: +{x15} XP to all heroes', act: 'xpAll:{x15}' },
+      { label: 'Private lessons: +{x40} XP to one hero', act: 'xpHero:{x40}', target: 'hero' },
+      { label: 'Hire the masters: +{x30} XP to all heroes', act: 'xpAll:{x30}', cost: 6 },
+      { label: 'Your veteran runs the drill: +{x30} XP to all heroes', act: 'xpAll:{x30}', req: 'lvl3' }] },
     { id: 'merchant', rar: 'common', icon: '🧳', name: 'Wandering Merchant', text: 'A cloaked merchant opens a heavy chest. Today, everything is cheap.', dyn: true },
     { id: 'gambler', rar: 'common', icon: '🎲', name: "Gambler's Den", text: 'Double or nothing, stranger?', choices: [
-      { label: 'Small bet: 50% to win {g14} gold', act: 'gamble:5:0.5:{g14}', cost: 5, risk: 'You may lose the 5 gold' },
-      { label: 'High stakes: 40% to win {g36} gold', act: 'gamble:12:0.4:{g36}', cost: 12, risk: 'You may lose the 12 gold' },
-      { label: 'Bet an item: 55% it goes up one rarity, 45% it is lost', act: 'gambleItem', target: 'item', risk: 'The item may be lost' }] },
+      { label: 'Small bet: 50% to win {g11} gold', act: 'gamble:5:0.5:{g11}', cost: 5, risk: 'You may lose the 5 gold' },
+      { label: 'High stakes: 40% to win {g30} gold', act: 'gamble:12:0.4:{g30}', cost: 12, risk: 'You may lose the 12 gold' },
+      { label: 'Bet an item: 50% it goes up one rarity, 50% it is lost', act: 'gambleItem', target: 'item', risk: 'The item may be lost' }] },
     { id: 'altar', rar: 'uncommon', icon: '🗿', name: 'Cursed Altar', text: 'Three relics rest on a humming altar. Each one asks a different price.', dyn: true },
     { id: 'fountain', rar: 'common', icon: '⛲', name: 'Fountain of Vigor', text: 'Clear water that glows faintly.', choices: [
-      { label: 'Everyone drinks: +10% max HP to all heroes', act: 'hpAll:0.1' },
-      { label: 'One hero bathes: +25% max HP to that hero', act: 'hpHero:0.25', target: 'hero' },
-      { label: 'Fish out the coins: +{g9} gold', act: 'gold:{g9}' },
-      { label: 'Your healer blesses the water: +10% max HP and +20 AP to all heroes', act: 'buffAll', mods: { hpPct: 0.1, ap: 20 }, req: 'healer' }] },
+      { label: 'Everyone drinks: +8% max HP to all heroes', act: 'hpAll:0.08' },
+      { label: 'One hero bathes: +20% max HP to that hero', act: 'hpHero:0.2', target: 'hero' },
+      { label: 'Fish out the coins: +{g5} gold', act: 'gold:{g5}' },
+      { label: 'Your healer blesses the water: +8% max HP and +10 AP to all heroes', act: 'buffAll', mods: { hpPct: 0.08, ap: 10 }, req: 'healer' }] },
     { id: 'mercs', rar: 'uncommon', icon: '🪖', name: 'Mercenary Camp', text: 'Two sellswords look for work.', dyn: true },
     { id: 'smith', rar: 'common', icon: '⚒️', name: 'Blacksmith', text: 'The forge is still hot.', choices: [
-      { label: 'Sharpen: +15 attack to one hero', act: 'buffHero', mods: { atk: 15 }, target: 'hero' },
-      { label: 'Reinforce: +25 armor and +25 magic resist to one hero', act: 'buffHero', mods: { armor: 25, mr: 25 }, target: 'hero' },
+      { label: 'Sharpen: +10 attack to one hero', act: 'buffHero', mods: { atk: 10 }, target: 'hero' },
+      { label: 'Reinforce: +15 armor and +15 magic resist to one hero', act: 'buffHero', mods: { armor: 15, mr: 15 }, target: 'hero' },
       { label: 'Reforge: an item becomes a random item of the same type, one rarity higher', act: 'upgradeItem', cost: 5, target: 'item' },
       { label: 'Your fighter works the bellows: reforge an item for free', act: 'upgradeItem', target: 'item', req: 'melee' }] },
     { id: 'library', rar: 'common', icon: '📜', name: 'Ancient Library', text: 'Dusty tomes about forgotten wars.', choices: [
       { label: 'Battle tactics: your heroes start the next fight with +40 mana', act: 'none', next: { manaStart: 40 } },
       { label: 'Forbidden tome: one hero swaps its latest specialization for the other one', act: 'respec', target: 'hero' },
       { label: 'Loot the shelves: a random item', act: 'item:any' },
-      { label: 'Your caster studies a spellbook: +35 AP to that hero for good', act: 'buffHero', mods: { ap: 35 }, target: 'hero', req: 'caster' }] },
+      { label: 'Your caster studies a spellbook: +20 AP to that hero for good', act: 'buffHero', mods: { ap: 20 }, target: 'hero', req: 'caster' }] },
     { id: 'caravan', rar: 'common', icon: '🐪', name: 'Lost Caravan', text: 'An abandoned caravan, still loaded. Its tracks lead to a bandit camp.', choices: [
-      { label: 'Take the gold: +{g12} gold', act: 'gold:{g12}' },
+      { label: 'Take the gold: +{g6} gold', act: 'gold:{g6}' },
       { label: 'Take the crate: a random item', act: 'item:any' },
-      { label: 'Raid the bandit camp now. Win: +{g22} gold and a rare item', act: 'fight', fight: { kind: 'bandits', name: 'Bandit Camp', win: { gold: '{g22}', item: 'rare' } }, risk: 'A fight: lose it and you get nothing' }] },
+      { label: 'Raid the bandit camp now. Win: a rare item', act: 'fight', fight: { kind: 'bandits', name: 'Bandit Camp', win: { item: 'rare' } }, risk: 'A fight: lose it and you get nothing' }] },
     { id: 'shrine', rar: 'uncommon', icon: '🕯️', name: 'Shrine of Sacrifice', text: 'The shrine accepts offerings in exchange for power.', choices: [
       { label: 'Offer gold: a random relic', act: 'relic', cost: 7 },
       { label: 'Offer an item (rare or better): a random relic', act: 'relicItem', target: 'item', minRarity: 'rare' },
-      { label: 'Pray: +{x20} XP to all heroes', act: 'xpAll:{x20}' }] },
+      { label: 'Pray: +{x10} XP to all heroes', act: 'xpAll:{x10}' }] },
     { id: 'hut', rar: 'common', icon: '🌿', name: 'Herbalist', text: 'A quiet herbalist sorts roots and powders.', choices: [
       { label: 'Healing tonic: in the next fight your heroes regenerate 2% max HP per second', act: 'none', next: { regen: 0.02 } },
       { label: 'Calming draught: one hero ignores the first crowd control of every fight', act: 'buffHero', mods: { cleanseOnce: 1 }, cost: 4, target: 'hero' },
-      { label: 'Sell her your spare herbs: +{g7} gold', act: 'gold:{g7}' },
-      { label: 'Your caster brews a mana draught: every hero starts every fight with +15 mana', act: 'buffAll', mods: { manaStart: 15 }, req: 'caster' }] },
+      { label: 'Sell her your spare herbs: +{g4} gold', act: 'gold:{g4}' },
+      { label: 'Your caster brews a mana draught: every hero starts every fight with +10 mana', act: 'buffAll', mods: { manaStart: 10 }, req: 'caster' }] },
     { id: 'recruit', rar: 'common', icon: '🛡️', name: 'Village Militia', text: 'Villagers want to learn from your heroes.', choices: [
-      { label: 'Teach them: +{g10} gold', act: 'gold:{g10}' },
-      { label: 'Learn from them: +{x20} XP to all heroes', act: 'xpAll:{x20}' },
-      { label: 'Rally them: your heroes get +15% attack in the next fight', act: 'none', next: { atkPct: 0.15 } }] },
+      { label: 'Teach them: +{g6} gold', act: 'gold:{g6}' },
+      { label: 'Learn from them: +{x10} XP to all heroes', act: 'xpAll:{x10}' },
+      { label: 'Rally them: your heroes get +10% attack in the next fight', act: 'none', next: { atkPct: 0.1 } }] },
     { id: 'scout', rar: 'common', icon: '🔭', name: "Scout's Report", text: 'A scout has seen the camp ahead.', choices: [
       { label: "Ambush: the next fight's enemies start with 20% less HP", act: 'none', next: { enemyHp: -0.2 } },
       { label: "Sabotage: the next fight's enemies have 15% less attack", act: 'none', next: { enemyAtk: -0.15 } },
-      { label: 'Sell the map: +{g8} gold', act: 'gold:{g8}' },
-      { label: "Your archer picks off their captain: the next fight's enemies have 30% less HP", act: 'none', next: { enemyHp: -0.3 }, req: 'ranged' }] },
+      { label: 'Sell the map: +{g5} gold', act: 'gold:{g5}' },
+      { label: "Your archer picks off their captain: the next fight's enemies have 25% less HP", act: 'none', next: { enemyHp: -0.25 }, req: 'ranged' }] },
     { id: 'arena', rar: 'uncommon', icon: '🏟️', name: 'Arena', text: 'The crowd roars. A champion waits in the pit.', choices: [
       { label: 'Fight for glory. The next fight: enemies +35% HP, win it for a legendary item', act: 'none', next: { enemyHp: 0.35, reward: 'legendary' } },
-      { label: 'Duel of champions: one hero fights the champion alone now. Win: that hero gets +15% HP and attack for good and +{x40} XP', act: 'fight', target: 'hero', fight: { kind: 'solo', name: 'Duel of Champions', win: { boost: { hpPct: 0.15, atkPct: 0.15 }, xp: '{x40}' } }, risk: 'Only that hero fights' },
-      { label: 'Watch and learn: +{x20} XP to all heroes', act: 'xpAll:{x20}' }] },
+      { label: 'Duel of champions: one hero fights the champion alone now. Win: that hero gets +8% HP and attack for good', act: 'fight', target: 'hero', fight: { kind: 'solo', name: 'Duel of Champions', win: { boost: { hpPct: 0.08, atkPct: 0.08 } } }, risk: 'Only that hero fights' },
+      { label: 'Watch and learn: +{x10} XP to all heroes', act: 'xpAll:{x10}' }] },
     { id: 'chest', rar: 'uncommon', icon: '🧰', name: 'Strange Chest', text: 'An iron chest sits alone in the grass. Did it just breathe?', choices: [
-      { label: 'Open it: 65% an epic item, 35% it is a Mimic (beat it for a legendary item)', act: 'mimic', risk: 'It may be a fight' },
-      { label: 'Pick the lock slowly: a rare item', act: 'item:rare', cost: 3 },
-      { label: 'Kick it and walk away: +{g6} gold', act: 'gold:{g6}' },
-      { label: 'Your archer shoots it from afar first: an epic item, safely', act: 'item:epic', req: 'ranged' }] },
+      { label: 'Open it: 60% a rare item, 40% it is a Mimic (beat it for an epic item)', act: 'mimic', risk: 'It may be a fight' },
+      { label: 'Pick the lock slowly: a rare item', act: 'item:rare', cost: 5 },
+      { label: 'Kick it and walk away: +{g3} gold', act: 'gold:{g3}' },
+      { label: 'Your archer shoots it from afar first: a rare item, safely', act: 'item:rare', req: 'ranged' }] },
     { id: 'lender', rar: 'uncommon', icon: '💰', name: 'Moneylender', text: 'A smiling banker counts coins. "Money makes money, friend."', choices: [
-      { label: 'Invest 8 gold: get {g18} back after your next won fight', act: 'invest:{g18}', cost: 8 },
-      { label: 'Invest 15 gold: get {g36} back after your next won fight', act: 'invest:{g36}', cost: 15 },
-      { label: 'Take a loan: +{g15} gold now, pay back {g24} after your next won fight', act: 'loan:{g15}:{g24}', risk: 'You pay back more' }] },
+      { label: 'Invest 8 gold: get {g10} back after your next won fight', act: 'invest:{g10}', cost: 8 },
+      { label: 'Invest 15 gold: get {g19} back after your next won fight', act: 'invest:{g19}', cost: 15 },
+      { label: 'Take a loan: +{g10} gold now, pay back {g15} after your next won fight', act: 'loan:{g10}:{g15}', risk: 'You pay back more' }] },
     { id: 'bounty', rar: 'uncommon', icon: '📌', name: 'Bounty Board', text: 'Wanted posters flap in the wind. Big rewards, big dangers.', choices: [
-      { label: 'Hunt the elite pack now. Win: a relic and +{g10} gold', act: 'fight', fight: { kind: 'pack', name: 'Elite Pack', win: { relic: 1, gold: '{g10}' } }, risk: 'A hard fight with elites' },
-      { label: 'Break the horde now. Win: +{g28} gold', act: 'fight', fight: { kind: 'horde', name: 'The Horde', win: { gold: '{g28}' } }, risk: 'Twice as many enemies' },
-      { label: 'Take an easy bounty: +{g8} gold', act: 'gold:{g8}' }] },
+      { label: 'Hunt the elite pack now. Win: a relic', act: 'fight', fight: { kind: 'pack', name: 'Elite Pack', win: { relic: 1 } }, risk: 'A hard fight with elites' },
+      { label: 'Break the horde now. Win: +{g10} gold', act: 'fight', fight: { kind: 'horde', name: 'The Horde', win: { gold: '{g10}' } }, risk: 'Twice as many enemies' },
+      { label: 'Take an easy bounty: +{g5} gold', act: 'gold:{g5}' }] },
     { id: 'alchemist', rar: 'uncommon', icon: '⚗️', name: 'Alchemist', text: 'Bubbling flasks everywhere. "Everything can become something better."', choices: [
       { label: 'Transmute: your two weakest items become one item a rarity above the better of the two', act: 'transmute', risk: 'Two items become one' },
-      { label: 'Potion of might: one hero gets +20% attack for good, but 10% less max HP', act: 'buffHero', mods: { atkPct: 0.2, hpPct: -0.1 }, target: 'hero' },
-      { label: 'Mystery potion: a random hero gets a random lasting boost', act: 'potion', cost: 3 }] },
+      { label: 'Potion of might: one hero gets +12% attack for good, but 10% less max HP', act: 'buffHero', mods: { atkPct: 0.12, hpPct: -0.1 }, target: 'hero' },
+      { label: 'Mystery potion: a random hero gets a random lasting boost', act: 'potion', cost: 4 }] },
     { id: 'fairy', rar: 'rare', icon: '🧚', name: 'Fairy Ring', text: 'Tiny lights dance in a ring of mushrooms. A rare sight!', dyn: true },
     { id: 'hoard', rar: 'rare', after: 2, icon: '🐉', name: "Dragon's Hoard", text: 'Gold glitters in a cave. Something huge sleeps on it.', choices: [
-      { label: 'Wake the guardian and fight it now. Win: a legendary item, a relic and +{g20} gold', act: 'fight', fight: { kind: 'hoard', name: "The Hoard's Guardian", win: { item: 'legendary', relic: 1, gold: '{g20}' } }, risk: 'A boss-sized fight' },
-      { label: 'Steal a pouch quietly: +{g18} gold', act: 'gold:{g18}' },
-      { label: 'Grab one piece of the treasure: a random epic item', act: 'item:epic' }] },
+      { label: 'Wake the guardian and fight it now. Win: a legendary item', act: 'fight', fight: { kind: 'hoard', name: "The Hoard's Guardian", win: { item: 'legendary' } }, risk: 'A boss-sized fight' },
+      { label: 'Steal a pouch quietly: +{g8} gold', act: 'gold:{g8}' },
+      { label: 'Grab one piece of the treasure: a random rare item', act: 'item:rare' }] },
     { id: 'legend', rar: 'rare', icon: '🌟', name: 'Wandering Legend', text: 'A famous hero rests by the road and sizes up your team.', dyn: true },
     { id: 'armory', rar: 'uncommon', icon: '🗡️', name: 'Armory', text: 'Racks of gear. The quartermaster lets you take one piece.', dyn: true },
     { id: 'collector', rar: 'uncommon', icon: '💎', name: 'Collector', text: 'A collector trades in matched gear.', dyn: true },

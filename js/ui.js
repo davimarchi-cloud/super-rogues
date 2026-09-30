@@ -250,7 +250,7 @@
     if (screen === 'title' || !run) return 'title';
     if (screen !== 'run') return screen;
     if (run.pending.length && run.phase !== 'deploy') return 'level:' + run.pending[0].uid + ':' + run.pending[0].lvl;
-    return run.phase + ':' + run.step + ':' + (run.g ? run.g.round + ':' + run.g.status : '') + ':' + (run.cur && run.cur.pick != null ? 'pick' : '') + (run.cur && run.cur.done ? 'done' : '');
+    return run.phase + (run.phase === 'start' ? ui.startStep || 1 : '') + ':' + run.step + ':' + (run.g ? run.g.round + ':' + run.g.status : '') + ':' + (run.cur && run.cur.pick != null ? 'pick' : '') + (run.cur && run.cur.done ? 'done' : '');
   }
   function onEnter(key) {
     if (!B.Juice) return;
@@ -258,17 +258,19 @@
     else if (key.startsWith('event:') && key.endsWith('done')) { const g = $('.gains'); if (g) { sfx('unlock'); B.Juice.confettiAt(g, 40); } else sfx('back'); }
   }
 
+  // v45 (review #56, David: "We are losing new players without experience ... make the intro screen and the selection to
+  // start the run and select hero and relic more simple and intuitive ... call it game instead of run ... remove the
+  // portraits from the start menu. Dont call it a roguelike"): the title says what you do in three steps and has one big
+  // Play button; a run is called a "game" everywhere a player reads it
   function titleHTML() {
     const has = run && run.phase !== 'over';
-    const lineup = ui.lineup = ui.lineup || Object.keys(HEROES).sort(() => Math.random() - 0.5).slice(0, 3);
     return `<section class="title">
       <div class="crest">${EMBLEM}</div>
       <h1 class="sc">Balance</h1>
-      <p class="tag">A roguelike of heroes, hexes and ghosts</p>
-      <div class="lineup">${lineup.map((k, i) => `<img class="${i === 1 ? 'mid' : ''}" src="${por(k, 120, true)}" alt="">`).join('')}</div>
+      <ol class="how3"><li><i>🦸</i><b>Pick heroes</b></li><li><i>🧩</i><b>Place them</b></li><li><i>⚔️</i><b>Watch them fight</b></li></ol>
       <div class="stack">
-        ${has ? `<button class="primary big cta" data-act="continue-run"><span>Continue run</span><small>${run.phase === 'gauntlet' ? '🏆 Gauntlet' : 'Day ' + (Math.max(0, run.step) + 1) + '/' + Run.seqOf(run).length} · ${run.heroes.length} hero${run.heroes.length === 1 ? '' : 'es'} · ${run.gold} gold</small></button>` : ''}
-        <button class="${has ? '' : 'primary '}big" data-act="new-run">New run</button>
+        ${has ? `<button class="primary big cta" data-act="continue-run"><span>▶ Continue</span><small>${run.phase === 'gauntlet' ? '🏆 Gauntlet' : run.phase === 'start' ? 'Picking your hero' : 'Day ' + (Math.max(0, run.step) + 1) + '/' + Run.seqOf(run).length} · ${run.heroes.length} hero${run.heroes.length === 1 ? '' : 'es'} · ${run.gold} gold</small></button>` : ''}
+        <button class="${has ? '' : 'primary cta '}big" data-act="new-run">${has ? 'New game' : '▶ Play'}</button>
         <button data-act="howto">How to play</button>
       </div>
       <div class="homeicons">
@@ -292,22 +294,27 @@
       ${chips({ hp: h.hp, atk: h.atk, armor: h.armor, mr: h.mr, as: h.as, range: h.range })}
       <div class="abil">${abilHTML(h)}</div>${scaleTag(key)}${extra}</div>`;
   }
-  // review #22 (David): the run starts with 1 hero and 1 relic: pick one of each (3 offered)
+  // review #22 (David): the game starts with 1 hero and 1 relic: pick one of each (3 offered).
+  // v45 (review #56): two short steps instead of one busy screen. Step 1: tap a hero (its ability shows under the three,
+  // no stat table), then Next. Step 2: the three relics with what they do written on them, then Start.
+  const stepsHTML = s => `<ol class="ssteps">${['Hero', 'Relic', 'Fight!'].map((t, i) => `<li class="${i + 1 < s ? 'done' : i + 1 === s ? 'on' : ''}"><i>${i + 1 < s ? '✓' : i + 1}</i>${t}</li>`).join('')}</ol>`;
   function startHTML() {
-    const f = run.startOffer.includes(ui.focus) ? ui.focus : ui.startPick[0] || run.startOffer[0], h = HEROES[f], n = ui.startPick.length;
-    const relics = run.relicOffer || [], rsel = ui.startRelic && relics.includes(ui.startRelic) ? ui.startRelic : null, ready = n === CFG.startHeroes && (!relics.length || rsel);
-    const relicRow = relics.length ? `<div class="srelics">${relics.map(id => `<button class="srelic ${rsel === id ? 'on' : ''} ${ui.focusRelic === id ? 'focus' : ''}" data-act="start-relic" data-arg="${id}">${ico('relic', id, 30)}<b class="relic">${esc(RELIC[id].name)}</b>${rsel === id ? '<span class="chk">✓</span>' : ''}</button>`).join('')}</div>` : '';
-    const fr = ui.focusRelic && relics.includes(ui.focusRelic) ? RELIC[ui.focusRelic] : null;
-    return `<section class="start"><h2 class="sc">Choose your champion</h2>${(run.locked || []).length ? `<p class="center"><span class="lockpill" title="More heroes, items and relics unlock as your account levels up">🔒 ${run.locked.length} more unlock as you level up</span></p>` : ''}
+    const relics = run.relicOffer || [], n = ui.startPick.length;
+    if (ui.startStep === 2 && n === CFG.startHeroes && relics.length) {
+      const rsel = ui.startRelic && relics.includes(ui.startRelic) ? ui.startRelic : null;
+      return `<section class="start s2">${stepsHTML(2)}<h2 class="sc">Pick a relic</h2><p class="ssub">A bonus for your whole team, all game long.</p>
+        <div class="srelics big">${relics.map(id => `<button class="srelic ${rsel === id ? 'on' : ''}" data-act="start-relic" data-arg="${id}">${ico('relic', id, 44)}<span class="srt"><b class="relic">${esc(RELIC[id].name)}</b><small class="srd">${fmt(RELIC[id].desc)}</small></span>${rsel === id ? '<span class="chk">✓</span>' : ''}</button>`).join('')}</div>
+        <div class="bar"><button data-act="start-back">◀ Back</button><button class="primary big" data-act="start-go" ${rsel ? '' : 'disabled'}>${rsel ? 'Start the game!' : 'Tap a relic'}</button></div></section>`;
+    }
+    const f = run.startOffer.includes(ui.focus) ? ui.focus : ui.startPick[0] || null, h = f && HEROES[f];
+    return `<section class="start s1">${stepsHTML(1)}<h2 class="sc">Pick your first hero</h2><p class="ssub">You can buy 2 more heroes later.</p>
       <div class="hbanners">${run.startOffer.map(k => { const d = HEROES[k], on = ui.startPick.includes(k);
         return `<button class="hbanner ${on ? 'on' : ''} ${k === f ? 'focus' : ''}" data-act="start-pick" data-arg="${k}" style="--cloth:${d.color}">
           <span class="rod"></span><img src="${por(k, 120, true)}" alt=""><b>${esc(d.name)}</b><i>${d.role}</i>${on ? '<span class="chk">✓</span>' : ''}</button>`; }).join('')}</div>
-      ${relicRow}
-      ${fr ? `<div class="card detail"><div class="hrow">${ico('relic', fr.id, 44)}<b class="relic">${esc(fr.name)}</b><span class="role">relic</span></div><div class="abil">${fmt(fr.desc)}</div></div>`
-        : `<div class="card detail"><div class="hrow">${img(f, 48)}<b>${esc(h.name)}</b><span class="role">${h.role}</span></div>
-        ${chips({ hp: h.hp, atk: h.atk, armor: h.armor, mr: h.mr, as: h.as, range: h.range, crit: h.crit ? pct(h.crit) : 0, dodge: h.dodge ? pct(h.dodge) : 0 })}
-        <div class="abil">${abilHTML(h)}</div>${scaleTag(f)}</div>`}
-      <div class="bar"><button class="primary big" data-act="start-go" ${ready ? '' : 'disabled'}>${ready ? 'Begin the journey' : !n ? 'Pick a hero' : 'Pick a relic'}</button></div></section>`;
+      ${h ? `<div class="card detail"><div class="hrow">${img(f, 48)}<b>${esc(h.name)}</b><span class="role">${h.role} · ${h.range <= 1 ? '⚔️ fights up close' : '🏹 attacks from afar'}</span></div>
+        <div class="abil">${abilHTML(h)}</div></div>` : '<p class="ssub tap">👆 Tap a hero to see what it does</p>'}
+      ${(run.locked || []).length ? `<p class="center"><span class="lockpill" title="More heroes, items and relics unlock as your account levels up">🔒 ${run.locked.length} more unlock as you level up</span></p>` : ''}
+      <div class="bar"><button class="primary big" data-act="start-next" ${n === CFG.startHeroes ? '' : 'disabled'}>${n === CFG.startHeroes ? (relics.length ? 'Next ▶' : 'Start the game!') : 'Tap a hero'}</button></div></section>`;
   }
 
   function trackHTML() {
@@ -405,7 +412,7 @@
     const map = Run.mapOf(run);
     return `<section class="deploy">
       <div class="bhead">${gau ? `⚔ Gauntlet floor ${run.g.round + 1} · vs ${esc(run.g.opp.name)} (Elo ${run.g.opp.elo})` : f.challenge ? `🏆 ${esc(f.challenge.name)}` : f.diff === 'boss' ? '👹 Boss fight' : '⚔ ' + B.DIFF[f.diff].name + ' fight'} · deploy${map ? ` <span class="mapchip" title="${esc(map.desc)}">🗺 ${esc(map.name)}</span>` : ''}</div>
-      ${!gau && f.challenge ? `<p class="hint tight"><span class="nextmod chal">${f.challenge.intro ? esc(f.challenge.intro) + ' ' : ''}${f.solo ? `Only ${esc(HEROES[f.challenge.hero].name)} fights. ` : ''}<b>Win:</b> ${esc(winText(f.challenge.win))}. <b>Lose:</b> your run goes on.</span></p>`
+      ${!gau && f.challenge ? `<p class="hint tight"><span class="nextmod chal">${f.challenge.intro ? esc(f.challenge.intro) + ' ' : ''}${f.solo ? `Only ${esc(HEROES[f.challenge.hero].name)} fights. ` : ''}<b>Win:</b> ${esc(winText(f.challenge.win))}. <b>Lose:</b> the game goes on.</span></p>`
         : !gau && f.mod ? `<p class="hint tight"><span class="nextmod">⚑ ${fmt(modText(f.mod))}</span></p>` : (store.get('balance.tips.deploy', 0) | 0) < 3 ? '<p class="hint tight tip">Drag your heroes: tanks in front, ranged behind.</p>' : ''}
       ${run.relics.some(id => RELIC[id] && RELIC[id].form) ? `<p class="formline" id="formline">${formHTML(worldFor(true))}</p>` : ''}
       <div class="boardwrap"><canvas id="board"></canvas></div>
@@ -533,7 +540,7 @@
     const foes = r.foes && r.foes.length && !r.win ? `<div class="rfoes">${r.foes.map(f => `<span class="rf ${f.dead ? 'dead' : ''} ${f.boss ? 'boss' : ''} ${f.elite ? 'elite' : ''}">${img(f.key, f.boss ? 30 : 24, 'por')}</span>`).join('')}</div>` : '';
     const bl = r.boss && r.bossElo && hasPerk('elo') ? `<p class="small dim ghostline">👹 ${esc(r.bossElo.name)}'s Elo: <b>${r.bossElo.elo}</b> (${r.bossElo.delta >= 0 ? '+' : ''}${r.bossElo.delta})</p>` : '';
     const gh = r.gauntlet && r.ghost ? `<p class="small dim ghostline">👻 ${plink(r.ghost.name, r.opp.code)}'s ghost: Elo <b>${r.ghost.elo}</b> (${r.ghost.delta >= 0 ? '+' : ''}${r.ghost.delta})</p>` : '';
-    const lostRun = !r.win && !r.gauntlet ? `<p class="small dim center">${r.challenge ? 'The challenge beat you. No reward, but your run goes on.' : 'Your run is over.'}</p>` : '';
+    const lostRun = !r.win && !r.gauntlet ? `<p class="small dim center">${r.challenge ? 'The challenge beat you. No reward, but the game goes on.' : 'Game over.'}</p>` : '';
     return `<section class="result v2"><div class="rhead ${r.win ? 'win' : 'lose'}"><span class="rays"></span><h2 class="sc headline ${r.win ? 'win' : 'lose'}">${r.win ? 'Victory' : 'Defeat'}</h2>
         ${starRow}<p class="rwhat">${what}</p><p class="rmeta">${meta}</p></div>
       ${eloLine(r)}${chips.length ? `<div class="rewards2">${chips.join('')}</div>` : ''}${promo}${lostRun}
@@ -631,7 +638,7 @@
     return `<section class="gauntlet"><h2 class="sc">Gauntlet · floor ${g.round + 1}</h2>
       <div class="gwrap">${towerHTML(g)}
       <div class="card opp"><div class="row"><b class="sc">👻 ${plink(o.name, o.code)}</b><span class="grow"></span><span class="elo">⚜ ${o.elo}</span></div>
-        <p class="small dim">${o.status === 'champion' ? '👑 The reigning champion: beat it and the crown is yours.' : (o.own ? 'A ghost of one of your own earlier runs. ' : '') + 'It lost on this floor (went ' + o.wins + '-1).'}${def}</p>${teamRow(o.team, o.relics)}</div></div>
+        <p class="small dim">${o.status === 'champion' ? '👑 The reigning champion: beat it and the crown is yours.' : (o.own ? 'A ghost of one of your own earlier games. ' : '') + 'It lost on this floor (went ' + o.wins + '-1).'}${def}</p>${teamRow(o.team, o.relics)}</div></div>
       <div class="bar"><button data-act="team">Team & items</button><button class="primary big" data-act="to-duel">Prepare the duel</button></div></section>`;
   }
   function stockCard(s, i) {
@@ -663,7 +670,7 @@
       if (g.kind === 'gold') return `<div class="gain gg"><i class="bigcoin"></i><b>+${g.v}</b><span>gold</span></div>`;
       if (g.kind === 'bank') return `<div class="gain gg"><i class="gicon">🏦</i><b>+${g.v}</b><span>after your next win</span></div>`;
       if (g.kind === 'xp') return `<div class="gain gx">${g.t ? img(g.t, 56, 'por') : '<i class="gicon">✨</i>'}<b>+${g.v} XP</b><span>${g.t ? esc(HEROES[g.t].name) : 'every hero'}</span></div>`;
-      if (g.kind === 'level') return '<div class="gain gx"><i class="gicon">▲</i><b>Level up!</b><span>every hero</span></div>';
+      if (g.kind === 'level') return `<div class="gain gx">${g.t ? img(g.t, 56, 'por') : '<i class="gicon">▲</i>'}<b>Level up!</b><span>${g.t ? esc(HEROES[g.t].name) : 'every hero'}</span></div>`;
       return `<div class="gain gb">${g.t ? img(g.t, 56, 'por') : '<i class="gicon">💪</i>'}<b>${esc(g.v)}</b><span>${g.t ? esc(HEROES[g.t].name) : 'every hero'}</span></div>`;
     };
     return `<div class="gains">${G.map(one).join('')}</div>`;
@@ -709,13 +716,13 @@
         ${g.history.length ? towerHTML(g) : ''}`;
     } else {
       // v42 (review #51): the end of a run as a small scoreboard: the team, fights won, the fight it fell at
-      body = `<div class="evmed over">🏳️</div><h2 class="sc">Your run has ended</h2>
+      body = `<div class="evmed over">🏳️</div><h2 class="sc">Game over</h2>
         <div class="overteam">${run.heroes.map(h => `<span>${img(h.key, 52, 'por')}<b>Lv ${h.lvl}</b></span>`).join('')}</div>
         <div class="overstats"><div><b>${run.won}</b><span>fight${run.won === 1 ? '' : 's'} won</span></div><div><b>${run.fightNo}</b><span>fell at fight</span></div></div>
         ${run.eloEnd != null ? `<p class="elo-line">Elo <b>${run.eloEnd}</b> <span class="lose">(${run.eloDelta})</span></p>` : ''}${leagueLine(run.lgEnd)}`;
     }
     return `<section class="title">${body}
-      <div class="stack"><button class="primary big" data-act="new-run">New run</button><button data-act="scores">🏆 Ladder</button></div>
+      <div class="stack"><button class="primary big" data-act="new-run">▶ Play again</button><button data-act="scores">🏆 Ladder</button></div>
       <p class="hint">Something felt off? <a href="#" data-act="suggest">Suggest a change</a>.</p></section>`;
   }
 
@@ -1014,12 +1021,12 @@
     const path = L.map((l, i) => `<span class="pn ${i < cur ? 'done' : i === cur ? 'cur' : ''}" title="${l.name}">${emblem(i, i === cur ? 30 : 22)}</span>${i < top ? `<span class="pl"><i style="width:${i < cur ? 100 : i === cur ? Math.round(100 * lp / R.step) : 0}%"></i></span>` : ''}`).join('');
     const season = me.season || B.seasonOf(Date.now()), days = Math.max(0, Math.ceil((B.seasonEnds(season) - Date.now()) / 864e5));
     return `<div class="ptab"><div class="pme">${emblem(cur, 52)}<div><b>${me.code ? plink(me.name || 'You', me.code) : esc(me.name || 'You')}</b><span class="pl1" style="color:${L[cur].hi}">${L[cur].name} league</span>
-        <span class="small">${cur >= top ? `${lp} points in Celestial` : `${lp}/${R.step} points to ${L[cur + 1].name}`}</span><span class="dim small">Elo ${me.elo} · ${me.runs} runs · best ${me.best}${me.titles ? ' · 🏆 ' + me.titles : ''} · ${crowns(me.crowns)}</span></div></div>
+        <span class="small">${cur >= top ? `${lp} points in Celestial` : `${lp}/${R.step} points to ${L[cur + 1].name}`}</span><span class="dim small">Elo ${me.elo} · ${me.runs} games · best ${me.best}${me.titles ? ' · 🏆 ' + me.titles : ''} · ${crowns(me.crowns)}</span></div></div>
       ${roadmapHTML(me)}
       <h3 class="lgh">Leagues <span class="seasonl">Season ${season} · ${days} day${days === 1 ? '' : 's'} left</span></h3>
       <div class="lgscroll mini" id="lgscroll">${banners}</div>
       <div class="lgpath">${path}</div>
-      <p class="small dim">+${R.duelWin} league point for each Gauntlet duel you win, ${R.pveLoss} when a run ends before the Gauntlet (a PvE loss). ${R.step} points move you up one league and you never drop a league during a season. Celestial has no ceiling. The first time you reach a league in a season you earn the crowns on its banner. A season lasts ${B.SEASON.days} days; then everyone starts again from Bronze (your best league stays on your profile).</p>
+      <p class="small dim">+${R.duelWin} league point for each Gauntlet duel you win, ${R.pveLoss} when a game ends before the Gauntlet (a PvE loss). ${R.step} points move you up one league and you never drop a league during a season. Celestial has no ceiling. The first time you reach a league in a season you earn the crowns on its banner. A season lasts ${B.SEASON.days} days; then everyone starts again from Bronze (your best league stays on your profile).</p>
       <div class="row center"><button data-act="my-profile">👤 My profile</button><button data-act="shop">👑 Crown Shop</button></div></div>`;
   }
   // review #28 (PC boy): the account level and the road of rewards (one new hero, item or relic per level)
@@ -1045,7 +1052,7 @@
     const name = id => `<td class="who">${pic(id)}<span${kind === 'item' ? ` style="color:${TIER_COLOR[ITEM[id].tier]}"` : B.BOSSES[id] ? ' class="bossname"' : ''}>${B.BOSSES[id] ? '👹 ' : ''}${esc(def(id).name)}</span></td>`;
     const rows = rated.map((id, i) => { const r = by[id]; return `<tr><td>${i + 1}</td>${name(id)}<td><b>${r.elo}</b></td><td>${r.games}</td><td>${Math.round(100 * r.wins / r.games)}%</td></tr>`; }).join('')
       + rest.map(id => `<tr class="unrated"><td></td>${name(id)}<td colspan="3">${noFight(id) ? 'no combat effect' : 'not played yet'}</td></tr>`).join('');
-    return `<p class="dim small">📊 Content Elo unlocked. Every ${kind} has its own Elo, apart from the players, to guide balance. It only counts in fights where it acted: heroes on the board, equipped items and relics with a combat effect. Losing a run is a loss against 1000, reaching the Gauntlet a win against 1000, and a duel is a game against the other team's ${kind === 'hero' ? 'heroes' : kind + 's'}.${kind === 'hero' ? ' ☠ Bosses have their own Elo: it rises when they beat a player and falls when they lose (against that player\'s Elo), and never changes the player\'s.' : ''}</p>
+    return `<p class="dim small">📊 Content Elo unlocked. Every ${kind} has its own Elo, apart from the players, to guide balance. It only counts in fights where it acted: heroes on the board, equipped items and relics with a combat effect. Losing a game is a loss against 1000, reaching the Gauntlet a win against 1000, and a duel is a game against the other team's ${kind === 'hero' ? 'heroes' : kind + 's'}.${kind === 'hero' ? ' ☠ Bosses have their own Elo: it rises when they beat a player and falls when they lose (against that player\'s Elo), and never changes the player\'s.' : ''}</p>
       <table class="tbl ctbl"><tr><th>#</th><th>${kind === 'hero' ? 'Hero' : kind === 'item' ? 'Item' : 'Relic'}</th><th>Elo</th><th>Fights</th><th>Won</th></tr>${rows}</table>`;
   }
   async function openScores(tab) {
@@ -1095,7 +1102,7 @@
     const link = a.account && a.code ? location.origin + '/?ref=' + a.code : '';
     return `<div class="shead"><b>👑 Crown Shop</b><button data-act="close">✕</button></div>
       <div class="wallet"><span class="wc">👑</span><div><b>${a.crowns | 0}</b> crown${(a.crowns | 0) === 1 ? '' : 's'}<span class="small dim">Season ${season} · ${days} day${days === 1 ? '' : 's'} left</span></div></div>
-      ${a.account ? '' : '<p class="small center dim">Your account starts when your first run ends. Then crowns, unlocks and your invite link live here.</p>'}
+      ${a.account ? '' : '<p class="small center dim">Your account starts when your first game ends. Then crowns, unlocks and your invite link live here.</p>'}
       <h3>Earn crowns</h3>
       <p class="small">Reach a league for the first time this season (win Gauntlet duels for league points). A new season every ${B.SEASON.days} days sends everyone back to Bronze, so the crowns come again.</p>
       <div class="crlist">${leagues}</div>
@@ -1126,13 +1133,13 @@
         <div class="pmh">Most played heroes</div>${heroList(p.more.most, r => `${r.games} game${r.games === 1 ? '' : 's'}`)}
         <div class="pmh">Best win rate <span class="dim">(3+ games)</span></div>${heroList(p.more.best, r => `${Math.round(100 * r.wins / r.games)}% of ${r.games}`)}
         <div class="pmh">Ghosts</div><p class="gw"><b class="win">${p.more.ghosts.w}</b> wins · <b class="lose">${p.more.ghosts.l}</b> losses <span class="dim small">defending, over ${p.more.ghosts.n} ghost${p.more.ghosts.n === 1 ? '' : 's'}</span></p>
-        <p class="small dim">Games = runs that ended (lost or reached the Gauntlet) and Gauntlet duels.</p></div>`
+        <p class="small dim">Games = finished games (lost or reached the Gauntlet) and Gauntlet duels.</p></div>`
       : `<div class="klock"><span class="hi">👑</span><b>King Tier</b><p class="small">Kings also see ${p.own ? 'your' : "this player's"} most played heroes, best win rate heroes and the wins and losses of ${p.own ? 'your' : 'their'} ghosts.</p><button data-act="shop">👑 Crown Shop</button></div>`;
     return `<div class="shead"><b>👤 Profile</b><button data-act="close">✕</button></div>
       <div class="prof" style="--lc:${l.color};--lh:${l.hi}">
         <div class="phead">${emblem(p.league, 66)}<div><b class="pname">${p.king ? '<span class="kingmark" title="King Tier">👑</span>' : ''}${esc(p.name)} <span class="lvb sm" title="Account level">${p.level || 1}</span></b><span class="pl1" style="color:${l.hi}">${l.name} league</span>
           <span class="small dim">${p.league >= top ? `${p.lp} points` : `${p.lp}/${R.step} points`} · Season ${p.season}${since ? ' · since ' + since : ''}</span></div></div>
-        <div class="pstats">${stat(p.elo, 'Elo')}${stat(p.best ? `${p.best} win${p.best === 1 ? '' : 's'}` : '—', 'Best Gauntlet')}${stat(p.titles ? '🏆 ' + p.titles : '—', 'Champion titles')}${stat(p.runs, 'Runs')}
+        <div class="pstats">${stat(p.elo, 'Elo')}${stat(p.best ? `${p.best} win${p.best === 1 ? '' : 's'}` : '—', 'Best Gauntlet')}${stat(p.titles ? '🏆 ' + p.titles : '—', 'Champion titles')}${stat(p.runs, 'Games')}
           <div>${emblem(p.peakLeague, 24)}<span>Best league</span></div><div>${p.lastLeague >= 0 ? emblem(p.lastLeague, 24) : '<b>—</b>'}<span>Last season</span></div></div>
         ${more}
         ${p.own ? `<div class="row center"><button data-act="shop">👑 Crown Shop · ${acct.crowns | 0}</button></div>` : ''}</div>`;
@@ -1149,27 +1156,37 @@
     if (!acct.account) await loadAcct();
     if (acct.account && acct.code) return openProfile(acct.code);
     openModal(`<div class="shead"><b>👤 Profile</b><button data-act="close">✕</button></div>
-      <div class="klock"><span class="hi">👤</span><b>Your profile starts with your first run</b><p class="small">When a run ends, your league, Elo, best Gauntlet and champion titles show up here, and anyone can open your profile by tapping your name.</p>
-      <button class="primary" data-act="new-run">Start a run</button></div>`);
+      <div class="klock"><span class="hi">👤</span><b>Your profile starts with your first game</b><p class="small">When a game ends, your league, Elo, best Gauntlet and champion titles show up here, and anyone can open your profile by tapping your name.</p>
+      <button class="primary" data-act="new-run">▶ Play</button></div>`);
   }
+  // v45 (review #56): the basics first, in five short lines for someone who never played this kind of game; the full
+  // rules fold under them
   const HOWTO = `<div class="shead"><b>How to play</b><button data-act="close">✕</button></div>
+    <ol class="howbasics">
+      <li><i>🦸</i><span><b>Pick a hero and a relic.</b> Buy up to 2 more heroes in the Hero Shop.</span></li>
+      <li><i>🗺️</i><span><b>Every day, pick a path:</b> a fight, a shop or an event ❓.</span></li>
+      <li><i>🧩</i><span><b>Before a fight, drag your heroes onto the board.</b> Tanks in front, ranged behind.</span></li>
+      <li><i>⚔️</i><span><b>The fight plays by itself.</b> Win for gold and XP. Heroes level up and use their power when the blue bar is full.</span></li>
+      <li><i>👹</i><span><b>Beat 2 bosses, then climb the Gauntlet</b> against other players' teams. Lose one fight and the game is over.</span></li>
+    </ol>
+    <details class="howmore"><summary>All the rules</summary>
     <ol class="small howto">
       <li>Start with 1 hero and 1 relic (3 of each offered). Each hero has a unique ability that fires when its blue mana bar is full. Recruit up to 3 heroes in the Hero Shop.</li>
       <li>Every step offers 2 options: easy/medium/hard fights, or a shop/event. Fights 4 and 8 are bosses.</li>
-      <li>❓ Events: trades, bets, relics and items to pick, and <b>challenges</b> (optional fights that start right away: win for a big reward; lose and only that reward is gone, the run goes on). Some choices only open with the right hero in your team. Rewards grow as the run goes on; rare events pay the most.</li>
+      <li>❓ Events: trades, bets, relics and items to pick, and <b>challenges</b> (optional fights that start right away: win for a reward; lose and only that reward is gone, the game goes on). Some choices only open with the right hero in your team.</li>
       <li>Before each fight, place heroes in the 4 blue rows. Then the battle plays itself.</li>
       <li>⚑ Formation relics reward where you place your heroes (next to each other, alone, in the front or back row, in one line, next to terrain). While deploying, the line above the board shows who gets what.</li>
       <li>🗺 Every fight after the first is on a map with terrain: 🌳 trees, 🪨 boulders, ⛰️ ridges and 💧 ponds block the way (nobody can stand on them or walk through; arrows and spells fly over). Units pushed into a tree, boulder or ridge are slammed and stunned. Bosses fight at the Standing Stones.</li>
       <li>How abilities scale: every ability names its stat. <b>AD</b> = attack (⚔). <b>AP</b> = ability power (✦): 100 at Lv 1, +30 per level, more from items. <span class="kw-atk">Physical</span> abilities deal a % of AD; <span class="kw-ap">magic</span> abilities deal a % of AP, of AD, or of both added together (like "40% AD + 20% AP"); heals scale with AP; shields are a % of max HP. AP never multiplies AD. Tap a hero (in battle or in Team) to see its numbers.</li>
       <li>Heroes earn XP for every second they stay alive. Level ups raise stats and let you pick a specialization. From Lv 3, each level adds an item slot. Lv 5 is rare.</li>
       <li>Items have a type (weapon, off-hand, helmet, armor, gloves, boots, trinket) and a rarity: <span class="r-common">common</span>, <span class="r-uncommon">uncommon</span>, <span class="r-rare">rare</span>, <span class="r-epic">epic</span>, <span class="r-set">set</span>, <span class="r-legendary">legendary</span> and <span class="r-mythic">mythic</span>. A hero wears one item of each type, up to their slot count. Two or three pieces of a set on the same hero unlock set bonuses.</li>
-      <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the run ends (and costs 2 league points). Heroes always heal after a fight.</li>
+      <li>Win fights for gold. Spend it in hero, item and relic shops. Your team holds up to 3 heroes. Lose a single fight and the game ends (and costs 2 league points). Heroes always heal after a fight.</li>
       <li>After the second boss and a last shop, your team enters the Gauntlet as a ghost and climbs a tower of other players' ghosts, one floor per win: each floor holds the ghosts that lost there. One loss ends it and your ghost stays on that floor. The top floor holds the one champion: beat it (or reach a floor nobody reached) and you are the champion until someone beats your ghost. Each duel is an Elo game; your Elo only moves in duels. The ghost keeps its own Elo and record.</li>
-      <li>Leagues: +1 point per duel won, -2 when a run ends before the Gauntlet; 10 points move you up a league. A season lasts ${B.SEASON.days} days, then everyone starts again from Bronze.</li>
+      <li>Leagues: +1 point per duel won, -2 when a game ends before the Gauntlet; 10 points move you up a league. A season lasts ${B.SEASON.days} days, then everyone starts again from Bronze.</li>
       <li>👑 Crowns: earned the first time you reach each league in a season, and from friends who joined with your invite link (1% of what they earn, at least 1). Spend them in the Crown Shop: 4× battle speed, Content Elo (the Elo of every hero, item and relic), name changes, and the King Tier (Royal board, deeper profiles).</li>
       <li>Tap any player's name to open their profile: league, Elo, best Gauntlet and champion titles.</li>
       <li>✨ Account level: earn XP the first time you clear PvE with each hero (+1), reach each Gauntlet floor (+5) and beat each boss (+3), and for crowns spent (+1 per 5). Every 10 XP is a level, and every level unlocks a new hero, item or relic (see the road in Ladder → Player).</li>
-    </ol>`;
+    </ol></details>`;
 
 
   // ------------------------------------------------------------------ review notice (top bar)
@@ -1247,13 +1264,15 @@
 
   // ------------------------------------------------------------------ actions
   const ACT = {
-    'new-run': () => { run = Run.newRun((Math.random() * 2 ** 31) | 0, { locked: B.lockedFor(lvlNow()) }); ui.startPick = []; ui.startRelic = null; ui.focusRelic = null; ui.lastGold = null; ui.goldHold = null; screen = 'run'; save(); render(); },
+    'new-run': () => { run = Run.newRun((Math.random() * 2 ** 31) | 0, { locked: B.lockedFor(lvlNow()) }); ui.startPick = []; ui.startRelic = null; ui.focusRelic = null; ui.focus = null; ui.startStep = 1; ui.lastGold = null; ui.goldHold = null; screen = 'run'; save(); render(); },
     'continue-run': () => { screen = 'run'; render(); },
     menu: () => { if (battle) return; screen = 'title'; closeModal(); render(); },
     howto: () => openModal(HOWTO),
-    'start-pick': k => { ui.focus = k; ui.focusRelic = null; ui.startPick = ui.startPick[0] === k ? [] : [k]; render(); },
-    'start-relic': id => { ui.focusRelic = id; ui.startRelic = ui.startRelic === id ? null : id; render(); },
-    'start-go': () => { if (ui.startPick.length !== CFG.startHeroes || ((run.relicOffer || []).length && !ui.startRelic)) return; Run.pickStart(run, ui.startPick, ui.startRelic); ui.startRelic = null; save(); render(); },
+    'start-pick': k => { ui.focus = k; ui.focusRelic = null; ui.startPick = [k]; render(); },
+    'start-next': () => { if (ui.startPick.length !== CFG.startHeroes) return; if ((run.relicOffer || []).length) { ui.startStep = 2; render(); } else ACT['start-go'](); },
+    'start-back': () => { ui.startStep = 1; render(); },
+    'start-relic': id => { ui.focusRelic = id; ui.startRelic = id; render(); },
+    'start-go': () => { if (ui.startPick.length !== CFG.startHeroes || ((run.relicOffer || []).length && !ui.startRelic)) return; Run.pickStart(run, ui.startPick, ui.startRelic); ui.startRelic = null; ui.startStep = 1; save(); render(); },
     choose: i => { Run.choose(run, +i); ui.info = null; save(); render(); window.scrollTo(0, 0); },
     spec: i => { Run.chooseSpec(run, +i); save(); render(); },
     fight: () => startBattle(),
@@ -1319,7 +1338,7 @@
   function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = worldFor(true); drawPreview(); } }
 
   // v42: every tap has a sound; these actions have their own (null = the action plays it, it depends on the outcome)
-  const ACT_SFX = { buy: null, reroll: null, sound: null, fight: 'go', 'start-go': 'go', 'to-duel': 'go', choose: 'pick', 'start-pick': 'pick', 'start-relic': 'pick',
+  const ACT_SFX = { buy: null, reroll: null, sound: null, fight: 'go', 'start-go': 'go', 'to-duel': 'go', choose: 'pick', 'start-pick': 'pick', 'start-relic': 'pick', 'start-next': 'pick', 'start-back': 'back',
     spec: 'unlock', event: 'pick', 'event-target': 'pick', equip: 'pick', bag: 'pick', unequip: 'back', close: 'back', 'event-back': 'back', sell: 'coin', 'result-ok': 'pick' };
   document.addEventListener('click', e => {
     if (e.target.closest('#notice')) return;

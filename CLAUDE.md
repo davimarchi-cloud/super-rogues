@@ -127,6 +127,18 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v45 (2026-09-30), lote 43 do David.** #55 ("os eventos novos estão OP demais: recompensa dos desafios, ouro, XP;
+  gosto das escolhas liberadas por herói"): tudo menor, perto dos números antigos da v43. O crescimento caiu para +5% por
+  luta (era +15%). Cada desafio paga um prêmio só, sem ouro por cima: bandidos → item raro, bando → relíquia, horda →
+  ouro, Mimic → item épico, guardião → lendário, duelo → +8%. As apostas ficaram quase justas. O agiota rende pouco. O
+  Fairy Ring dá nível a um herói só (`levelHero`). A Legend custa 4 de ouro e o herói entra no Lv 1. As "blue options"
+  ficaram, um pouco melhores que as comuns. Medido com `tools/sim-run.js 160`: o robô de eventos chega a 17% no 1º chefe
+  e o de lojas a 19% (antes o de eventos levava vantagem). #56 ("perdendo jogadores novos; início mais simples; 'game' em
+  vez de 'run'; tirar os retratos do menu; não chamar de roguelike; público de 14 anos"): o título mostra 3 passos
+  numerados (Pick heroes, Place them, Watch them fight) e um botão ▶ Play, sem retratos nem slogan. O início virou 2
+  passos (`ui.startStep`, com trilha Hero, Relic, Fight!): no 1º, o herói mostra só a habilidade, sem tabela de status;
+  no 2º, as relíquias vêm com o efeito escrito, e há Back e "Start the game!". O How to play abre com 5 linhas básicas e
+  as regras completas ficam num `<details>`. Todo texto que o jogador lê diz "game" (o código continua `run`).
 - **v44 (2026-09-30), lote 42 do David (#54: "refazer os eventos: pouco interessantes e raramente valem a pena; mais
   variedade, recompensas, desafios; ver o que jogos parecidos fazem").** 23 eventos (antes 16), com raridade (comum 1,
   incomum 0,7, raro 0,3; nenhum repete na run, `run.evSeen`; o Dragon's Hoard só depois da luta 2) e peso de evento no mapa

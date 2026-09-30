@@ -43,7 +43,8 @@ for (const d of SIZES) {
   };
   await shot('01-title');
   await ev(`__bal.ACT['new-run']()`); await sleep(200);
-  await ev(`document.querySelector('[data-act=start-pick]').click(); document.querySelector('[data-act=start-relic]').click()`); await shot('02-start');
+  await ev(`document.querySelector('[data-act=start-pick]').click()`); await shot('02a-start-hero');
+  await ev(`document.querySelector('[data-act=start-next]').click(); document.querySelector('[data-act=start-relic]').click()`); await shot('02-start');
   await ev(`document.querySelector('[data-act=start-go]').click()`); await sleep(200);
   await ev(`(() => { const r = __bal.run; B.Run.addHero(r, 'lumen'); B.Run.addHero(r, 'kestrel'); r.relics.push('drum', 'shieldwall', 'rearguard'); r.heroes[0].items = ['longsword']; __bal.render(); })()`);
   await shot('03-map');
