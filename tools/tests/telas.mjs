@@ -402,6 +402,18 @@ if (!REMOTE) {
   await ev(`document.querySelector('#alName').value = 'David'; document.querySelector('#alNote').value = 'Rook with my art'`);
   await click('[data-act=al-send]'); await sleep(900);
   ok(await ev(`/Sent! Review #[0-9]+/.test(document.querySelector('#toast').textContent)`), 'the pictures are sent for review with a note');
+  // review #50: splash art for several heroes at once, matched by file name (or picked in the list)
+  const sp = await ev(`(() => { const c = document.createElement('canvas'); c.width = 600; c.height = 400; const x = c.getContext('2d'); x.fillStyle = '#48c'; x.fillRect(0, 0, 600, 400); x.fillStyle = '#fc8'; x.beginPath(); x.arc(300, 120, 60, 0, 7); x.fill(); return c.toDataURL('image/png'); })()`);
+  for (const f of ['feuer.png', 'Snezhana_splash.png', 'mystery.png']) fs.writeFileSync(OUT + f, Buffer.from(sp.split(',')[1], 'base64'));
+  { const d = await send('DOM.getDocument', { depth: 0 }); const n = await send('DOM.querySelector', { nodeId: d.result.root.nodeId, selector: '#alBulk' }); await send('DOM.setFileInputFiles', { nodeId: n.result.nodeId, files: ['feuer.png', 'Snezhana_splash.png', 'mystery.png'].map(f => OUT + f) }); }
+  await sleep(1200);
+  ok(await ev(`(() => { const s = [...document.querySelectorAll('.albsel')]; return s.length === 3 && s.filter(x => x.value).length === 2 && s.some(x => x.value === 'pyra') && s.some(x => x.value === 'glacia'); })()`), 'Art Lab: several splashes at once, matched to heroes by file name');
+  await ev(`(() => { const s = [...document.querySelectorAll('.albsel')].find(x => !x.value); s.value = 'lumen'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`); await sleep(200);
+  await click('[data-act=al-bulk-keep]'); await sleep(300);
+  ok(await ev(`(() => { const L = JSON.parse(localStorage.getItem('balance.artlab')); return ['pyra', 'glacia', 'lumen'].every(k => L[k] && L[k].splash && L[k].splash.startsWith('data:image/jpeg')) && !!L.rook.anims; })()`), '"Use all in my game" keeps every matched splash (and the art already kept for others)');
+  await click('[data-act=al-bulk-send]'); await sleep(900);
+  ok(await ev(`/Sent! Review #[0-9]+: splash art for 3 heroes/.test(document.querySelector('#toast').textContent) && !document.querySelector('.albrow')`), 'the splashes go for review in one send');
+  await ev(`(() => { const L = JSON.parse(localStorage.getItem('balance.artlab')); for (const k of ['pyra', 'glacia', 'lumen']) delete L[k]; localStorage.setItem('balance.artlab', JSON.stringify(L)); ['pyra', 'glacia', 'lumen'].forEach(k => B.Art.reset(k)); })()`);
   await click('[data-act=close]'); await sleep(300);
   ok(await ev(`!!B.Art.sprite('rook') && B.Splash.image('rook', 44, 44, 'bust').startsWith('data:image/jpeg')`), 'after closing the lab the kept art is used across the game');
   await ev(`__bal.ACT['art-lab']('rook')`); await sleep(300); await click('[data-act=al-drop]'); await sleep(200); await click('[data-act=close]'); await sleep(200);

@@ -59,7 +59,7 @@ module.exports = async (req, res) => {
     }
     if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
     if (!sameOrigin(req)) return send(res, 403, { error: 'Bad origin' });
-    const b = await body(req, 2600000);
+    const b = await body(req, 4600000);
     const raw = Array.isArray(b.items) ? b.items : [b.text];
     const items = raw.slice(0, MAX_ITEMS + 1).map(t => clean(t, 1500)).filter(t => t.length > 0);
     const name = clean(b.name, 24).replace(/\s+/g, ' ');
@@ -69,14 +69,17 @@ module.exports = async (req, res) => {
     if (await st.countBatches(iph, now - 10 * 60e3) >= 3) return send(res, 429, { error: 'You just sent a few reviews. Try again in a few minutes.' });
     if (await st.countBatches(iph, now - 24 * 3600e3) >= 12 || await st.countItems(iph, now - 24 * 3600e3) + items.length > 40) return send(res, 429, { error: 'Daily limit reached. Thanks for all the ideas!' });
     if (await st.countNew() + items.length > 300) return send(res, 429, { error: 'The queue is full right now. Try again later.' });
-    let art = null;
-    if (b.art != null) {
-      art = artOf(b.art); if (art.error) return send(res, 400, { error: art.error });
-      if (await st.countArt(iph, now - 24 * 3600e3) >= 6) return send(res, 429, { error: 'You sent a lot of art today. Try again tomorrow.' });
-      if (await st.countArt(null, now - 24 * 3600e3) >= 60) return send(res, 429, { error: 'Lots of art arrived today. Try again tomorrow.' });
+    // review #50: `arts` = several heroes' pictures in one send (splash art for many heroes at once)
+    const rawArts = Array.isArray(b.arts) ? b.arts : b.art != null ? [b.art] : [], arts = [];
+    if (rawArts.length) {
+      if (rawArts.length > 12) return send(res, 400, { error: 'Up to 12 heroes per send.' });
+      for (const a of rawArts) { const x = artOf(a); if (x.error) return send(res, 400, { error: x.error }); arts.push(x); }
+      if (arts.reduce((n, x) => n + (x.splash ? x.splash.length : 0) + x.poses.length, 0) > 4300000) return send(res, 400, { error: 'The pictures are too big together: send fewer at a time.' });
+      if (await st.countArt(iph, now - 24 * 3600e3) + arts.length > 40) return send(res, 429, { error: 'You sent a lot of art today. Try again tomorrow.' });
+      if (await st.countArt(null, now - 24 * 3600e3) + arts.length > 150) return send(res, 429, { error: 'Lots of art arrived today. Try again tomorrow.' });
     }
     const r = await st.addBatch({ name, items, iph, created: now });
-    if (art) await st.addArt(Object.assign(art, { batch: r.batch, iph, created: now }));
+    for (const x of arts) await st.addArt(Object.assign(x, { batch: r.batch, iph, created: now }));
     return send(res, 200, { ok: true, batch: r.batch, ids: r.ids });
   } catch (e) {
     console.error('suggest', e);

@@ -43,7 +43,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `api/_store.js` | Neon em produção, memória no dev/teste. Tabelas `suggestions`, `kv`, `scores`, `players`, `teams`, `ratings`, `phero` |
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote; avisa "📎 arte"), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma`, `arte <lote>` (salva as imagens em `art-inbox/`, fora do git) |
-| `tools/sim-run.js`, `tools/boss-matrix.js`, `tools/tune-heroes.js` | robô joga runs inteiras / todos os times de 3 contra os 2 chefes / vitória contra chefe por herói e ajuste automático (v34) |
+| `tools/sim-run.js`, `tools/boss-matrix.js`, `tools/tune-heroes.js`, `tools/audit-abilities.js` | robô joga runs inteiras / todos os times de 3 contra os 2 chefes / vitória contra chefe por herói e ajuste automático (v34) |
 | `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `vitrine.mjs` (fotos de todas as telas no celular e em 3 PCs, v29), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
 
 ## Regras do jogo que vieram do briefing (ponto de partida: os jogadores podem mudar qualquer uma)
@@ -124,6 +124,17 @@ Sugestões conflitantes: a mais nova vence, a não ser que desfaça decisão do 
 versão menor e explicar na resposta.
 
 ## Histórico
+
+- **v41 (2026-09-30), lote 38 do David.** (#49) Revisão das 36 habilidades e das 288 especializações contra o código
+  (`tools/audit-abilities.js`: todo valor `ab` é lido pela habilidade ou por um ajudante e aparece no texto; toda chave de
+  spec/mod/flag é lida em algum lugar; nada ficou sem efeito). Corrigido no código: frasco de cura do Mercurio agora vai
+  para o herói mais fraco (antes podia curar uma torreta/esqueleto) e Catalyst devolve mana também nele. Textos
+  corrigidos (faltava número ou dizia outra coisa): Snezhana (lentidão 40% por 2 s), Brutus (30% de roubo de vida por
+  4 s), Strela e Ulfrik (passivas com nome: Focus, Fury), Garm (sangramento 2%/s por 3 s), Koschei Bone Archers (30%
+  menos vida), Krok Barbed Chain (quem envenena são os ataques) e Chain Whirl (30% por 2 s), Ulfrik Momentum (até
+  +40%), Nerina Cold Current (50% em vez de 30%), Feuer Scorched Earth (16% AP/s). (#50) Art Lab: "Splash art for several
+  heroes" (até 12 fotos; herói pelo nome do arquivo, sem acento, ou escolhido na lista; "Use all in my game" e "Send all
+  for review" num lote só: `arts: [...]` no POST, 40 fotos por pessoa/dia, 150 no total/dia).
 
 - **v40 (2026-09-30), lote 37 do David (#48): arte do Kagero (kage) + folhas de cartões + prévias animadas.** A folha
   dele era de "cartões" (cada quadro num cartão rosa com borda, num fundo escuro, com título, rótulos e uma pose grande

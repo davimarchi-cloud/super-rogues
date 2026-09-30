@@ -251,8 +251,8 @@
   // review #44 (David: "Name → short effect → small scaling note"): the ability name, then its passive and its active
   // part on their own lines (same words, easier to scan); the scaling note stays small under it
   function abilHTML(h) {
-    const d = String(h.abDesc || ''), m = d.match(/^Passive:\s*(.*?)\s*Active:\s*(.*)$/);
-    return `<b class="abname">${esc(h.abName)}</b>` + (m ? `<span class="abl"><i class="abk">Passive</i>${fmt(m[1])}</span><span class="abl"><i class="abk act">Active</i>${fmt(m[2])}</span>` : ` ${fmt(d)}`);
+    const d = String(h.abDesc || ''), m = d.match(/^Passive(?: \(([^)]+)\))?:\s*(.*?)\s*Active:\s*(.*)$/);
+    return `<b class="abname">${esc(h.abName)}</b>` + (m ? `<span class="abl"><i class="abk">Passive</i>${m[1] ? `<b>${esc(m[1])}</b>: ` : ''}${fmt(m[2])}</span><span class="abl"><i class="abk act">Active</i>${fmt(m[3].charAt(0).toUpperCase() + m[3].slice(1))}</span>` : ` ${fmt(d)}`);
   }
   function heroCard(key, extra = '') {
     const h = HEROES[key];

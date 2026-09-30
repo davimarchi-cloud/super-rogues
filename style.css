@@ -1436,3 +1436,11 @@ section.event > p { text-align: center; max-width: 760px; margin-left: auto; mar
 .alprevs figure { margin: 0; display: grid; justify-items: center; gap: 2px; }
 .alprevs canvas { width: 90px; height: 110px; border-radius: 12px; background: radial-gradient(ellipse 60% 18% at 50% 92%, #0003, #0000), linear-gradient(180deg, #bfe6ff, #7fd28a 78%, #5fbf6a 78%); box-shadow: inset 0 0 0 2px #ffffff55; }
 .alprevs figcaption { font-size: 11px; color: var(--dim); }
+/* review #50: splash art for several heroes at once */
+.albrows { display: grid; gap: 6px; margin: 4px 0 8px; }
+@media (min-width: 760px) { .albrows { grid-template-columns: 1fr 1fr; } }
+.albrow { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 12px; background: #ffffff12; border: 2px solid #ffffff22; }
+.albrow.todo { border: 2px dashed #ffe066; }
+.albrow img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; }
+.albmeta { display: grid; gap: 3px; min-width: 0; } .albmeta .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.albsel { font-size: 13px; padding: 4px 6px; border-radius: 8px; min-height: 0; }

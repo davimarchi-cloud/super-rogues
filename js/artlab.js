@@ -24,8 +24,13 @@
           <label class="alfile">🧍 Choose picture<input type="file" accept="image/png,image/jpeg,image/webp" id="alSheet"></label>
           <div id="alSheetView"></div></section>
       </div>
+      <section class="alsec albulk"><h3>Splash art for several heroes</h3>
+        <p class="small dim">Pick many pictures at once. Name each file after its hero (for example <b>feuer.png</b>) and it is matched for you; otherwise choose the hero in the list. Frame each one later by picking its hero above.</p>
+        <label class="alfile">🖼 Choose pictures<input type="file" accept="image/png,image/jpeg,image/webp" id="alBulk" multiple></label>
+        <div id="alBulkView">${bulkHTML()}</div></section>
       <section class="alsec"><h3>3 · Test fight</h3>
-        <div class="alboard"><canvas id="alBoard"></canvas></div>
+        <p id="alBoardHint" class="small dim" ${k ? 'hidden' : ''}>Choose the hero at the top to see it fight.</p>
+        <div class="alboard" ${k ? '' : 'hidden'}><canvas id="alBoard"></canvas></div>
         <div class="row"><span class="small dim grow">Your hero fights on the blue side, next to a random ally.</span><button class="chip" data-act="al-restart">↻ New fight</button></div></section>
       <section class="alsec"><h3>Keep it</h3>
         <div class="row wrap"><button class="primary" data-act="al-keep">✓ Use in my game</button><button data-act="al-drop">Remove from my game</button></div>
@@ -144,7 +149,9 @@ ${sheetFoot(d, note)}`);
     S.fight = { W: R.fightWorld(run), acc: 0, last: performance.now(), endAt: 0 };
   }
   function mountBoard() {
-    const cv = U.$('#alBoard'); if (!cv || !S.key) return;
+    const cv = U.$('#alBoard'), hint = U.$('#alBoardHint');
+    if (cv) cv.parentElement.hidden = !S.key; if (hint) hint.hidden = !!S.key;
+    if (!cv || !S.key) return;
     S.view = B.Render.setup(cv, Math.min(cv.parentElement.clientWidth || 340, 620));
     if (!S.fight) newFight();
     if (!S.raf) S.raf = requestAnimationFrame(loop);
@@ -188,6 +195,8 @@ ${sheetFoot(d, note)}`);
     if (!S.open) return;
     const t = e.target;
     if (t.id === 'alHero') { load(t.value); S.fight = null; splashView(); sheetView(); mountBoard(); }
+    else if (t.id === 'alBulk') readMany(t);
+    else if (t.classList.contains('albsel')) { const x = (S.bulk || [])[+t.dataset.i]; if (x) { x.key = t.value || null; bulkView(); } }
     else if ((t.id === 'alSplash' || t.id === 'alSheet') && !S.key) { t.value = ''; U.toast('Choose the hero this art is for first'); }
     else if (t.id === 'alSplash') readFile(t, im => { S.def = Object.assign(S.def || {}, { splash: B.Art.shrink(im, 1400, 'image/jpeg', 0.9) }); if (!S.def.crop) S.def.crop = { x: 0.5, y: 0.3, z: 1 }; refresh(); splashView(); });
     else if (t.id === 'alSheet') readFile(t, im => { S.sheet = im; cut(); sheetView(); });
@@ -204,6 +213,26 @@ ${sheetFoot(d, note)}`);
     },
     'al-drop': () => {
       if (!S.key) return; B.Art.drop(S.key); load(S.key); splashView(); sheetView(); U.toast(`${B.HEROES[S.key].name} is back to the drawn art on this device`); },
+    'al-bulk-del': i => { (S.bulk || []).splice(+i, 1); bulkView(); },
+    'al-bulk-keep': () => {
+      const L = (S.bulk || []).filter(x => x.key); if (!L.length) { U.toast('Choose the hero of at least one picture'); return; }
+      let n = 0;
+      for (const x of L) { const def = Object.assign({}, B.Art.saved(x.key) || {}, { splash: x.url, crop: { x: 0.5, y: 0.3, z: 1 } }); if (B.Art.keep(x.key, def)) n++; else { U.toast('This device is out of space for more pictures'); break; } }
+      if (n) { U.toast(`${n} hero${n > 1 ? 'es use' : ' uses'} your splash on this device`); if (S.key) { load(S.key); splashView(); } }
+    },
+    'al-bulk-send': async (_, btn) => {
+      const L = (S.bulk || []).filter(x => x.key), by = {}; for (const x of L) by[x.key] = x;   // the last picture per hero
+      const list = Object.values(by); if (!list.length) { U.toast('Choose the hero of at least one picture'); return; }
+      const name = (U.$('#alName').value || '').trim(), note = (U.$('#alNote').value || '').trim().replace(/\s+/g, ' ');
+      U.store.set('balance.name', name);
+      const text = `🎨 Art Lab: new splash art for ${list.map(x => B.HEROES[x.key].name).join(', ')} (${list.length} hero${list.length > 1 ? 'es' : ''}).${note ? ' ' + note : ''}`;
+      btn.disabled = true;
+      try {
+        const r = await U.Net.post('suggest', { items: [text], name, arts: list.map(x => ({ hero: x.key, splash: x.url, meta: { crop: { x: 0.5, y: 0.3, z: 1 } } })) });
+        U.toast(`Sent! Review #${r.batch}: splash art for ${list.length} hero${list.length > 1 ? 'es' : ''}.`); U.trackBatch(r.batch); S.bulk = []; bulkView();
+      } catch (err) { U.toast(err.message); }
+      btn.disabled = false;
+    },
     'al-send': async (_, btn) => {
       const d = S.def || {}, { anims, axs } = B.Art.animsOf(d), nF = Object.values(anims).reduce((n, f) => n + f.length, 0);
       if (!d.splash && !anims.idle) { U.toast('Add a splash picture or an animation sheet first'); return; }
@@ -219,6 +248,37 @@ ${sheetFoot(d, note)}`);
       btn.disabled = false;
     },
   };
+  // review #50 (David: "upload the splash art only for several heroes at once"): pictures matched to heroes by file name
+  const norm = t => String(t).normalize('NFD').toLowerCase().replace(/[^a-z]/g, '');   // accents come apart in NFD and drop out
+  function guessHero(file) {
+    const f = norm(file.replace(/\.[a-z0-9]+$/i, '')), H = B.HEROES;
+    const names = Object.keys(H).flatMap(k => [[norm(H[k].name), k], [norm(k), k]]).filter(([n]) => n.length >= 3).sort((a, b) => b[0].length - a[0].length);
+    const hit = names.find(([n]) => f === n) || names.find(([n]) => f.includes(n));
+    return hit ? hit[1] : null;
+  }
+  function bustOf(im) {
+    const side = Math.min(im.naturalWidth, im.naturalHeight) * 0.55, sx = Math.max(0, Math.min(im.naturalWidth - side, im.naturalWidth * 0.5 - side / 2)), sy = Math.max(0, Math.min(im.naturalHeight - side, im.naturalHeight * 0.3 - side * 0.45));
+    const cv = document.createElement('canvas'); cv.width = cv.height = 144; const c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(im, sx, sy, side, side, 0, 0, 144, 144);
+    return cv.toDataURL('image/jpeg', 0.85);
+  }
+  function bulkHTML() {
+    const L = S.bulk || []; if (!L.length) return '';
+    const e = U.esc, opts = sel => `<option value="" ${sel ? '' : 'selected'}>Choose the hero…</option>` + heroes().map(k => `<option value="${k}" ${k === sel ? 'selected' : ''}>${e(B.HEROES[k].name)}</option>`).join('');
+    const dup = k => k && L.filter(x => x.key === k).length > 1;
+    return `<div class="albrows">${L.map((x, i) => `<div class="albrow ${x.key ? '' : 'todo'}"><img src="${x.thumb}" alt=""><div class="albmeta"><span class="small dim">${e(x.file)}</span><select class="albsel" data-i="${i}" aria-label="Hero for ${e(x.file)}">${opts(x.key)}</select>${dup(x.key) ? '<span class="small warn">two pictures for this hero: the last one wins</span>' : ''}</div><button class="chip" data-act="al-bulk-del" data-arg="${i}" aria-label="Remove">✕</button></div>`).join('')}</div>
+      <div class="row wrap"><button data-act="al-bulk-keep">✓ Use all in my game</button><button class="primary" data-act="al-bulk-send">Send all for review</button><span class="small dim grow">${L.filter(x => x.key).length} of ${L.length} matched · name and note from "Keep it" below</span></div>`;
+  }
+  function bulkView() { const el = U.$('#alBulkView'); if (el) el.innerHTML = bulkHTML(); }
+  function readMany(input) {
+    const files = [...(input.files || [])].filter(f => /^image\/(png|jpeg|webp)$/.test(f.type)).slice(0, 12); input.value = '';
+    if (!files.length) { U.toast('Pick PNG, JPG or WEBP pictures'); return; }
+    S.bulk = S.bulk || [];
+    for (const f of files) {
+      const r = new FileReader();
+      r.onload = () => { const im = new Image(); im.onload = () => { S.bulk.push({ file: f.name, key: guessHero(f.name), url: B.Art.shrink(im, 1024, 'image/jpeg', 0.86), thumb: bustOf(im) }); bulkView(); }; im.src = r.result; };
+      r.readAsDataURL(f);
+    }
+  }
   function init(ui) {
     U = ui;
     const m = U.$('#modal'); m.addEventListener('input', onInput); m.addEventListener('change', onChange);

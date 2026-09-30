@@ -823,7 +823,8 @@
     const kinds = ['acid', 'heal', 'frost', 'poison'];
     for (let i = 0; i < ab.count; i++) {
       const k = kinds[Math.floor(W.rng() * kinds.length)];
-      if (k === 'heal') { const a = allies(W, u).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; if (a) { heal(W, a, ab.heal * apOf(u), true); fxRing(W, a.c, a.r, 0, '#7ee08e', 8); } continue; }
+      // review #49: the healing flask goes to the weakest hero (like every other heal), and Catalyst refunds mana for it too
+      if (k === 'heal') { const pool = allies(W, u), hs = pool.filter(x => x.kind !== 'summon'), a = (hs.length ? hs : pool).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; if (a) { heal(W, a, ab.heal * apOf(u), true); fxRing(W, a.c, a.r, 0, '#7ee08e', 8); } if (ab.mana) u.mana = Math.min(u.maxMana, u.mana + ab.mana); continue; }
       const col = k === 'acid' ? '#b8e040' : k === 'frost' ? '#9fe8ff' : '#7ac83a';
       shot(W, u, es[Math.floor(W.rng() * es.length)], i * 2, col, t => {
         const hit = enemies(W, u).filter(e => Hx.dist(e, t) <= ab.radius);
