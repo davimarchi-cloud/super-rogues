@@ -127,6 +127,25 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v46 (2026-09-30), lote 44 do David (#57: "trazer a progressão de XP do jogador para a frente; XP por nível
+  crescente; XP depois de cada partida conforme foi; mostrar o progresso com as recompensas por vir; dopamina que chame
+  a jogar de novo").**
+  - **Curva:** o nível L→L+1 custa 80 + 20×(L−1), ou seja 80, 100, 120… (`B.xpToNext`, `B.xpForLevel`, `B.levelOf`,
+    `B.levelProgress`).
+  - **XP por partida (`B.GAME_XP`, `xpGame`/`xpDuel` em api/_player.js):** +10 por jogar, +8 por luta vencida (máx 14),
+    +25 por chefe (derrota: máx 1; chegar ao Gauntlet vale 2), +30 por chegar, +20 por duelo e +50 pela coroa. O cliente
+    manda `game: { fights, bosses }` no `fail` e no `enter`. O servidor limita os números e só paga 12 partidas por hora
+    por jogador (KV `gxp:<pid>`).
+  - **Primeiras vezes:** passaram a valer ×10 (herói 10, andar 50, chefe 30, 2 por coroa gasta).
+  - **Contas antigas:** `xpv` 1→2 converte a XP uma vez só (`st.xpvStep`, atômico): o jogador mantém o nível e a
+    fração que já tinha.
+  - **Registro:** cada ganho no log tem o tipo `k`.
+  - **Tela:** o título tem um cartão de nível (barra, XP, "next: <recompensa>" e o ícone da próxima trancado pulsando;
+    abre a trilha no Ladder). O fim de jogo tem o painel de XP (`run.xpLog`, `animXp`): etiquetas por tipo entram uma a
+    uma e a barra enche e vira de nível com confete. A recompensa liberada aparece em cartão dourado e termina na
+    "Next reward" pulsando. O "Play again" pulsa, com o Ladder ao lado.
+  - **Fim do Gauntlet:** placar e Elo numa linha só, para caber.
+  - **Aviso de XP:** ficou curto (total e nível).
 - **v45 (2026-09-30), lote 43 do David.** #55 ("os eventos novos estão OP demais: recompensa dos desafios, ouro, XP;
   gosto das escolhas liberadas por herói"): tudo menor, perto dos números antigos da v43. O crescimento caiu para +5% por
   luta (era +15%). Cada desafio paga um prêmio só, sem ouro por cima: bandidos → item raro, bando → relíquia, horda →

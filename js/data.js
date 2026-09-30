@@ -1002,14 +1002,24 @@
   // v30 (review #28, PC boy): account level. 10 XP per level; XP comes from firsts (each hero's first PvE clear, each
   // Gauntlet floor reached for the first time, each boss beaten for the first time) and from crowns spent in the shop.
   // Every level from 2 to 19 unlocks one new hero, item or relic (locked ones never show up in a run before that).
-  B.ACCOUNT = { xpPerLevel: 10, heroClear: 1, floor: 5, boss: 3, crownsPerXp: 5 };
+  // v46 (review #57, David: "Bring the player xp progression to the forefront of the game. Scale the xp per level and
+  // add some exp after each run depending how it went, and visually show progress after each run with looming rewards"):
+  // each level costs more (level L -> L+1 = base + step x (L-1): 80, 100, 120...), every game pays XP by how far it went
+  // (B.GAME_XP, at most perHour games an hour count), and the firsts stay as bonuses, x10 to match the new numbers.
+  // Players from before keep their level (api/_player.js xpInit converts their XP once).
+  B.ACCOUNT = { base: 80, step: 20, heroClear: 10, floor: 50, boss: 30, crownXp: 2 };
+  B.GAME_XP = { played: 10, fight: 8, boss: 25, reached: 30, duel: 20, champion: 50, perHour: 12, maxFights: 14 };
   B.UNLOCKS = [
     [2, 'relic', 'beehive'], [3, 'item', 'honeycomb'], [4, 'relic', 'seashell'], [5, 'hero', 'buzzwell'], [6, 'relic', 'kite'],
     [7, 'item', 'starcloak'], [8, 'relic', 'compass'], [9, 'relic', 'teapot'], [10, 'hero', 'coralie'], [11, 'item', 'tidepearl'],
     [12, 'relic', 'snowglobe'], [13, 'relic', 'marbles'], [14, 'item', 'moonslippers'], [15, 'hero', 'stellan'], [16, 'relic', 'fireflies'],
     [17, 'item', 'comethammer'], [18, 'relic', 'pinwheel'], [19, 'relic', 'horseshoe'],
   ].map(([lvl, kind, id]) => ({ lvl, kind, id }));
-  B.levelOf = xp => 1 + Math.floor(Math.max(0, xp || 0) / B.ACCOUNT.xpPerLevel);
+  B.xpToNext = lvl => B.ACCOUNT.base + B.ACCOUNT.step * (Math.max(1, lvl) - 1);
+  B.xpForLevel = lvl => { let s = 0; for (let l = 1; l < lvl; l++) s += B.xpToNext(l); return s; };   // total XP to reach it
+  B.levelOf = xp => { let l = 1, left = Math.max(0, xp || 0); while (left >= B.xpToNext(l)) { left -= B.xpToNext(l); l++; } return l; };
+  // where an XP total sits: its level, the XP into that level and what the level costs
+  B.levelProgress = xp => { const lvl = B.levelOf(xp), into = Math.max(0, xp || 0) - B.xpForLevel(lvl); return { lvl, into, need: B.xpToNext(lvl) }; };
   B.lockedFor = lvl => B.UNLOCKS.filter(u => u.lvl > lvl).map(u => u.id);
   B.hasPerk = (perks, id) => (perks || []).includes(id) || ((id === 'speed4' || id === 'elo') && (perks || []).includes('king'));
 

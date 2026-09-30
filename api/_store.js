@@ -102,6 +102,7 @@ function memStore() {
     async heroStats(pid) { return Object.entries(M.phero || {}).filter(([k]) => k.startsWith(pid + ':')).map(([, v]) => Object.assign({}, v)); },
     async addXp(pid, n) { const p = M.players && M.players[pid]; if (!p) return null; p.axp = (p.axp || 0) + n; return p.axp; },
     async setProgress(pid, f) { const p = M.players && M.players[pid]; if (!p) return; for (const k of ['cleared', 'pfloor', 'bosses', 'xpv']) if (f[k] != null) p[k] = f[k]; },
+    async xpvStep(pid, from, to) { const p = M.players && M.players[pid]; if (!p || (p.xpv | 0) !== from) return false; p.xpv = to; return true; },
     async teamsOf(pid) { return (M.teams || []).filter(t => t.pid === pid).map(t => ({ team: t.team, wins: t.wins })); },
     async ghostRecord(pid) { const T = (M.teams || []).filter(t => t.pid === pid); return { w: T.reduce((a, t) => a + (t.def_w || 0), 0), l: T.reduce((a, t) => a + (t.def_l || 0), 0), n: T.length }; },
     async insertTeam(t) { const T = M.teams = M.teams || []; const r = Object.assign({ id: ++M.id, wins: 0, status: 'running', opp: null, def_w: 0, def_l: 0, created: Date.now() }, t); T.push(r); return r.id; },
@@ -189,6 +190,8 @@ function pgStore() {
     },
     async heroStats(pid) { return (await q('select hero, games, wins from phero where pid=$1', [pid])).map(r => ({ hero: r.hero, games: Number(r.games), wins: Number(r.wins) })); },
     async addXp(pid, n) { const r = await q('update players set axp = axp + $2 where pid=$1 returning axp', [pid, n]); return r.length ? Number(r[0].axp) : null; },
+    // v46: moves xpv from one version to the next only once, even when two calls race
+    async xpvStep(pid, from, to) { const r = await q('update players set xpv=$3 where pid=$1 and xpv=$2 returning pid', [pid, from, to]); return r.length > 0; },
     async setProgress(pid, f) {
       const cols = ['cleared', 'pfloor', 'bosses', 'xpv'].filter(k => f[k] != null); if (!cols.length) return;
       await q(`update players set ${cols.map((k, i) => k + '=$' + (i + 2)).join(', ')} where pid=$1`, [pid, ...cols.map(k => f[k])]);

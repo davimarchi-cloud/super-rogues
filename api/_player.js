@@ -51,15 +51,39 @@ async function linkRef(st, p, code) {
   if (await st.setRef(p.pid, r.pid)) { p.ref = r.pid; return true; }
   return false;
 }
-// ---- v30 (review #28, PC boy): account XP and level. Firsts only: each hero's first PvE clear (reaching the Gauntlet
-// with it) 1 XP, each Gauntlet floor reached for the first time 5, each boss beaten for the first time 3, plus 1 XP per
-// 5 crowns spent in the Crown Shop. The Double XP perk doubles every gain. 10 XP per level (B.ACCOUNT, B.UNLOCKS).
+// ---- v30 (review #28, PC boy): account XP and level. Firsts: each hero's first PvE clear (reaching the Gauntlet with
+// it), each Gauntlet floor reached for the first time, each boss beaten for the first time, plus XP for crowns spent in
+// the Crown Shop. The Double XP perk doubles every gain (B.ACCOUNT, B.UNLOCKS).
+// v46 (review #57, David): every game also pays XP by how it went (xpGame, B.GAME_XP), and each level costs more
+// (B.levelOf). Every gain in the log has a kind `k` (game, fight, boss, reach, duel, champ, first, crowns) for the screen.
 const listOf = s => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; } };
-async function addXp(st, p, n, why, log) {
+async function addXp(st, p, n, why, log, k) {
   if (!(n > 0)) return;
   if (perksOf(p).includes('xp2')) n *= 2;
   const before = D.levelOf(p.axp | 0), total = await st.addXp(p.pid, n); p.axp = total == null ? (p.axp | 0) + n : total;
-  log.push({ why, xp: n, level: D.levelOf(p.axp), up: D.levelOf(p.axp) > before });
+  log.push({ why, xp: n, k: k || 'first', level: D.levelOf(p.axp), up: D.levelOf(p.axp) > before });
+}
+// v46: the XP of a finished game (a PvE loss, or reaching the Gauntlet). The numbers come from the player's browser like
+// every fight result (this is a demo), so they are clamped and only perHour games an hour pay.
+async function allowGameXp(st, pid) {
+  const k = 'gxp:' + pid, hour = Math.floor(Date.now() / 3600e3);
+  let c = null; try { c = JSON.parse(await st.getKV(k)); } catch (_) {}
+  const n = c && c.h === hour ? c.n : 0;
+  if (n >= D.GAME_XP.perHour) return false;
+  await st.setKV(k, JSON.stringify({ h: hour, n: n + 1 })); return true;
+}
+const count = (v, max) => Math.max(0, Math.min(max, Math.floor(Number(v)) || 0));
+async function xpGame(st, p, g, log) {
+  if (!(await allowGameXp(st, p.pid))) return;
+  const X = D.GAME_XP, fights = count(g && g.fights, X.maxFights), bosses = g && g.reached ? 2 : count(g && g.bosses, 1);
+  await addXp(st, p, X.played, 'game played', log, 'game');
+  if (fights) await addXp(st, p, fights * X.fight, fights + ' fight' + (fights === 1 ? '' : 's') + ' won', log, 'fight');
+  if (bosses) await addXp(st, p, bosses * X.boss, bosses + ' boss' + (bosses === 1 ? '' : 'es') + ' beaten', log, 'boss');
+  if (g && g.reached) await addXp(st, p, X.reached, 'reached the Gauntlet', log, 'reach');
+}
+async function xpDuel(st, p, champion, log) {
+  await addXp(st, p, D.GAME_XP.duel, 'Gauntlet duel won', log, 'duel');
+  if (champion) await addXp(st, p, D.GAME_XP.champion, 'crowned champion', log, 'champ');
 }
 async function xpClear(st, p, team, log) {
   const had = listOf(p.cleared), fresh = [...new Set((team || []).map(h => h.key))].filter(k => D.HEROES[k] && !had.includes(k));
@@ -77,11 +101,19 @@ async function xpBoss(st, p, key, log) {
   p.bosses = JSON.stringify(had.concat(key)); await st.setProgress(p.pid, { bosses: p.bosses });
   await addXp(st, p, D.ACCOUNT.boss, `beat ${D.BOSSES[key].name} for the first time`, log);
 }
-async function xpSpend(st, p, crowns, log) { await addXp(st, p, Math.floor(crowns / D.ACCOUNT.crownsPerXp), `spent ${crowns} crowns`, log); }
+async function xpSpend(st, p, crowns, log) { await addXp(st, p, Math.floor(crowns * D.ACCOUNT.crownXp), `spent ${crowns} crowns`, log, 'crowns'); }
 // a player from before account levels gets the XP their saved teams already earned (heroes that cleared PvE, floors)
+// v46: xpv 2 = the new XP curve. A player at xpv 1 had 10 XP per level: they keep their level and the share of it
+// they had already earned, in the new numbers (done once: xpvStep only moves 1 -> 2 one time)
 async function xpInit(st, p) {
-  if (p.xpv | 0) return;
-  await st.setProgress(p.pid, { xpv: 1 }); p.xpv = 1;
+  if ((p.xpv | 0) >= 2) return;
+  if ((p.xpv | 0) === 1) {
+    if (!(await st.xpvStep(p.pid, 1, 2))) return; p.xpv = 2;
+    const old = p.axp | 0, lvl = 1 + Math.floor(old / 10), now = D.xpForLevel(lvl) + Math.round((old % 10) / 10 * D.xpToNext(lvl));
+    if (now > old) { const t = await st.addXp(p.pid, now - old); p.axp = t == null ? now : t; }
+    return;
+  }
+  if (!(await st.xpvStep(p.pid, 0, 2))) return; p.xpv = 2;
   const teams = await st.teamsOf(p.pid); if (!teams.length) return;
   const keys = new Set(); let floor = 0;
   for (const t of teams) { floor = Math.max(floor, (t.wins | 0) + 1); for (const h of listOf(t.team)) if (h && D.HEROES[h.key]) keys.add(h.key); }
@@ -119,4 +151,4 @@ async function ownView(st, p) {
     referred: !!p.ref, seasonEnds: D.seasonEnds(D.seasonOf(Date.now())), account: true });
 }
 
-module.exports = { perksOf, isKing, row, rollSeason, payLeagues, sync, linkRef, heroGames, profileView, kingExtras, ownView, codeOf, xpClear, xpFloor, xpBoss, xpSpend, levelView };
+module.exports = { perksOf, isKing, row, rollSeason, payLeagues, sync, linkRef, heroGames, profileView, kingExtras, ownView, codeOf, xpClear, xpFloor, xpBoss, xpSpend, xpGame, xpDuel, levelView };

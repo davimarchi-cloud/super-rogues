@@ -179,6 +179,7 @@ module.exports = async (req, res) => {
       const lg = leaguePoints(p, D.LEAGUE_RULES.pveLoss);
       await save({});
       const used = cleanTeam(b.team); if (used) { await rateContent(st, ipHash(req), [{ used: usedIn(used, relicList(b.relics)), score: 0 }]); await P.heroGames(st, pid, used, false); }
+      await P.xpGame(st, p, b.game, xp);   // v46 (review #57): XP for the game, by how far it went
       return send(res, 200, me({ lg }));
     }
 
@@ -194,6 +195,7 @@ module.exports = async (req, res) => {
       const rt = b.reached && cleanTeam(b.reached.team);
       await rateContent(st, ipHash(req), [{ used: rt ? usedIn(rt, relicList(b.reached.relics)) : usedIn(team, relics), score: 1 }]);
       await P.heroGames(st, pid, rt || team, true);
+      await P.xpGame(st, p, { fights: b.game && b.game.fights, reached: true }, xp);   // v46: the PvE part of the game
       await P.xpClear(st, p, rt || team, xp); await P.xpFloor(st, p, 1, xp);   // v30: first PvE clears, floor 1
       const opp = await nextOpponent(st, 0, pid, id), peak = await peakOf(st, id);
       if (!opp) { await st.updateTeam(id, { wins: 0, status: 'champion', opp: null }); await st.demoteChampions(id); p.crowns++; await save({}); return send(res, 200, me({ teamId: id, round: 0, wins: 0, peak, champion: true, over: true })); }
@@ -231,9 +233,10 @@ module.exports = async (req, res) => {
         return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, wins: t.wins, over: true }));
       }
       const wins = t.wins + 1;
-      await P.xpFloor(st, p, wins + 1, xp);   // v30: a floor reached for the first time
       let faced = []; try { faced = JSON.parse(t.faced || '[]'); } catch (_) {}
       const next = await nextOpponent(st, wins, pid, t.id, faced);
+      await P.xpDuel(st, p, !next, xp);         // v46: every duel won, and the crown
+      await P.xpFloor(st, p, wins + 1, xp);   // v30: a floor reached for the first time
       p.best = Math.max(p.best, wins);
       if (!next) { await st.updateTeam(t.id, { wins, status: 'champion', opp: null }); await st.demoteChampions(t.id); p.crowns++; await save({}); return send(res, 200, me({ teamId: t.id, win, delta, ghost, peak, lg, wins, champion: true, over: true })); }
       await st.updateTeam(t.id, { wins, status: 'running', opp: next.id, faced: faced.concat(next.id) }); await save({});

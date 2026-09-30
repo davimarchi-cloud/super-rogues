@@ -60,6 +60,7 @@ ok(await ev(`/first game/.test(document.querySelector('#modal').textContent)`), 
 await click('[data-act=close]'); await sleep(100);
 
 // v45 (review #56): the title explains the game in 3 steps, no portraits, never says "roguelike" or "run"
+ok(await ev(`!!document.querySelector('.title .lvcard .xpbar') && !!document.querySelector('.title .lvcard .lvnext')`), 'v46 title: the account level, its bar and the next reward, up front');
 ok(await ev(`document.querySelectorAll('.title .how3 li').length === 3 && !document.querySelector('.title .lineup') && !/roguelike|\\brun\\b/i.test(document.querySelector('.title').textContent) && /Play/.test(document.querySelector('[data-act=new-run]').textContent)`), 'v45 title: 3 steps (pick, place, fight), a Play button, no portraits, no "roguelike" or "run"');
 await click('[data-act=howto]'); await sleep(200);
 ok(await ev(`document.querySelectorAll('#modal .howbasics li').length === 5 && !!document.querySelector('#modal details.howmore') && !document.querySelector('#modal details.howmore').open`), 'v45 How to play: 5 short basics first, the full rules folded under them');
@@ -179,6 +180,13 @@ ok(sawShop, 'visited a shop');
 const fin = await ev(`({ phase: __bal.run.phase, result: __bal.run.result, score: __bal.run.score, fightNo: __bal.run.fightNo })`);
 ok(fin.phase === 'over' || (REMOTE && fin.phase === 'gauntlet'), `run reached the end (${fin.result}, fight ${fin.fightNo}, score ${fin.score})`);
 await shot('11-over'); await noHScroll('over');
+// v46 (review #57): the end of a game counts its XP chip by chip and ends on the next reward
+const xpDone = `!!document.querySelector('.xpnext.loom') || (!document.querySelector('.xppanel.pre') && !document.querySelector('.xpnext'))`;
+for (let k = 0; k < 150 && !(await ev(xpDone)); k++) await sleep(100);
+if (fin.phase === 'over') {
+  ok(await ev(`!!document.querySelector('.xppanel') && document.querySelectorAll('.xppanel .xplines li').length >= 1 && /^\\+[1-9]/.test(document.querySelector('#xpgot').textContent) && !!document.querySelector('.xpnext, .xppanel .center')`), 'v46: game over counts the XP of the game (chips, the total) and shows the next reward');
+  await shot('11b-over-xp'); await noVScroll('game over, XP counted');
+}
 if (fin.result === 'defeat' && !REMOTE) {
   await sleep(600);
   ok(await ev(`__bal.run.eloEnd == null && !!__bal.run.lgEnd && /league point/.test(document.querySelector('#screen').textContent) && /1000/.test(document.querySelector('#top').textContent)`), 'no hearts: the lost fight ended the run; review #24: it costs league points but no Elo');
@@ -263,6 +271,9 @@ if (!REMOTE) {
   await shot('19-gauntlet-over');
   ok(await ev(`!!document.querySelector('.tower') && (__bal.run.g.status === 'champion' ? !!document.querySelector('.floor.crown.cur .token') && !!document.querySelector('.floor.cleared') : !!document.querySelector('.floor.fell'))`), 'the final tower shows where the run ended (crown or the floor it fell on)');
   await noVScroll('gauntlet over');
+  for (let k = 0; k < 150 && !(await ev(xpDone)); k++) await sleep(100);
+  ok(await ev(`document.querySelectorAll('.xppanel .xplines li').length >= 3 && [...document.querySelectorAll('.xppanel .xplines li i')].some(i => i.textContent === '🏆') && !document.querySelector('.xppanel.pre')`), 'v46: the Gauntlet game pays for the PvE part, the duels and the firsts');
+  await shot('19b-gauntlet-over-xp'); await noVScroll('gauntlet over, XP counted');
   await click('[data-act=scores]');
   for (let k = 0; k < 30 && !(await ev(`!!document.querySelector('#modal table')`)); k++) await sleep(100);
   const ladder = await ev(`document.querySelector('#modal').textContent`);

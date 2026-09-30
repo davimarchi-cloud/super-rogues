@@ -21,7 +21,7 @@
     return id;
   }
   const myName = () => store.get('balance.name', '') || '';
-  const setElo = r => { if (r && r.elo != null) store.set('balance.elo', r.elo); if (r && r.league != null) store.set('balance.league', { league: r.league, lp: r.lp }); setAcct(r); };
+  const setElo = (r, quiet) => { if (r && r.elo != null) store.set('balance.elo', r.elo); if (r && r.league != null) store.set('balance.league', { league: r.league, lp: r.lp }); setAcct(r, quiet); };
   // v27 (owner + review #25 by David): the account. Crowns (earned the first time you reach a league each season, and
   // from invited friends), Crown Shop unlocks, the King Tier, profiles and the invite link. The server is the source of
   // truth (api/player.js); this cache only decides what to show before it answers.
@@ -30,12 +30,12 @@
   const hasPerk = id => B.hasPerk(acct.perks, id);
   const isDefaultName = n => !n || /^Player [a-f0-9]{4}$/.test(n);
   const ACCT_KEYS = ['axp', 'level', 'cleared', 'pfloor', 'bosses', 'crowns', 'perks', 'name', 'code', 'league', 'lp', 'season', 'sreach', 'seasonEnds', 'refs', 'refCrowns', 'titles', 'best', 'elo', 'runs', 'peakLeague', 'lastLeague', 'account'];
-  function setAcct(r) {
+  function setAcct(r, quiet) {
     if (!r || typeof r !== 'object') return;
     for (const k of ACCT_KEYS) if (r[k] != null) acct[k] = r[k];
     if (r.code) acct.account = true;
     store.set(ACCT, acct); if (acct.account) store.del('balance.ref');
-    if (Array.isArray(r.xp) && r.xp.length) xpToast(r.xp);
+    if (Array.isArray(r.xp) && r.xp.length && !quiet) xpToast(r.xp);
     applySkin();
   }
   // v30 (review #28, PC boy): account XP and level. A toast for what was earned; a level up names what it unlocked
@@ -43,9 +43,78 @@
   function xpToast(list) {
     const n = list.reduce((a, g) => a + g.xp, 0), up = list.filter(g => g.up).pop();
     const u = up && B.UNLOCKS.find(x => x.lvl === up.level);
-    setTimeout(() => toast(`✨ +${n} account XP (${list.map(g => g.why).join('; ')})` + (up ? ` · Level ${up.level}!${u ? ` New ${u.kind} unlocked: ${unlockName(u)}` : ''}` : '')), 700);
+    setTimeout(() => toast(`✨ +${n} XP` + (list.length === 1 ? ` (${list[0].why})` : '') + (up ? ` · Level ${up.level}!${u ? ` New ${u.kind}: ${unlockName(u)}` : ''}` : '')), 700);
   }
   const lvlNow = () => B.levelOf(acct.axp || 0);
+  // v46 (review #57, David: "Bring the player xp progression to the forefront of the game ... visually show progress after
+  // each run with looming rewards. It should be a rewarding dopamine hit and encourage playing again"): the title shows
+  // your level, its bar and the next reward; every game keeps the XP it earned (run.xpLog) and the game-over screen fills
+  // the bar line by line (level ups burst with confetti) and ends on the next reward waiting for you
+  const unlockPic = (u, px) => u.kind === 'hero' ? img(u.id, px, 'por') : ico(u.kind, u.id, px);
+  const nextUnlock = lvl => B.UNLOCKS.find(u => u.lvl > lvl) || null;
+  const capFirst = t => String(t).charAt(0).toUpperCase() + String(t).slice(1);
+  function logGameXp(r) { if (run && r && Array.isArray(r.xp) && r.xp.length) { (run.xpLog = run.xpLog || []).push(...r.xp.map(g => ({ why: g.why, xp: g.xp | 0, k: g.k || 'first' }))); } }
+  function levelCardHTML() {
+    const L = B.levelProgress(acct.axp || 0), u = nextUnlock(L.lvl);
+    return `<button class="lvcard" data-act="player-tab" aria-label="Account level ${L.lvl}: see the rewards">
+      <span class="lvb">${L.lvl}</span>
+      <span class="lvm"><b>Level ${L.lvl}</b><span class="xpbar big"><i style="width:${Math.round(100 * L.into / L.need)}%"></i></span><small>${L.into}/${L.need} XP${u ? ` · next: <b>${esc(unlockName(u))}</b>` : ""}</small></span>
+      ${u ? `<span class="lvnext" title="Level ${u.lvl}: ${esc(unlockName(u))}">${unlockPic(u, 40)}<i>🔒</i><small>Lv ${u.lvl}</small></span>` : '<span class="lvnext done">✓</span>'}
+    </button>`;
+  }
+  const XP_ICON = { game: '🎮', fight: '⚔️', boss: '👹', reach: '🏆', duel: '🤺', champ: '👑', first: '⭐', crowns: '💎' };
+  const XP_ORDER = ['game', 'fight', 'boss', 'reach', 'duel', 'champ', 'first', 'crowns'];
+  const XP_NAME = { game: 'Played', reach: 'Gauntlet', champ: 'Crown', first: 'Firsts', crowns: 'Crowns spent' };
+  function xpChips(log) {
+    const by = {};
+    for (const g of log) { const c = by[g.k] = by[g.k] || { k: g.k, xp: 0, n: 0, why: [] }; c.xp += g.xp; c.n++; c.why.push(capFirst(g.why)); }
+    return XP_ORDER.concat(Object.keys(by).filter(k => !XP_ORDER.includes(k))).filter(k => by[k]).map(k => { const c = by[k];
+      c.name = XP_NAME[k] || (c.n === 1 ? c.why[0].replace(/ beaten$/, '').replace(/ won$/, '') : k === 'duel' ? c.n + ' duels' : capFirst(k)); return c; });
+  }
+  function xpPanelHTML() {
+    const log = run.xpLog || [], got = log.reduce((a, g) => a + g.xp, 0), to = acct.axp || 0, from = Math.max(0, to - got);
+    const A = B.levelProgress(from), Z = B.levelProgress(to), done = !!run.xpShown || !log.length, S = done ? Z : A, u = nextUnlock(Z.lvl);
+    const ups = B.UNLOCKS.filter(x => x.lvl > A.lvl && x.lvl <= Z.lvl);
+    const note = run.xpWait ? 'Counting your XP…' : run.xpErr ? 'Your XP could not be saved (no connection).' : '';
+    return `<div class="xppanel ${done ? '' : 'pre'}" id="xppanel" data-from="${from}" data-to="${to}">
+      <div class="xph"><span class="lvb" id="xplv">${S.lvl}</span><div class="xpm"><b>Level <span id="xplv2">${S.lvl}</span></b>
+        <span class="xpbar big"><i id="xpfill" style="width:${Math.round(100 * S.into / S.need)}%"></i></span><small id="xpnum">${S.into}/${S.need} XP</small></div>
+        <b class="xpgot" id="xpgot">+${done ? got : 0}</b></div>
+      ${log.length ? `<ul class="xplines">${xpChips(log).map(c => `<li data-xp="${c.xp}" title="${esc(c.why.join(' · '))}"><i>${XP_ICON[c.k] || '✨'}</i><span>${esc(c.name)}</span><b>+${c.xp}</b></li>`).join('')}</ul>` : note ? `<p class="small center">${note}</p>` : ''}
+      ${ups.length ? `<div class="xpups">${ups.map(x => `<div class="xpup" data-lvl="${x.lvl}">${unlockPic(x, 34)}<span><small>New ${x.kind}!</small><b>${esc(unlockName(x))}</b></span></div>`).join('')}</div>` : ''}
+      ${u ? `<div class="xpnext">${unlockPic(u, 48)}<span><small>Next reward · level ${u.lvl}</small><b>${esc(unlockName(u))}</b><i>${B.xpForLevel(u.lvl) - to} XP to go</i></span><em>🔒</em></div>` : '<p class="small center">🏅 Every reward unlocked!</p>'}
+    </div>`;
+  }
+  async function animXp() {
+    const el = $('#xppanel'); if (!el || run.xpShown || !(run.xpLog || []).length) return;
+    run.xpShown = true; save();
+    const wait = ms => new Promise(r => setTimeout(r, B.Juice && B.Juice.reduced() ? 0 : ms));
+    const fill = $('#xpfill'), num = $('#xpnum'), lv = $('#xplv'), lv2 = $('#xplv2'), gotEl = $('#xpgot');
+    let cur = +el.dataset.from, got = 0;
+    await wait(350);
+    el.classList.remove('pre');
+    for (const li of el.querySelectorAll('.xplines li')) {
+      if (!li.isConnected) return;
+      li.classList.add('in'); sfx('coin');
+      let left = +li.dataset.xp;
+      while (left > 0) {
+        const L = B.levelProgress(cur), room = L.need - L.into, step = Math.min(left, room), ms = 220 + Math.round(520 * step / L.need);
+        fill.style.transition = `width ${ms}ms ease-out`; fill.style.width = (step === room ? 100 : Math.round(100 * (L.into + step) / L.need)) + '%';
+        if (B.Juice) B.Juice.countUp(num, L.into, L.into + step, ms, v => v + '/' + L.need + ' XP');
+        await wait(ms + 40); cur += step; left -= step;
+        if (step === room) {   // a level up: the badge bumps, confetti, the reward it unlocked pops in
+          const N = B.levelProgress(cur); lv.textContent = lv2.textContent = N.lvl; sfx('levelup');
+          if (B.Juice) { B.Juice.bump(lv); B.Juice.confettiAt(lv, 60); }
+          const card = el.querySelector(`.xpup[data-lvl="${N.lvl}"]`); if (card) card.classList.add('in');
+          fill.style.transition = 'none'; fill.style.width = '0%'; num.textContent = '0/' + N.need + ' XP';
+          await wait(420);
+        }
+      }
+      if (B.Juice) B.Juice.countUp(gotEl, got, got + +li.dataset.xp, 300, v => '+' + v); got += +li.dataset.xp;
+      await wait(140);
+    }
+    const nx = el.querySelector('.xpnext'); if (nx) { nx.classList.add('loom'); sfx('star'); }
+  }
   async function loadAcct() { try { setAcct(await Net.post('player', { op: 'me', pid: pid() })); } catch (_) {} }
   const refCode = () => store.get('balance.ref', '') || undefined;
   // the King Tier's Royal board (on by default for Kings; they can switch back to the classic stone)
@@ -245,6 +314,7 @@
     if (sec && key !== ui.lastKey) { sec.classList.add('enter'); onEnter(key); }
     ui.lastKey = key;
     if (screen === 'result' && ui.result && !ui.result.fx) celebrate(ui.result);
+    if (run && screen === 'run' && run.phase === 'over' && !run.xpShown) animXp();
   }
   function screenKey() {
     if (screen === 'title' || !run) return 'title';
@@ -268,6 +338,7 @@
       <div class="crest">${EMBLEM}</div>
       <h1 class="sc">Balance</h1>
       <ol class="how3"><li><i>🦸</i><b>Pick heroes</b></li><li><i>🧩</i><b>Place them</b></li><li><i>⚔️</i><b>Watch them fight</b></li></ol>
+      ${levelCardHTML()}
       <div class="stack">
         ${has ? `<button class="primary big cta" data-act="continue-run"><span>▶ Continue</span><small>${run.phase === 'gauntlet' ? '🏆 Gauntlet' : run.phase === 'start' ? 'Picking your hero' : 'Day ' + (Math.max(0, run.step) + 1) + '/' + Run.seqOf(run).length} · ${run.heroes.length} hero${run.heroes.length === 1 ? '' : 'es'} · ${run.gold} gold</small></button>` : ''}
         <button class="${has ? '' : 'primary cta '}big" data-act="new-run">${has ? 'New game' : '▶ Play'}</button>
@@ -708,21 +779,20 @@
     let body;
     if (run.result === 'gauntlet' && g) {
       const d = g.elo - g.eloStart;
+      // v46: the score and the Elo on one line (room for the XP panel); the tower says the rest
       body = `<h2 class="sc">${g.status === 'champion' ? '👑 Champion' : 'The Gauntlet is over'}</h2>
-        <div class="score">${g.wins}</div><p>duel${g.wins === 1 ? '' : 's'} won</p>
-        <p class="elo-line">Elo ${g.eloStart} → <b>${g.elo}</b> <span class="${d >= 0 ? 'win' : 'lose'}">(${d >= 0 ? '+' : ''}${d})</span></p>
-        ${g.status === 'champion' ? '<p class="small">No one had ever gone this far. Your team now guards the top of the ladder.</p>' : ''}
+        <p class="gline"><b class="score sm">${g.wins}</b> duel${g.wins === 1 ? '' : 's'} won · Elo ${g.eloStart} → <b>${g.elo}</b> <span class="${d >= 0 ? 'win' : 'lose'}">(${d >= 0 ? '+' : ''}${d})</span></p>
         ${g.lgNow ? leagueLine(Object.assign({}, g.lgNow, { delta: g.lgGain, promoted: g.lgPromoted })) : ''}
-        ${g.history.length ? towerHTML(g) : ''}`;
+        ${g.history.length ? towerHTML(g) : ''}${xpPanelHTML()}`;
     } else {
       // v42 (review #51): the end of a run as a small scoreboard: the team, fights won, the fight it fell at
       body = `<div class="evmed over">🏳️</div><h2 class="sc">Game over</h2>
         <div class="overteam">${run.heroes.map(h => `<span>${img(h.key, 52, 'por')}<b>Lv ${h.lvl}</b></span>`).join('')}</div>
         <div class="overstats"><div><b>${run.won}</b><span>fight${run.won === 1 ? '' : 's'} won</span></div><div><b>${run.fightNo}</b><span>fell at fight</span></div></div>
-        ${run.eloEnd != null ? `<p class="elo-line">Elo <b>${run.eloEnd}</b> <span class="lose">(${run.eloDelta})</span></p>` : ''}${leagueLine(run.lgEnd)}`;
+        ${run.eloEnd != null ? `<p class="elo-line">Elo <b>${run.eloEnd}</b> <span class="lose">(${run.eloDelta})</span></p>` : ''}${leagueLine(run.lgEnd)}${xpPanelHTML()}`;
     }
     return `<section class="title">${body}
-      <div class="stack"><button class="primary big" data-act="new-run">▶ Play again</button><button data-act="scores">🏆 Ladder</button></div>
+      <div class="stack againrow"><button class="primary big cta again" data-act="new-run">▶ Play again</button><button data-act="scores" aria-label="Ladder">🏆</button></div>
       <p class="hint">Something felt off? <a href="#" data-act="suggest">Suggest a change</a>.</p></section>`;
   }
 
@@ -849,7 +919,7 @@
       const win = W.winner === 0;
       ui.result = Object.assign({ gauntlet: true, win, xp: run.heroes.map(h => ({ uid: h.uid, name: HEROES[h.key].name, gained: 0, from: h.lvl, to: h.lvl })), opp: run.g.opp, floor: run.g.round + 1, pending: true }, extra);
       screen = 'result'; save(); render();
-      try { const r = await Net.post('elo', { op: 'result', pid: pid(), ref: refCode(), teamId: run.g.teamId, win, team: Run.teamSnapshot(run), relics: run.relics }); setElo(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, ghost: r.ghost, lg: r.lg, pending: false }); ui.climb = win; }
+      try { const r = await Net.post('elo', { op: 'result', pid: pid(), ref: refCode(), teamId: run.g.teamId, win, team: Run.teamSnapshot(run), relics: run.relics }); setElo(r, r.over); logGameXp(r); Run.gauntletUpdate(run, r); Object.assign(ui.result, { delta: r.delta, elo: r.elo, ghost: r.ghost, lg: r.lg, pending: false }); ui.climb = win; }
       catch (e) { Object.assign(ui.result, { pending: false, error: e.message }); }
       save(); render(); return;
     }
@@ -859,13 +929,15 @@
     if (ui.result.win && (ui.result.gold || ui.result.bank)) ui.goldHold = run.gold - (ui.result.gold || 0) - (ui.result.bank || 0);   // the top bar waits for the coins to fly in
     if (bossKey) {  // review #20: the boss's own Elo (never the player's); v27: shown with the Content Elo unlock
       const res = ui.result;
-      Net.post('elo', { op: 'boss', pid: pid(), ref: refCode(), boss: bossKey, win: res.win }).then(r => { setAcct(r); if (r.boss) { res.bossElo = r.boss; if (ui.result === res && screen === 'result') render(); } }).catch(() => {});
+      Net.post('elo', { op: 'boss', pid: pid(), ref: refCode(), boss: bossKey, win: res.win }).then(r => { setAcct(r); logGameXp(r); if (r.boss) { res.bossElo = r.boss; if (ui.result === res && screen === 'result') render(); } }).catch(() => {});
     }
     save(); render(); window.scrollTo(0, 0);
     if (run.phase === 'over') {  // review #3: a lost fight ends the run = Elo loss (review #14: against 1000; the fight's pieces lose too)
       ui.result.pending = true; render();
-      try { const r = await Net.post('elo', Object.assign({ op: 'fail', pid: pid(), ref: refCode() }, run.lastFight)); setElo(r); run.lgEnd = r.lg || null; Object.assign(ui.result, { lg: r.lg }); }  // review #24: no Elo before the gauntlet
-      catch (e) { ui.result.error = e.message; }
+      run.xpWait = true;   // v46: the game's XP (fights won, the boss beaten) comes back with the answer
+      try { const r = await Net.post('elo', Object.assign({ op: 'fail', pid: pid(), ref: refCode(), game: { fights: run.won, bosses: run.fightNo > Run.bossFight(run, 1) ? 1 : 0 } }, run.lastFight)); setElo(r, true); logGameXp(r); run.lgEnd = r.lg || null; Object.assign(ui.result, { lg: r.lg }); }  // review #24: no Elo before the gauntlet
+      catch (e) { ui.result.error = e.message; run.xpErr = true; }
+      run.xpWait = false;
       ui.result.pending = false; save(); render();
     }
   }
@@ -1031,14 +1103,15 @@
   }
   // review #28 (PC boy): the account level and the road of rewards (one new hero, item or relic per level)
   function roadmapHTML(me) {
-    const xp = me.axp | 0, lvl = B.levelOf(xp), per = B.ACCOUNT.xpPerLevel, inLv = xp % per, max = B.UNLOCKS[B.UNLOCKS.length - 1].lvl;
+    const xp = me.axp | 0, L = B.levelProgress(xp), lvl = L.lvl, per = L.need, inLv = L.into, max = B.UNLOCKS[B.UNLOCKS.length - 1].lvl, X = B.GAME_XP;
     const pic = u => u.kind === 'hero' ? img(u.id, 44, 'por') : ico(u.kind, u.id, 44);
     const nodes = B.UNLOCKS.map(u => `<div class="rmn ${u.lvl <= lvl ? 'got' : u.lvl === lvl + 1 ? 'next' : ''}"><span class="rml">Lv ${u.lvl}</span>${pic(u)}<b>${esc(unlockName(u))}</b><i>${u.kind}</i><em>${u.lvl <= lvl ? '✓' : '🔒'}</em></div>`).join('');
     return `<div class="acctlv"><div class="alh"><span class="lvb">${lvl}</span><div class="alb"><b>Account level ${lvl}</b>
         <span class="xpbar big"><i style="width:${lvl > max ? 100 : Math.round(100 * inLv / per)}%"></i></span>
         <span class="small">${lvl > max ? `${xp} XP · every reward unlocked` : `${inLv}/${per} XP to level ${lvl + 1}`}</span></div></div>
       <div class="roadmap" id="roadmap">${nodes}</div>
-      <p class="small xpways">Earn XP: ⚔ first PvE clear with each hero +${B.ACCOUNT.heroClear} <span class="dim">(${me.cleared | 0}/${Object.keys(HEROES).length})</span> · 🏆 each new Gauntlet floor +${B.ACCOUNT.floor} <span class="dim">(best floor ${me.pfloor | 0})</span> · 👹 each boss beaten the first time +${B.ACCOUNT.boss} <span class="dim">(${me.bosses | 0}/${Object.keys(B.BOSSES).length})</span> · 👑 +1 per ${B.ACCOUNT.crownsPerXp} crowns spent${hasPerk('xp2') ? ' · <b class="kw-gold">✨ Double XP on</b>' : ''}</p></div>`;
+      <p class="small xpways">Every game: 🎮 +${X.played} for playing · ⚔️ +${X.fight} per fight won · 👹 +${X.boss} per boss beaten · 🏆 +${X.reached} for reaching the Gauntlet · 🤺 +${X.duel} per duel won · 👑 +${X.champion} for the crown. Each level needs a bit more XP than the last.</p>
+      <p class="small xpways">Bonus firsts: ⭐ first PvE clear with each hero +${B.ACCOUNT.heroClear} <span class="dim">(${me.cleared | 0}/${Object.keys(HEROES).length})</span> · 🏆 each new Gauntlet floor +${B.ACCOUNT.floor} <span class="dim">(best floor ${me.pfloor | 0})</span> · 👹 each boss beaten the first time +${B.ACCOUNT.boss} <span class="dim">(${me.bosses | 0}/${Object.keys(B.BOSSES).length})</span> · 💎 +${B.ACCOUNT.crownXp} per crown spent${hasPerk('xp2') ? ' · <b class="kw-gold">✨ Double XP on</b>' : ''}</p></div>`;
   }
   function contentTable(kind, ratings) {
     // review #20: the bosses sit in the heroes tab with their own Elo
@@ -1185,7 +1258,7 @@
       <li>Leagues: +1 point per duel won, -2 when a game ends before the Gauntlet; 10 points move you up a league. A season lasts ${B.SEASON.days} days, then everyone starts again from Bronze.</li>
       <li>👑 Crowns: earned the first time you reach each league in a season, and from friends who joined with your invite link (1% of what they earn, at least 1). Spend them in the Crown Shop: 4× battle speed, Content Elo (the Elo of every hero, item and relic), name changes, and the King Tier (Royal board, deeper profiles).</li>
       <li>Tap any player's name to open their profile: league, Elo, best Gauntlet and champion titles.</li>
-      <li>✨ Account level: earn XP the first time you clear PvE with each hero (+1), reach each Gauntlet floor (+5) and beat each boss (+3), and for crowns spent (+1 per 5). Every 10 XP is a level, and every level unlocks a new hero, item or relic (see the road in Ladder → Player).</li>
+      <li>✨ Account level: every game earns XP by how far it went (+${B.GAME_XP.played} for playing, +${B.GAME_XP.fight} per fight won, +${B.GAME_XP.boss} per boss, +${B.GAME_XP.reached} for reaching the Gauntlet, +${B.GAME_XP.duel} per duel won, +${B.GAME_XP.champion} for the crown), plus bonuses the first time you clear PvE with each hero (+${B.ACCOUNT.heroClear}), reach each Gauntlet floor (+${B.ACCOUNT.floor}) and beat each boss (+${B.ACCOUNT.boss}), and for crowns spent (+${B.ACCOUNT.crownXp} each). Each level needs a bit more XP than the last, and levels 2 to 19 each unlock a new hero, item or relic (see the road on the title or in Ladder → Player).</li>
     </ol></details>`;
 
 
@@ -1280,7 +1353,7 @@
     skip: () => { if (!hasPerk('skip')) { toast(`Skipping fights is a Crown Shop unlock (👑 ${B.SHOP_ITEM.skip.price}).`); return; } skipBattle(); },
     'result-ok': () => { ui.result = null; ui.goldHold = null; screen = 'run'; render(); window.scrollTo(0, 0); },
     'to-duel': () => { run.phase = 'deploy'; run.cur = { type: 'gauntlet' }; ui.info = null; save(); render(); window.scrollTo(0, 0); },
-    'retry-elo': () => { if (ui.result && ui.result.gauntlet) { const w = ui.result.win; ui.result.pending = true; render(); Net.post('elo', { op: 'result', pid: pid(), ref: refCode(), teamId: run.g.teamId, win: w, team: Run.teamSnapshot(run), relics: run.relics }).then(r => { setElo(r); Run.gauntletUpdate(run, r); ui.climb = w; Object.assign(ui.result, { delta: r.delta, elo: r.elo, ghost: r.ghost, pending: false, error: null }); save(); render(); }).catch(e => { Object.assign(ui.result, { pending: false, error: e.message }); render(); }); } },
+    'retry-elo': () => { if (ui.result && ui.result.gauntlet) { const w = ui.result.win; ui.result.pending = true; render(); Net.post('elo', { op: 'result', pid: pid(), ref: refCode(), teamId: run.g.teamId, win: w, team: Run.teamSnapshot(run), relics: run.relics }).then(r => { setElo(r, r.over); logGameXp(r); Run.gauntletUpdate(run, r); ui.climb = w; Object.assign(ui.result, { delta: r.delta, elo: r.elo, ghost: r.ghost, pending: false, error: null }); save(); render(); }).catch(e => { Object.assign(ui.result, { pending: false, error: e.message }); render(); }); } },
     // v42 (review #51): a bought card flies into the Team button with a coin sound and gets a SOLD stamp; a reroll deals
     // the new cards in with a shuffle
     buy: i => {
@@ -1364,8 +1437,8 @@
         const r = await Net.post('player', { op: 'rename', pid: pid(), name }); setAcct(r); toast(`You are now ${r.name}`); refreshShop();
       } else if (kind === 'gauntlet') {
         const name = f.name.value.trim(); if (!acct.account || isDefaultName(acct.name)) store.set('balance.name', name);
-        const r = await Net.post('elo', { op: 'enter', pid: pid(), ref: refCode(), name, team: Run.teamSnapshot(run), relics: run.relics, reached: run.lastFight });
-        setElo(r); Run.gauntletUpdate(run, r); save(); render(); window.scrollTo(0, 0);
+        const r = await Net.post('elo', { op: 'enter', pid: pid(), ref: refCode(), name, team: Run.teamSnapshot(run), relics: run.relics, reached: run.lastFight, game: { fights: run.won } });
+        setElo(r); logGameXp(r); Run.gauntletUpdate(run, r); save(); render(); window.scrollTo(0, 0);
       }
     } catch (err) { toast(err.message); if (btn) btn.disabled = false; }
   });
