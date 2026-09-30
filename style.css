@@ -1783,3 +1783,117 @@ section.title .evmed.over { width: 72px; height: 72px; font-size: 38px; margin-b
 
 /* v47: game over a little shorter on a phone (team, then the two numbers side by side, then the XP) */
 @media (max-width: 700px) { .overteam { margin: 4px 0 6px; } .overteam .por { width: 44px; height: 44px; } .overstats { margin: 2px 0 4px; } .overstats div { min-width: 96px; padding: 6px 12px; } .overstats b { font-size: 28px; } section.title .evmed.over { width: 60px; height: 60px; font-size: 32px; margin-top: 4px; } }
+
+/* v49 (review #60, David: "New game identity: Super Rogues. Logo appealing to 14yos, with bold funky letters. Super simple
+   landing page ... Just a play button. Beneath it ... random teams fighting mobs ... Like a trailer"; review #61: one
+   icon set, cards only where they build hierarchy, a cleaner font for descriptions) */
+svg.ui { width: 1.25em; height: 1.25em; flex: none; vertical-align: -.24em; }
+#top svg.ui { width: 21px; height: 21px; vertical-align: -5px; }
+#top .ibtn { width: 40px; min-width: 40px; padding: 0; justify-content: center; }
+#top .crownchip svg.ui { color: #7a4a00; }
+.lvchip { display: inline-flex; align-items: center; gap: 8px; padding: 0 12px 0 4px !important; }
+.lvchip .lvb.sm { min-width: 30px; height: 30px; font-size: 16px; border-radius: 10px; box-shadow: 0 2px 0 #c47f00; }
+.lvchipbar { display: block; width: 46px; height: 8px; border-radius: 4px; background: #0d114699; overflow: hidden; }
+.lvchipbar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #ffe46b, #ffc21a); }
+
+.logo-big { display: grid; justify-items: center; margin: 4px 0 0; line-height: 1; font-size: 1rem; }
+.logo-big .mark { width: 70px; height: 70px; filter: drop-shadow(0 4px 0 #0d114699); animation: markbob 3.2s ease-in-out infinite; position: relative; z-index: 1; }
+@keyframes markbob { 50% { translate: 0 -4px; rotate: -4deg; } }
+.logo-big .wm { display: grid; justify-items: center; margin-top: -10px; }
+.logo-big .w1 { position: relative; z-index: 1; font: 700 20px/1 var(--fun); letter-spacing: 7px; text-transform: uppercase; color: #fff; background: #ff4d8d;
+  padding: 4px 10px 5px 17px; border-radius: 10px; box-shadow: 0 0 0 3px #1a1f6b, 0 5px 0 3px #1a1f6b; rotate: -5deg; }
+.logo-big .w2 { display: flex; margin-top: 2px; }
+.logo-big .w2 i { display: inline-block; font: 700 64px/1 var(--fun); font-style: normal; color: var(--c, #ffd23f); -webkit-text-stroke: 9px #1a1f6b; paint-order: stroke fill;
+  text-shadow: 0 7px 0 #1a1f6b, 0 12px 18px #050a4a88; margin: 0 -1px; }
+.logo-big .w2 i:nth-child(1) { --c: #ffd23f; rotate: -6deg; } .logo-big .w2 i:nth-child(2) { --c: #5ff0e0; rotate: 4deg; translate: 0 -3px; }
+.logo-big .w2 i:nth-child(3) { --c: #ff7ab0; rotate: -3deg; translate: 0 2px; } .logo-big .w2 i:nth-child(4) { --c: #ffd23f; rotate: 5deg; translate: 0 -2px; }
+.logo-big .w2 i:nth-child(5) { --c: #8dff8a; rotate: -4deg; translate: 0 3px; } .logo-big .w2 i:nth-child(6) { --c: #ffa14d; rotate: 6deg; }
+section.enter .logo-big .w2 i { animation: letterpop .55s cubic-bezier(.3, 1.8, .5, 1) backwards; animation-delay: calc(var(--k) * 70ms + 120ms); }
+section.enter .logo-big .w1 { animation: letterpop .5s cubic-bezier(.3, 1.8, .5, 1) backwards; }
+@keyframes letterpop { from { scale: .2; opacity: 0; } }
+
+.title.home { padding-top: 6px; }
+.title.home .stack { max-width: 460px; margin: 12px auto 0; gap: 4px; }
+.title.home .cta.play { min-height: 78px; font-size: 32px; letter-spacing: 1px; }
+.title.home .cta.play svg.ui, .title.home .cta span svg.ui { width: .9em; height: .9em; vertical-align: -.08em; }
+.giveup { align-self: center; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 4px 14px; background: none !important; border: 0 !important;
+  box-shadow: none !important; color: #fff; opacity: .8; font: 600 14px var(--fun); }
+.giveup svg.ui { color: #fff; } .giveup:hover { opacity: 1; }
+.trailer { position: relative; width: 100%; max-width: 620px; margin: 14px auto 0; border-radius: 22px; overflow: hidden; box-shadow: 0 0 0 3px #ffffff40, 0 12px 30px #050a4a88; }
+.trailer canvas { display: block; width: 100%; }
+body.desk .title.home { grid-template-columns: minmax(0, 440px) minmax(0, 700px); grid-template-areas: "logo trailer" "stack trailer"; column-gap: 56px; align-content: center; }
+body.desk .title.home .logo-big { grid-area: logo; align-self: end; }
+body.desk .title.home .stack { grid-area: stack; align-self: start; margin-top: 24px; }
+body.desk .title.home .trailer { grid-area: trailer; margin: 0; max-width: none; align-self: center; }
+body.desk .logo-big .mark { width: 96px; height: 96px; } body.desk .logo-big .w1 { font-size: 26px; } body.desk .logo-big .w2 i { font-size: 92px; -webkit-text-stroke-width: 12px; }
+
+.mlist { display: grid; gap: 2px; margin: 4px 0 6px; }
+.mrow { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 58px; padding: 8px 12px; text-align: left; background: none !important; border: 0 !important;
+  box-shadow: none !important; border-radius: 14px; color: #fff; }
+.mrow:hover { background: #ffffff14 !important; }
+.mrow > svg.ui { width: 26px; height: 26px; color: #ffd23f; }
+.mrow span { flex: 1; min-width: 0; display: grid; gap: 1px; } .mrow b { font: 600 17px/1.2 var(--fun); } .mrow small { font: 600 13px/1.3 'Nunito', system-ui, sans-serif; color: #ffffffb3; }
+.mrow .chev { width: 18px; height: 18px; opacity: .6; }
+.mlist .mrow + .mrow { border-top: 1px solid #ffffff14 !important; border-radius: 0; }
+.giveupask { display: grid; justify-items: center; text-align: center; gap: 6px; padding: 6px 0 4px; }
+.giveupask svg.ui.big { width: 54px; height: 54px; color: #fff; } .giveupask p { margin: 0; font-size: 15px; }
+.giveupask .bar { width: 100%; } button.danger { background: linear-gradient(180deg, #ff7a7a, #e0474f) !important; color: #fff !important; box-shadow: 0 4px 0 #9c2330 !important; }
+
+.title.home .cta.play, .title.home .cta > span { display: flex; justify-content: center; align-items: center; gap: 12px; }
+body.desk .logo-big .mark { width: 112px; height: 112px; } body.desk .logo-big .w1 { font-size: 30px; } body.desk .logo-big .w2 i { font-size: 116px; -webkit-text-stroke-width: 14px; text-shadow: 0 9px 0 #1a1f6b, 0 16px 24px #050a4a88; }
+
+/* v49 (review #61): descriptions in the reading font (titles and buttons keep the chunky one) */
+:root { --read: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.small, .abil, .abl, .eve, .srd, .rangeline, .fw, .card .small, .stock .small, .opt .small, .evch .t .eve, .idetail .small, .setline, .ssub, .hint, .mrow small, .rmeta, .xpnext i, .lugain, .howbasics li span { font-family: var(--read); }
+.card.opt .small, .evch .t .eve, .stock .small, .srelic .srd { font-weight: 600; }
+svg.ui + b, b + svg.ui { margin-left: 2px; }
+.banner .emb svg.ui { width: 40px; height: 40px; color: #fff; filter: drop-shadow(0 3px 0 #0d114666); }
+.banner .emb svg.ui + svg.ui { margin-left: -8px; }
+.track .node svg.ui { width: 16px; height: 16px; }
+.evmed svg.ui { width: 52%; height: 52%; color: #fff; }
+.etag svg.ui { width: 14px; height: 14px; }
+.bhead svg.ui, .hud-l svg.ui { color: #ffd23f; }
+.nextboss .chev { width: 22px; height: 22px; opacity: .85; flex: none; }
+.plegend li { display: inline-flex; align-items: center; gap: 6px; } .plegend svg.ui { color: #ffd23f; }
+.howbasics li > svg.ui { width: 26px; height: 26px; color: #ffd23f; margin-top: 1px; }
+.xplines li i svg.ui { width: 16px; height: 16px; color: #9fe8ff; }
+.rangeline svg.ui, .eqrole svg.ui, .role svg.ui { width: 16px; height: 16px; }
+
+/* level up: playstyle tags on the two powers, and the power path as a tree */
+.ptags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; }
+.ptag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 6px; border-radius: 999px; font: 600 12.5px/1.4 var(--fun); background: var(--tc); color: #fff; box-shadow: 0 2px 0 #0d114666; }
+.ptag svg.ui { width: 14px; height: 14px; }
+.pt-damage { --tc: #e8553a; } .pt-tank { --tc: #3b82f6; } .pt-control { --tc: #8b5cf6; } .pt-heal { --tc: #16a36a; } .pt-speed { --tc: #e89a0b; } .pt-area { --tc: #db4f98; } .pt-summon { --tc: #0e9a99; } .pt-upgrade { --tc: #64748b; }
+.spec2 .card.opt .ctitle.spec { font-size: 19px; }
+.sp-path.tree { margin-top: 12px; }
+.tree .sp-row { display: grid; grid-template-columns: 44px 1fr 1fr; column-gap: 8px; align-items: center; border: 0; padding: 0; font-size: 13px; }
+.tree .sp-row .sp-lv { width: auto; font: 700 13px var(--fun); color: #ffffff99; }
+.tree .sp-n { text-align: center; padding: 6px; border-radius: 12px; font: 600 13px/1.2 var(--fun); border: 2px solid #ffffff33; background: #ffffff10; color: #fff; }
+.tree .sp-row.done .sp-n.on { background: linear-gradient(180deg, #ffe46b, #ffc21a); color: #5a3000; border-color: #fff; box-shadow: 0 3px 0 #c47f00; }
+.tree .sp-row.done .sp-n.off { opacity: .35; text-decoration: line-through; }
+.tree .sp-row.now .sp-lv { color: #ffe46b; }
+.tree .sp-row.now .sp-n { border-color: #ffe46b; background: #ffd23f22; animation: nowglow 1.6s ease-in-out infinite; }
+.tree .sp-row.later { opacity: .4; }
+@keyframes nowglow { 0%, 100% { box-shadow: 0 0 8px #ffd23f55; } 50% { box-shadow: 0 0 20px #ffd23fbb; } }
+.sp-fork { display: grid; grid-template-columns: 44px 1fr 1fr; column-gap: 8px; height: 18px; }
+.sp-fork i { grid-column: 2 / 4; position: relative; --fc: #ffffff40; }
+.sp-fork.done i, .sp-fork.now i { --fc: #ffd23f; }
+.sp-fork i::before { content: ''; position: absolute; left: calc(25% - 1.5px); right: calc(25% - 1.5px); top: 50%; height: 50%; border: 3px solid var(--fc); border-bottom: 0; border-radius: 8px 8px 0 0; }
+.sp-fork i::after { content: ''; position: absolute; top: 0; height: 50%; width: 3px; background: var(--fc); left: calc(50% - 1.5px); }
+.sp-fork.from-a i::after { left: calc(25% - 1.5px); } .sp-fork.from-b i::after { left: calc(75% - 1.5px); }
+.sp-fork.later i { opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .tree .sp-row.now .sp-n { animation: none; } }
+
+/* fewer look-alike cards: the team under the map is one panel of rows, the heroes after a fight are rows */
+.party { background: #1b227033; border: 2px solid #ffffff1f; border-radius: 20px; padding: 8px 10px 10px; }
+.party .pgrid { gap: 0 10px; }
+.party .pgrid .pm { background: none; border: 0; box-shadow: none; border-radius: 0; border-bottom: 1px solid #ffffff17; padding: 6px 2px; }
+.party .nextboss { margin-top: 10px; }
+.result.v2 .rheroes { background: #1b227033; border: 2px solid #ffffff1f; border-radius: 20px; padding: 2px 10px; gap: 0; }
+.result.v2 .rheroes .rh { background: none; border: 0; box-shadow: none; border-radius: 0; border-bottom: 1px solid #ffffff17; padding: 8px 2px; }
+.result.v2 .rheroes .rh:last-child { border-bottom: 0; }
+.result.v2 .rheroes .rh.mvp { box-shadow: inset 4px 0 0 #ffd23f; padding-left: 10px; }
+
+.banner .emb { display: flex; align-items: center; justify-content: center; flex-wrap: nowrap; }
+.banner .emb svg.ui + svg.ui { margin-left: -10px; } .banner.b-hard .emb svg.ui { width: 32px; height: 32px; }
+.lugain svg.ui { color: #7dffb0; }

@@ -208,6 +208,7 @@
 
   // ------------------------------------------------------------------ frame
   function draw(v, W, T, o = {}) {
+    muted = !!o.mute;
     const { ctx, size } = v;
     const S = fxState(v), now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
     const dt = Math.min(0.05, S.last ? now - S.last : 0.016); S.last = now;
@@ -401,7 +402,8 @@
       if (st.n >= 2) { S.calls.push({ id: u.id, text: ['', '', 'Double KO!', 'Triple KO!', 'Quadra KO!'][Math.min(4, st.n)] || 'Rampage!', t: 0, col: '#ffe066', big: true }); sfx('streak', st.n); S.shake = Math.max(S.shake, 4); }
     }
   }
-  const sfx = (n, a) => { if (B.Sfx) B.Sfx.play(n, a); };
+  let muted = false;   // v49: the title trailer draws a fight with no sound
+  const sfx = (n, a) => { if (B.Sfx && !muted) B.Sfx.play(n, a); };
   function drawParts(ctx, S, dt) {
     const keep = [];
     for (const q of S.parts) {

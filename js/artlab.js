@@ -11,7 +11,7 @@
   function html() {
     const H = B.HEROES, k = S.key, e = U.esc;
     return `<div class="artlab">
-      <div class="shead"><b>🎨 Art Lab</b><button data-act="close">✕</button></div>
+      <div class="shead"><b>${B.UI ? B.UI.i('palette') : ''} Art Lab</b><button data-act="close">✕</button></div>
       <p class="small">Try your own pictures on a hero: a <b>splash</b> for the cards and a <b>pose sheet</b> for the battle. Only this device sees them until you send them for review.</p>
       <label class="alhero"><span>Hero</span><select id="alHero"><option value="" disabled ${k ? '' : 'selected'}>Choose the hero this art is for…</option>${heroes().map(x => `<option value="${x}" ${x === k ? 'selected' : ''}>${e(H[x].name)} · ${H[x].role}</option>`).join('')}</select></label>
       <div class="algrid">

@@ -50,19 +50,24 @@ await sleep(1200);
 const noHScroll = async where => ok(await ev('document.documentElement.scrollWidth <= window.innerWidth + 1'), 'no horizontal scroll: ' + where);
 // review #9 (David): the whole game without scrolling on a phone
 const noVScroll = async where => { const r = await ev(`(() => { const m = document.querySelector('#modal:not([hidden]) .sheet'); return m ? [m.scrollHeight, m.clientHeight] : [document.documentElement.scrollHeight, window.innerHeight]; })()`); ok(r[0] <= r[1] + 2, `fits without scrolling: ${where} (${r[0]}px of ${r[1]}px)`); };
-ok(await ev(`!!document.querySelector('.title h1') && document.title === 'Balance'`), 'title screen renders');
+ok(await ev(`!!document.querySelector('.title h1.logo-big') && document.title === 'Super Rogues'`), 'v49 (review #60): the landing says Super Rogues');
 await shot('01-title'); await noHScroll('title'); await noVScroll('title');
 // v27 (owner + review #25): the start menu has the Crown Shop and your profile; the suggestion box stays only at the top
-ok(await ev(`!!document.querySelector('#top [data-act=shop].crownchip') && document.querySelectorAll('.homeicons button').length === 3 && !!document.querySelector('.homeicons [data-act=shop]') && !!document.querySelector('.homeicons [data-act=my-profile]') && !document.querySelector('.live') && document.querySelectorAll('[data-act=suggest]').length === 1 && !!document.querySelector('#top [data-act=suggest]')`), 'start menu: crown icon + Crown Shop and Profile tiles; the suggestion box only at the top');
-ok(await ev(`!!document.querySelector('.title .labtile[data-act=art-lab]')`), 'start menu: the Art Lab at the bottom');
-await click('.homeicons [data-act=my-profile]'); await sleep(400);
+// v49 (review #60): the landing is the logo, Play and a live trailer; your level, crowns, the ladder, suggestions and the menu sit in the top bar
+ok(await ev(`!!document.querySelector('#top .lvchip[data-act=player-tab]') && !!document.querySelector('#top [data-act=shop].crownchip') && !!document.querySelector('#top [data-act=scores]') && !!document.querySelector('#top [data-act=home-menu]') && document.querySelectorAll('[data-act=suggest]').length === 1 && !!document.querySelector('#top [data-act=suggest]') && document.querySelectorAll('#screen button').length === 1 && !!document.querySelector('#screen [data-act=new-run]') && !document.querySelector('.live')`), 'v49 landing: only the Play button on the page; level, crowns, ladder, suggestions and the menu in the top bar');
+await sleep(700);
+ok(await ev(`(() => { const c = document.getElementById('trailer'); if (!c || c.width < 200) return false; const d = c.getContext('2d').getImageData(c.width >> 1, c.height >> 1, 1, 1).data; return d[3] > 0; })()`), 'v49 landing: the trailer fight is playing under Play');
+await click('#top [data-act=home-menu]'); await sleep(150);
+ok(await ev(`['howto', 'player-tab', 'my-profile', 'shop', 'scores', 'art-lab', 'sound', 'suggest'].every(a => !!document.querySelector('#modal .mrow[data-act=' + a + ']'))`), 'v49 menu: How to play, level rewards, profile, Crown Shop, ladder, Art Lab, sound and suggestions, one tap each');
+await shot('01b-menu'); await noVScroll('menu');
+await click('#modal [data-act=my-profile]'); await sleep(400);
 ok(await ev(`/first game/.test(document.querySelector('#modal').textContent)`), 'profile before the first game: explains when it starts');
 await click('[data-act=close]'); await sleep(100);
 
 // v45 (review #56): the title explains the game in 3 steps, no portraits, never says "roguelike" or "run"
-ok(await ev(`!!document.querySelector('.title .lvcard .xpbar') && !!document.querySelector('.title .lvcard .lvnext')`), 'v46 title: the account level, its bar and the next reward, up front');
-ok(await ev(`document.querySelectorAll('.title .how3 li').length === 3 && !document.querySelector('.title .lineup') && !/roguelike|\\brun\\b/i.test(document.querySelector('.title').textContent) && /Play/.test(document.querySelector('[data-act=new-run]').textContent)`), 'v45 title: 3 steps (pick, place, fight), a Play button, no portraits, no "roguelike" or "run"');
-await click('[data-act=howto]'); await sleep(200);
+ok(await ev(`!!document.querySelector('#top .lvchip .lvchipbar i')`), 'v46/v49: the account level and its bar, up front in the top bar');
+ok(await ev(`!/roguelike|\\brun\\b/i.test(document.querySelector('.title').textContent) && /Play/.test(document.querySelector('[data-act=new-run]').textContent)`), 'v45/v49 landing: a Play button, never "roguelike" or "run"');
+await click('#top [data-act=home-menu]'); await sleep(150); await click('#modal [data-act=howto]'); await sleep(200);
 ok(await ev(`document.querySelectorAll('#modal .howbasics li').length === 5 && !!document.querySelector('#modal details.howmore') && !document.querySelector('#modal details.howmore').open`), 'v45 How to play: 5 short basics first, the full rules folded under them');
 await click('[data-act=close]'); await sleep(100);
 
@@ -70,6 +75,10 @@ await click('[data-act=close]'); await sleep(100);
 await click('[data-act=new-run]'); await sleep(200);
 const picks = await ev(`[...document.querySelectorAll('[data-act=start-pick]')].length`);
 ok(picks === 3, 'start offers 3 heroes side by side');
+// v49 (review #60): a game only counts once its hero and relic are picked: back on the landing it is Play, not Continue
+await click('#top [data-act=menu]'); await sleep(150);
+ok(await ev(`!document.querySelector('[data-act=continue-run]') && !document.querySelector('[data-act=give-up]') && !!document.querySelector('[data-act=new-run]')`), 'v49: a game still picking its hero shows Play on the landing, not Continue');
+await click('[data-act=new-run]'); await sleep(200);
 ok(await ev(`!!document.querySelector('.start .ssteps li.on') && !!document.querySelector('.ssub.tap') && document.querySelector('[data-act=start-next]').disabled && !document.querySelector('[data-act=start-relic]')`), 'v45 step 1: "Tap a hero", Next is off until you pick, no relics yet');
 const fmtOut = await ev(`__bal.fmt('<b>x</b> deals 20% magic damage and stuns for 1.5s')`);
 ok(/&lt;b&gt;/.test(fmtOut) && /class="num">20%/.test(fmtOut) && /kw-ap/.test(fmtOut) && /kw-cc/.test(fmtOut) && /class="dur">1.5s/.test(fmtOut), 'review #10: descriptions colour terms, bold numbers, italic durations, and stay escaped');
@@ -92,6 +101,14 @@ ok(await ev(`!document.querySelector('#screen .track') && !!document.querySelect
 await click('#top [data-act=path]'); await sleep(150);
 ok(await ev(`document.querySelectorAll('#modal .track .node').length > 10 && document.querySelectorAll('#modal .plegend li').length === 5`), 'v47: tapping the Day chip shows the whole journey with a legend');
 await click('[data-act=close]'); await sleep(100);
+// v49 (review #60): with a game on, the landing shows Continue and a small white flag to give up (it asks first)
+await click('#top [data-act=menu]'); await sleep(150);
+ok(await ev(`!!document.querySelector('[data-act=continue-run]') && !!document.querySelector('.giveup[data-act=give-up]') && !document.querySelector('[data-act=new-run]')`), 'v49: a game on: Continue and a give-up flag, no new game button');
+await shot('01c-continue'); await noVScroll('landing, game on');
+await click('[data-act=give-up]'); await sleep(120);
+ok(await ev(`!!document.querySelector('#modal [data-act=give-up-yes]')`), 'v49: giving up asks first');
+await click('#modal [data-act=close]'); await sleep(100); await click('[data-act=continue-run]'); await sleep(200);
+ok(await ev(`__bal.run && __bal.run.phase === 'map' && !!document.querySelector('.map')`), 'v49: Keep playing, then Continue: back to the same game');
 
 let fightsSeen = 0, sawSmooth = false, sawShop = false, sawEvent = false, sawPicker = false, sawLevel = false, sawBoss = 0, steps = 0;
 while (steps++ < 80) {
@@ -279,7 +296,7 @@ if (!REMOTE) {
   ok(await ev(`!!document.querySelector('.tower') && (__bal.run.g.status === 'champion' ? !!document.querySelector('.floor.crown.cur .token') && !!document.querySelector('.floor.cleared') : !!document.querySelector('.floor.fell'))`), 'the final tower shows where the run ended (crown or the floor it fell on)');
   await noVScroll('gauntlet over');
   for (let k = 0; k < 150 && !(await ev(xpDone)); k++) await sleep(100);
-  ok(await ev(`document.querySelectorAll('.xppanel .xplines li').length >= 3 && [...document.querySelectorAll('.xppanel .xplines li i')].some(i => i.textContent === '🏆') && !document.querySelector('.xppanel.pre')`), 'v46: the Gauntlet game pays for the PvE part, the duels and the firsts');
+  ok(await ev(`document.querySelectorAll('.xppanel .xplines li').length >= 3 && [...document.querySelectorAll('.xppanel .xplines li')].some(li => /Gauntlet/.test(li.textContent) && !!li.querySelector('svg.ui')) && !document.querySelector('.xppanel.pre')`), 'v46: the Gauntlet game pays for the PvE part, the duels and the firsts');
   await shot('19b-gauntlet-over-xp'); await noVScroll('gauntlet over, XP counted');
   await click('[data-act=scores]');
   for (let k = 0; k < 30 && !(await ev(`!!document.querySelector('#modal table')`)); k++) await sleep(100);
@@ -332,7 +349,7 @@ if (!REMOTE) {
   await shot('25-profile'); await noHScroll('profile');
   await click('[data-act=close]');
   // your own profile from the start menu, and the opponent's name in the gauntlet opens theirs
-  await click('#top [data-act=menu]'); await sleep(200); await click('.homeicons [data-act=my-profile]');
+  await click('#top [data-act=menu]'); await sleep(200); await click('#top [data-act=home-menu]'); await sleep(150); await click('#modal [data-act=my-profile]');
   for (let i = 0; i < 30 && !(await ev(`!!document.querySelector('#modal .prof')`)); i++) await sleep(100);
   ok(await ev(`/Tester King/.test(document.querySelector('#modal .pname').textContent) && !!document.querySelector('#modal .pname .kingmark') && !!document.querySelector('#modal .phl')`), 'your own profile from the start menu (King mark, most played heroes)');
   await shot('26-my-profile'); await noHScroll('my profile');
