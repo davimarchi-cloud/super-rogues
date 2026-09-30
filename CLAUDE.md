@@ -127,6 +127,13 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v48 (2026-09-30), lote 46 do PC boy (#59): splash de 10 heróis pelo Art Lab.** Garm (rex), Leshy (bramble), Sarab
+  (mirage), Hyppolita (hippolyta), Snezhana (glacia), Licht (seraph), Azgoth (azgul), Pimples (pip), Brigid (lumen) e
+  Bjornar (bastion). Revisadas uma a uma: originais, sem sangue nem conteúdo impróprio, cada uma batendo com o herói. Só
+  splash (cartões, banners, retratos): em `OFFICIAL` sem `anims`, o boneco da batalha continua desenhado. Vieram com o
+  recorte padrão; o foco foi posto no rosto de cada uma (conferido com um recorte em PIL igual ao do `art.js`). Agora
+  são 14 heróis com pintura (4 com animação completa) e 22 só desenhados. O teste do motor passou a aceitar arte só com
+  splash.
 - **v47 (2026-09-30), lote 45 do David (#58: "toda decisão entendida em menos de 2 s; sem mecânica, número, porcentagem
   ou contador novo; menos leitura; linguagem simples; o próximo toque óbvio; o time antes do secundário; profundidade
   atrás de toques").**

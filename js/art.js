@@ -36,6 +36,18 @@
     kage: { splash: 'art/kage/splash.jpg', crop: { x: 0.46, y: 0.15, z: 1.2 }, flip: false, scale: 1,
       anims: { idle: seq('kage', 'idle', 8), move: seq('kage', 'move', 8), attack: seq('kage', 'attack', 8), cast: seq('kage', 'cast', 8), death: seq('kage', 'death', 8) },
       axs: { idle: [0.569, 0.569, 0.578, 0.578, 0.578, 0.569, 0.569, 0.559], move: [0.528, 0.528, 0.528, 0.538, 0.528, 0.528, 0.528, 0.528], attack: [0.492, 0.492, 0.492, 0.5, 0.492, 0.492, 0.492, 0.492], cast: [0.492, 0.492, 0.492, 0.5, 0.492, 0.492, 0.492, 0.492], death: [0.492, 0.492, 0.492, 0.5, 0.492, 0.492, 0.492, 0.492] } },
+    // review #59 (PC boy): splash art for 10 heroes (cards, banners and portraits only: their battle figures stay drawn).
+    // The crop centres each face for the portrait
+    rex: { splash: 'art/rex/splash.jpg', crop: { x: 0.3, y: 0.44, z: 1.1 }, flip: false, scale: 1 },   // Garm
+    bramble: { splash: 'art/bramble/splash.jpg', crop: { x: 0.55, y: 0.31, z: 1.1 }, flip: false, scale: 1 },   // Leshy
+    mirage: { splash: 'art/mirage/splash.jpg', crop: { x: 0.55, y: 0.29, z: 1.2 }, flip: false, scale: 1 },   // Sarab
+    hippolyta: { splash: 'art/hippolyta/splash.jpg', crop: { x: 0.43, y: 0.37, z: 1.2 }, flip: false, scale: 1 },   // Hyppolita
+    glacia: { splash: 'art/glacia/splash.jpg', crop: { x: 0.37, y: 0.29, z: 1.2 }, flip: false, scale: 1 },   // Snezhana
+    seraph: { splash: 'art/seraph/splash.jpg', crop: { x: 0.52, y: 0.27, z: 1.2 }, flip: false, scale: 1 },   // Licht
+    azgul: { splash: 'art/azgul/splash.jpg', crop: { x: 0.5, y: 0.26, z: 1.2 }, flip: false, scale: 1 },   // Azgoth
+    pip: { splash: 'art/pip/splash.jpg', crop: { x: 0.34, y: 0.31, z: 1.2 }, flip: false, scale: 1 },   // Pimples
+    lumen: { splash: 'art/lumen/splash.jpg', crop: { x: 0.5, y: 0.29, z: 1.2 }, flip: false, scale: 1 },   // Brigid
+    bastion: { splash: 'art/bastion/splash.jpg', crop: { x: 0.38, y: 0.33, z: 1.2 }, flip: false, scale: 1 },   // Bjornar
   };
   const LOCAL = 'balance.artlab';
   const live = {}, subs = [], cache = {};

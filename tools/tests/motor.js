@@ -482,8 +482,9 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
 {
   require('../../js/art.js'); const fs = require('fs'), path = require('path');
   for (const [key, o] of Object.entries(B.Art.OFFICIAL)) {
-    const files = [o.splash, ...Object.values(o.anims).flat()].filter(Boolean);
+    const files = [o.splash, ...Object.values(o.anims || {}).flat()].filter(Boolean);
     ok(!!B.HEROES[key] && files.every(f => fs.existsSync(path.join(__dirname, '..', '..', f))), `${B.HEROES[key] ? B.HEROES[key].name : key}: all ${files.length} art files exist`);
+    if (!o.anims) { ok(!!o.splash && o.crop && o.crop.x >= 0 && o.crop.x <= 1 && o.crop.y >= 0 && o.crop.y <= 1, `${key}: splash only (review #59), with a face crop`); continue; }   // the battle figure stays drawn
     ok(Object.keys(o.anims).every(k => o.axs[k] && o.axs[k].length === o.anims[k].length) && o.anims.idle && o.anims.idle.length, `${key}: an anchor for every frame, and an idle animation`);
   }
 }
