@@ -727,7 +727,7 @@
   for (const sid in B.SETS) { B.SETS[sid].id = sid; B.SETS[sid].pieces = B.ITEMS.filter(i => i.set === sid).map(i => i.id); }
   B.ITEM = {}; for (const it of B.ITEMS) B.ITEM[it.id] = it;
 
-  // ---------------------------------------------------------------- relics (24) — team-wide
+  // ---------------------------------------------------------------- relics (100) — team-wide
   const R = (id, name, desc, o) => Object.assign({ id, name, desc }, o);
   B.RELICS = [
     R('idol', 'Gilded Effigy', '+3 gold after each won fight.', { gold: 3 }),
@@ -785,15 +785,77 @@
     R('rearguard', 'Rearguard Quiver', 'Formation: heroes starting in your back row get +20% attack and +20% AP.', { fl: 'rearguard', form: true }),
     R('battleline', 'Battle Line Pennant', 'Formation: if all your heroes start in the same row, they all get +15% attack speed and +15% attack.', { fl: 'battleline', form: true }),
     R('cover', 'Mossy Totem', 'Formation: heroes starting next to a tree, boulder, ridge or pond get +15% dodge and +15 armor.', { fl: 'cover', form: true }),
+    // v50 (review #62, David: "50 genuinely inventive relics ... memorable holy shit moments, change how I position or
+    // build my team, interact with the hex board, alter targeting/AI, create new synergies ... Some relics should
+    // fundamentally alter the run's economy, route, shops, rewards, hero selection, itemization, or risk/reward ... Every
+    // relic needs a clear identity, interesting tradeoff"). Each one is a simple rule with a price; the rule lives in
+    // sim.js (fights: flOf, so a Gauntlet ghost uses them too) or run.js (the run: shops, map, rewards, heroes).
+    // -- the board and positioning
+    R('gravestone', "Undertaker's Shovel", 'Every enemy that falls leaves a gravestone on its hex: it blocks the way like a boulder for the rest of the fight.', { fl: 'gravestone' }),
+    R('quakedrum', 'Earthshaker Drum', 'Every 8s the ground shakes: every unit standing next to a tree, boulder, ridge, pond or gravestone is stunned for 1s. Yours too.', { fl: 'quakedrum' }),
+    R('bramblecrown', 'Thorn Crown', 'Trees, boulders, ridges, ponds and gravestones grow thorns: enemies next to them lose 3% max HP per second, your heroes 1%.', { fl: 'bramblecrown' }),
+    R('catapult', 'Siege Sling', 'When the fight starts, your front hero is flung next to the enemy farthest back, lands with a shield of 30% of its max HP and stuns every enemy beside it for 2s. It lands alone.', { fl: 'catapult' }),
+    R('gravity', 'Gravity Stone', 'When the fight starts, every enemy is pulled together into the middle of its side. Great for blasts, but they arrive all at once.', { fl: 'gravity' }),
+    R('anchor', 'Anchor Chain', 'Heroes take 25% less damage while they stand on the hex they started on, and nothing can push or pull them.', { fl: 'anchor' }),
+    R('stonefoot', 'Stonefoot Idol', 'Heroes never walk, but get +2 range. The enemies come to you.', { fl: 'stonefoot', mods: { range: 2 } }),
+    R('blinkstone', 'Blink Pebble', 'Melee heroes blink next to their target instead of walking (once every 4s). They dive in alone.', { fl: 'blinkstone' }),
+    R('trickcoin', "Swapper's Coin", 'Every 8s your most hurt hero swaps places with your healthiest one.', { fl: 'trickcoin' }),
+    R('highground', 'Watchtower Flag', 'Formation: heroes starting in your back row get +1 range and +20% damage; heroes starting in your front row deal 15% less.', { fl: 'highground', form: true }),
+    R('center', 'Spotlight Lamp', 'Formation: the hero starting closest to the middle of your side is the Star: +40% HP, attack and AP. The others get 10% less HP.', { fl: 'center', form: true }),
+    // -- targeting
+    R('lodestone', 'Lodestone', 'Every enemy goes for your hero with the most max HP, wherever it stands. That hero takes 10% less damage.', { fl: 'lodestone' }),
+    R('bodyguard', 'Bodyguard Oath', 'Enemies cannot target your ranged heroes while one of your melee heroes is alive. Blasts still hit them.', { fl: 'bodyguard' }),
+    R('packhorn', 'Pack Horn', 'Your heroes all hunt the same enemy (the one closest to your team) and deal 25% more damage to it.', { fl: 'packhorn' }),
+    R('jesterbell', "Jester's Bell", 'Every 8s a random unit on the board, friend or foe, is confused for 2.5s and attacks its own side. Bosses are deaf to it.', { fl: 'jesterbell' }),
+    R('mirrorshield', 'Mirror Shard', 'The first ability that hits each hero in a fight bounces back to whoever cast it. Heroes take 10% more damage from attacks.', { fl: 'mirrorshield' }),
+    // -- falling and rising
+    R('phoenix', 'Phoenix Egg', 'If your whole team falls, everyone rises at 50% HP. Then the egg hatches and is gone for the rest of the game.', { fl: 'phoenix' }),
+    R('souljar', 'Soul Jar', 'Every 4 enemies that fall fill the jar: a fallen hero rises at 50% HP (if nobody fell, every hero heals 30%).', { fl: 'souljar' }),
+    R('gravecaller', 'Gravecaller Lantern', 'Each enemy that falls (not bosses) rises on your side for 6s at half strength. Heroes have 15% less max HP.', { fl: 'gravecaller', mods: { hpPct: -0.15 } }),
+    R('lastone', 'Last Stand Banner', 'When only one of your heroes is left, it heals to full and gets +100% attack and +50% attack speed.', { fl: 'lastone' }),
+    R('pyre', 'Chain Pyre', 'Enemies that fall explode for 15% of their max HP into everything next to them (your heroes take a tenth of it). Crowds chain-react.', { fl: 'pyre' }),
+    R('contagion', 'Plague Flask', 'When a burning or poisoned enemy falls, its burn and poison jump to every enemy within 2 hexes.', { fl: 'contagion' }),
+    R('king', "King's Crown", 'Your highest-level hero is crowned: +60% HP and attack. When the King falls, the others panic (stunned for 2s).', { fl: 'king' }),
+    // -- mana and abilities
+    R('echo', 'Echo Chime', "Each hero's first ability in a fight goes off twice. Heroes start fights with no mana.", { fl: 'echo' }),
+    R('fullmana', 'Overflow Cup', 'Heroes start fights with full mana, but every ability needs 10% more mana.', { fl: 'fullmana', mods: { manaMaxPct: 0.1 } }),
+    R('hush', 'Hush Bell', 'Enemies cannot use abilities for the first 10s of a fight; your heroes cannot for the first 2s.', { fl: 'hush' }),
+    R('leyline', 'Ley Line Chalk', 'When a hero uses its ability, your other heroes in the same row gain 30 mana.', { fl: 'leyline' }),
+    // -- stats turned upside down
+    R('scales', 'Scales of Balance', "When the fight starts, all your heroes' max HP evens out to the team's average.", { fl: 'scales' }),
+    R('glass', 'Glass Crown', 'Heroes deal double damage, but have a third less max HP.', { fl: 'glass', mods: { hpPct: -0.35 } }),
+    R('giant', "Giant's Brew", 'Heroes grow huge: +60% max HP and attack, but 40% slower attacks, -1 move speed and no dodge.', { fl: 'giant', mods: { hpPct: 0.6, atkPct: 0.6, asPct: -0.4, ms: -1 } }),
+    R('berserk', 'Berserker Chain', 'Heroes attack faster the more HP they lose (up to twice as fast), but heals can never lift them above half HP.', { fl: 'berserk' }),
+    R('bond', 'Brotherhood Chain', 'Damage to any hero is shared equally by all your heroes still standing.', { fl: 'bond' }),
+    R('loaded', 'Two-Faced Coin', 'Luck rolls twice for you: crits, dodges and gambles all take the better roll. Heroes have 10% less attack.', { fl: 'loaded', mods: { atkPct: -0.1 } }),
+    R('timecrystal', 'Time Crystal', 'Every 12s time stops for the enemies (frozen for 1.5s). Sudden death starts 10s sooner.', { fl: 'timecrystal' }),
+    R('harmony', 'Harmony Chord', 'If all your heroes fight up close, or all fight from afar, they get +25% attack and attack speed.', { fl: 'harmony' }),
+    // -- the run: shops, the map, rewards, heroes and items
+    R('ledger', "Merchant's Ledger", 'One offer in every shop is free, but everything else costs 2 more.', { fl: 'ledger' }),
+    R('deck', 'Shuffled Deck', 'Shop rerolls are free, but every reroll takes one offer away.', { fl: 'deck' }),
+    R('quill', "Pathfinder's Quill", 'Every step of the map offers 3 choices instead of 2. Fights pay 2 less gold.', { fl: 'quill' }),
+    R('huntmap', "Bounty Hunter's Map", 'One path is always a Hard fight. Hard fights pay double gold; Easy fights pay nothing.', { fl: 'huntmap' }),
+    R('anvil', 'Heirloom Anvil', 'After each won fight, a random worn item goes up one rarity. Item shops sell 2 fewer items.', { fl: 'anvil' }),
+    R('cabinet', 'Curio Cabinet', 'All heroes get +3% HP and attack for every relic you own. Relics cost 3 more.', { fl: 'cabinet' }),
+    R('solo', 'Lone Crown', 'While you have only one hero: +150% HP and attack, +2 item slots and double XP. The Hero Shop never shows up.', { fl: 'solo' }),
+    R('changeling', 'Changeling Mask', 'After each won fight, your lowest-level hero turns into a random new hero of the same level. It keeps its items.', { fl: 'changeling' }),
+    R('cursecoin', 'Cursed Doubloon', 'Gain 25 gold now. Every fight after this one, enemies have 5% more HP, and it keeps adding up.', { fl: 'cursecoin' }),
+    R('xmap', 'Treasure Map', 'Events show up twice as often and each one also gives a random item. Shops cost 1 more.', { fl: 'xmap' }),
+    R('medal', "Veteran's Medal", 'Heroes earn XP only from kills, but each kill is worth 25 XP.', { fl: 'medal' }),
+    R('double', 'Double or Nothing', 'Win a fight with nobody falling: double gold. If anyone falls: no gold at all.', { fl: 'double' }),
+    R('snowball', 'Snowball', 'Each fight won with nobody falling gives every hero +4% HP and attack for the rest of the game. One fallen hero melts it all.', { fl: 'snowball' }),
+    R('packrat', "Pack Rat's Sack", 'Every item in your bag (not worn) gives all heroes +3% HP and attack, up to 10 items.', { fl: 'packrat' }),
+    R('vow', "Minimalist's Vow", 'Heroes wearing one item or none get +50% HP and attack.', { fl: 'vow' }),
   ];
   // what each formation relic gives one hero (n = allies next to it, for the Shieldwall), shown while deploying
   B.FORMATION = {
     shieldwall: n => `+${10 * n} armor & MR`, lonewolf: () => '+25% attack speed, +10% crit', vanguard: () => 'shield 25% HP',
     rearguard: () => '+20% attack & AP', battleline: () => '+15% attack speed & attack', cover: () => '+15% dodge, +15 armor',
+    highground: n => n > 0 ? '+1 range, +20% damage' : '15% less damage', center: n => n > 0 ? 'the Star: +40% HP, attack & AP' : '10% less HP',   // v50
   };
   B.RELIC = {}; for (const r of B.RELICS) B.RELIC[r.id] = r;
   // review #14 (David): content Elo only rates what acts in a fight, so these never get a rating
-  B.NONCOMBAT = { item: ['coin', 'charm'], relic: ['idol', 'lens', 'seal', 'dice', 'purse', 'tome', 'treasure', 'bounty'] };
+  B.NONCOMBAT = { item: ['coin', 'charm'], relic: ['idol', 'lens', 'seal', 'dice', 'purse', 'tome', 'treasure', 'bounty', 'ledger', 'deck', 'quill', 'huntmap', 'anvil', 'changeling', 'xmap', 'medal', 'double'] };
 
   // ---------------------------------------------------------------- mobs (stats at fight scale 1)
   const M = (o) => o;

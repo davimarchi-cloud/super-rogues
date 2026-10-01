@@ -499,5 +499,127 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(dealt(A1) === dealt(A2), 'takeMul changes nothing on the enemy side');
   ok(mk(undefined).tm0 === 1 && mk(1.5).tm0 === 1, 'without takeMul (or with a wrong one) damage is unchanged');
 }
+// ---- v50 (review #62, David): 50 new relics. Every relic in a real fight on both sides, then what each one does
+{
+  require('../../js/icons.js');
+  const TER = [{ c: 2, r: 3, k: 'tree' }, { c: 5, r: 4, k: 'rock' }, { c: 6, r: 2, k: 'ridge' }];
+  const HD = (relics, k, lvl, items) => Run.heroDef({ relics, heroes: [], bag: [] }, { key: k, lvl: lvl || 1, specs: [], items: items || [], bonus: {}, uid: k.length });
+  const mk = (relics, heroes, enemies, o) => Sim.create(Object.assign({ mode: 'fight', seed: 7, relics, terrain: TER,
+    heroes: heroes.map(([k, c, r, lvl]) => ({ def: HD(relics, k, lvl), c, r })),
+    enemies: enemies.map(([k, c, r, sc]) => ({ def: Sim.mobScaleDef(k, sc || 1), c, r })) }, o || {}));
+  const TEAM = [['bastion', 3, 5], ['pyra', 4, 7], ['lumen', 2, 7]], FOES = [['brute', 3, 2], ['archer', 5, 0], ['wolf', 2, 2], ['grunt', 4, 2], ['grunt', 1, 3]];
+  const steps = (W, n) => { for (let i = 0; i < n && !W.over; i++) Sim.step(W); return W; };
+  // every relic (old and new), on the player's side and on a Gauntlet ghost's side: the fight ends, no NaN
+  const broken = [];
+  for (const r of RELICS) {
+    try {
+      const A = Sim.run(mk([r.id], TEAM, FOES), 20 * 200);
+      const ghost = TEAM.map(([k, c, rr]) => ({ def: Object.assign(HD([r.id], k), { uid: 0 }), c: 7 - c, r: 7 - rr }));
+      const G = Sim.run(Sim.create({ mode: 'fight', seed: 11, relics: [], enemyRelics: [r.id], terrain: TER, heroes: TEAM.map(([k, c, rr]) => ({ def: HD([], k), c, r: rr })), enemies: ghost }), 20 * 200);
+      if (!A.over || !G.over || !finite(A) || !finite(G)) broken.push(r.id);
+    } catch (e) { broken.push(r.id + ' (' + e.message + ')'); }
+  }
+  ok(RELICS.length === 100 && !broken.length, `v50: all ${RELICS.length} relics play out a whole fight on both sides (player and Gauntlet ghost) with no NaN` + (broken.length ? ': ' + broken.join(', ') : ''));
+  ok(RELICS.every(r => B.Icons.RE[r.id]) && new Set(RELICS.map(r => r.name)).size === RELICS.length, 'v50: every relic has its own name and an icon');
+  // ---- the board
+  let W = steps(mk(['gravestone'], TEAM, FOES), 20 * 60);
+  const graves = W.terrain.filter(t => t.grave);
+  ok(graves.length >= 2 && graves.every(t => W.tk[Hex.key(t.c, t.r)] === 'rock'), `Undertaker's Shovel: fallen enemies leave gravestones that block the way (${graves.length})`);
+  const nb = Hex.neighbors(2, 3).find(h => h.r >= 4); W = mk(['quakedrum', 'stonefoot'], [['bastion', nb.c, nb.r]], [['brute', 6, 0]]); steps(W, 160);
+  ok(W.units[0].st.stun > W.t, 'Earthshaker Drum: at 8s a hero next to a tree is stunned');
+  W = mk(['bramblecrown'], [['pyra', 0, 7]], [['golem', 5, 3]]); steps(W, 40);
+  const golem = W.units.find(u => u.side === 1);
+  ok(golem.dmgTaken > 0, 'Thorn Crown: an enemy next to a boulder loses HP every second');
+  W = mk(['catapult'], TEAM, FOES);
+  const flung = W.units.find(u => u.key === 'bastion'), backFoe = W.units.find(u => u.key === 'archer');
+  ok(Hex.dist(flung, backFoe) === 1 && W.units.filter(u => u.side === 1 && Hex.dist(u, flung) <= 1).every(u => u.st.stun > W.t), 'Siege Sling: the front hero lands next to the enemy farthest back and stuns its neighbours');
+  const spread = U => U.filter(u => u.side === 1).reduce((a, u) => a + Hex.dist(u, { c: 3, r: 1 }), 0);
+  ok(spread(mk(['gravity'], TEAM, FOES).units) < spread(mk([], TEAM, FOES).units), 'Gravity Stone: the enemies start pulled together');
+  const anchorTaken = rel => { const X = mk(rel, [['bastion', 3, 4]], [['brute', 3, 3]]); steps(X, 100); return X.units[0].dmgTaken; };
+  const ar = anchorTaken(['anchor']) / anchorTaken([]);
+  ok(ar > 0.68 && ar < 0.82, `Anchor Chain: a hero on its starting hex takes about 75% damage (${Math.round(ar * 100)}%)`);
+  W = mk(['stonefoot'], [['bastion', 3, 7]], [['brute', 3, 0]]); const sf0 = { c: W.units[0].c, r: W.units[0].r }; steps(W, 200);
+  ok(W.units[0].c === sf0.c && W.units[0].r === sf0.r && W.units[0].range === HEROES.bastion.range + 2, 'Stonefoot Idol: heroes never walk, and have +2 range');
+  W = mk(['blinkstone'], [['bastion', 3, 7]], [['brute', 3, 0]]); steps(W, 6);
+  ok(Hex.dist(W.units[0], W.units[1]) === 1, 'Blink Pebble: a melee hero blinks next to its target instead of walking');
+  W = mk(['highground', 'center'], [['bastion', 3, 4], ['pyra', 4, 7], ['lumen', 0, 6]], FOES, { noStart: true });
+  const fm = Sim.formation(W, 0);
+  ok(fm.some(b => b.fl === 'highground' && b.n === 1 && b.u.key === 'pyra') && fm.some(b => b.fl === 'highground' && b.n === -1 && b.u.key === 'bastion') && fm.filter(b => b.fl === 'center' && b.n === 1).length === 1, 'Watchtower Flag and Spotlight Lamp: back row up, front row down, one Star');
+  // ---- targeting
+  W = mk(['lodestone'], [['pyra', 3, 4], ['bastion', 3, 7]], [['wolf', 3, 3], ['grunt', 2, 3]]); steps(W, 10);
+  const big = W.units.find(u => u.key === 'bastion');
+  ok(W.units.filter(u => u.side === 1).every(u => u.tgt === big.id), 'Lodestone: every enemy goes for the hero with the most max HP, even past a closer one');
+  W = mk(['bodyguard'], [['pyra', 3, 4], ['bastion', 3, 7]], [['wolf', 3, 3]]); steps(W, 30);
+  ok(W.units.find(u => u.side === 1).tgt === W.units.find(u => u.key === 'bastion').id, 'Bodyguard Oath: a ranged hero cannot be targeted while a melee hero stands');
+  W = mk(['packhorn'], TEAM, FOES); steps(W, 30);
+  const tg = new Set(W.units.filter(u => u.side === 0 && !u.dead).map(u => u.tgt)); ok(tg.size === 1 && W.pack && W.pack[0], 'Pack Horn: the whole team hunts one enemy');
+  W = mk(['jesterbell'], TEAM, FOES); steps(W, 81);
+  ok(W.units.some(u => u.st.confuseU > W.t), "Jester's Bell: at 4s someone on the board is confused");
+  // ---- falling and rising
+  W = mk(['phoenix'], [['pyra', 3, 7]], [['brute', 3, 6, 4], ['brute', 4, 6, 4], ['brute', 2, 6, 4]]); Sim.run(W, 20 * 120);
+  ok(W.used && W.used.phoenix && W.once.phoenix, 'Phoenix Egg: the wiped team rises once');
+  W = mk(['souljar'], TEAM, FOES); Sim.run(W, 20 * 200); ok((W.souls || [0])[0] >= 4, 'Soul Jar: fills with fallen enemies');
+  W = mk(['gravecaller'], TEAM, FOES); let risen = 0; for (let i = 0; i < 20 * 60 && !W.over; i++) { Sim.step(W); risen = Math.max(risen, W.units.filter(u => u.side === 0 && u.kind === 'summon' && !u.dead && u.expireT).length); }
+  ok(risen >= 1, 'Gravecaller Lantern: fallen enemies rise on your side for a while');
+  W = mk(['king'], [['pyra', 3, 7, 1], ['bastion', 3, 5, 3]], FOES); const king = W.units.find(u => u.king);
+  ok(king && king.key === 'bastion' && king.maxHp === Math.round(Math.round(HD(['king'], 'bastion', 3).hp) * 1.6), "King's Crown: the highest-level hero is crowned with +60% HP");
+  // ---- mana
+  W = mk(['echo'], TEAM, FOES); ok(W.units.filter(u => u.side === 0).every(u => u.mana === 0), 'Echo Chime: heroes start with no mana');
+  let ech = 0; for (let i = 0; i < 20 * 25 && !W.over; i++) { Sim.step(W); ech += W.fx.filter(f => f.k === 'text' && f.text === 'ECHO' && f.t0 === W.t).length; } ok(ech >= 1, `Echo Chime: a first ability went off twice (${ech} echoes)`);
+  W = mk(['fullmana'], TEAM, FOES); ok(W.units.filter(u => u.side === 0).every(u => u.mana === u.maxMana), 'Overflow Cup: heroes start with full mana');
+  W = mk(['hush'], TEAM, FOES); let early = 0; for (let i = 0; i < 39; i++) { Sim.step(W); early += W.fx.filter(f => f.k === 'cast' && f.t0 === W.t).length; }
+  ok(W.hush[1] === 200 && W.hush[0] === 40 && !early, 'Hush Bell: enemies silenced for 10s, your heroes for 2s');
+  // ---- stats
+  W = mk(['scales'], TEAM, FOES); const hp = W.units.filter(u => u.side === 0).map(u => u.maxHp); ok(hp.every(x => x === hp[0]), 'Scales of Balance: max HP evens out');
+  ok(Math.abs(HD(['glass'], 'bastion').hp / HD([], 'bastion').hp - 0.65) < 1e-9, 'Glass Crown: a third less max HP');
+  const g1 = HD(['giant'], 'bastion'); W = mk(['giant'], [['bastion', 3, 5]], FOES); ok(g1.size === 1.25 && g1.dodge === 0 && W.units[0].size === 1.25, "Giant's Brew: the heroes grow (and lose their dodge)");
+  W = mk(['berserk'], [['bastion', 3, 5]], FOES); const bz = W.units[0], as1 = Sim.asOf(W, bz); bz.hp = bz.maxHp / 2;
+  ok(Math.abs(Sim.asOf(W, bz) / as1 - 1.5) < 0.01, 'Berserker Chain: at half HP a hero attacks 50% faster');
+  W = mk(['bond'], [['bastion', 3, 4], ['pyra', 0, 7]], [['brute', 3, 3]]); steps(W, 60);
+  ok(W.units.find(u => u.key === 'pyra').hp < W.units.find(u => u.key === 'pyra').maxHp, 'Brotherhood Chain: the hero out of reach shares the damage');
+  W = mk(['timecrystal'], TEAM, FOES); steps(W, 240); ok(W.sdAt === Sim.sec(CFG.suddenDeath - 10) && W.units.filter(u => u.side === 1 && !u.dead).every(u => u.st.stun > W.t), 'Time Crystal: enemies freeze at 12s; sudden death 10s sooner');
+  W = mk(['harmony'], [['pyra', 4, 7], ['lumen', 2, 7]], FOES); ok(W.units.filter(u => u.side === 0).every(u => u.buffs.some(b => b.s === 'atkPct' && b.v === 0.25)), 'Harmony Chord: an all-ranged team plays in harmony');
+  W = mk(['harmony'], [['pyra', 4, 7], ['bastion', 2, 5]], FOES); ok(!W.units.some(u => u.buffs.some(b => b.s === 'atkPct' && b.v === 0.25)), '...a mixed team does not');
+  // ---- the run
+  const RUN = (seed, relics, keys) => { const r = Run.newRun(seed); Run.pickStart(r, [keys ? keys[0] : 'bastion'], null); for (const k of (keys || []).slice(1)) Run.addHero(r, k); for (const id of relics) Run.gainRelic(r, id); return r; };
+  let r = RUN(31, ['solo']);
+  const s1 = Run.heroDef(r, r.heroes[0]), s0 = Run.heroDef(RUN(31, []), r.heroes[0]);
+  ok(Math.abs(s1.atk / s0.atk - 2.5) < 0.01 && Run.slots(r, r.heroes[0]) === Run.slots(RUN(31, []), r.heroes[0]) + 2, 'Lone Crown: one hero = +150% attack and HP, +2 item slots');
+  let heroShops = 0; for (let i = 0; i < 40; i++) { const x = RUN(100 + i, ['solo']); x.step = 0; Run.advance(x); heroShops += x.opts.filter(o => o.kind === 'heroShop').length; }
+  ok(!heroShops, 'Lone Crown: the Hero Shop never shows up');
+  r = RUN(32, ['cabinet', 'drum', 'idol']); r.cur = { kind: 'relicShop' };
+  ok(Run.heroDef(r, r.heroes[0]).atk > Run.heroDef(RUN(32, ['drum', 'idol']), r.heroes[0]).atk * 1.08, 'Curio Cabinet: +3% attack per relic owned');
+  r = RUN(33, ['ledger']); r.phase = 'map'; r.opts = [{ type: 'shop', kind: 'itemShop' }]; Run.choose(r, 0);
+  ok(r.cur.stock.filter(s => s.price === 0 && s.free).length === 1 && r.cur.stock.filter(s => !s.free).every(s => s.price === CFG.itemCost[B.ITEM[s.id].tier] + 2), "Merchant's Ledger: one free offer, the rest +2");
+  r = RUN(34, ['deck']); r.phase = 'map'; r.opts = [{ type: 'shop', kind: 'itemShop' }]; Run.choose(r, 0); const g34 = r.gold, n34 = r.cur.stock.length;
+  Run.reroll(r); Run.reroll(r);
+  ok(r.gold === g34 && r.cur.stock.length === n34 - 2, 'Shuffled Deck: free rerolls, one offer fewer each time');
+  r = RUN(35, ['quill']); r.step = -1; r.fightNo = 0; Run.advance(r);
+  ok(r.opts.length === 3 && r.opts.every(o => o.type === 'fight' && o.gold === Math.max(0, CFG.gold[o.diff] - 2)), "Pathfinder's Quill: 3 paths, fights pay 2 less");
+  r = RUN(36, ['huntmap']); r.step = 1; r.fightNo = 1; Run.advance(r);
+  ok(r.opts.some(o => o.diff === 'hard' && o.gold === CFG.gold.hard * 2) && r.opts.every(o => o.diff !== 'easy' || o.gold === 0), "Bounty Hunter's Map: a Hard path that pays double, Easy pays nothing");
+  const fake = (run, fell, kb) => ({ winner: 0, kills: 3, units: run.heroes.map((h, i) => ({ kind: 'hero', side: 0, uid: h.uid, xpT: 400, kb: kb || 0, dead: !!(fell && i === 0) })) });
+  const fightOf = run => { run.fightNo = 2; run.cur = Run.makeFight(run, 'medium', 2); run.phase = 'deploy'; };
+  r = RUN(37, ['anvil']); r.heroes[0].items = ['longsword']; fightOf(r); let res = Run.finishFight(r, fake(r));
+  ok(res.anvil && res.anvil.from === 'longsword' && B.ITEM[r.heroes[0].items[0]].tier !== 'common', `Heirloom Anvil: a worn item went up one rarity (${res.anvil && res.anvil.to})`);
+  r = RUN(38, ['changeling'], ['bastion', 'pyra']); r.heroes[1].lvl = 3; r.heroes[0].items = ['longsword']; fightOf(r); res = Run.finishFight(r, fake(r));
+  const ch = r.heroes[0];
+  ok(res.changeling && ch.key !== 'bastion' && ch.key !== 'pyra' && ch.items[0] === 'longsword' && ch.specs.every((id, i) => HEROES[ch.key].specs[i].some(s => s.id === id)), `Changeling Mask: the lowest-level hero became ${HEROES[ch.key] && HEROES[ch.key].name}, kept its item, powers rolled again`);
+  r = RUN(39, []); const gc = r.gold; Run.gainRelic(r, 'cursecoin'); fightOf(r); const f39 = r.cur, ehp = () => Run.fightWorld(r, true).units.filter(u => u.side === 1).reduce((a, u) => a + u.maxHp, 0), hp0 = ehp();
+  Run.finishFight(r, fake(r)); r.cur = f39; r.phase = 'deploy'; const hp1 = ehp();
+  ok(r.gold > gc + 24 && hp1 > hp0 * 1.03, 'Cursed Doubloon: +25 gold now, and the enemies grow after every fight');
+  r = RUN(40, ['medal']); fightOf(r); const xp40 = r.heroes[0].xp; Run.finishFight(r, fake(r, false, 2)); ok(r.heroes[0].xp - xp40 === 50, "Veteran's Medal: XP from kills only (2 kills = 50)");
+  r = RUN(41, ['double']); fightOf(r); res = Run.finishFight(r, fake(r)); const g41 = res.gold;
+  r = RUN(41, ['double']); fightOf(r); res = Run.finishFight(r, fake(r, true));
+  ok(g41 > 0 && res.gold === 0 && res.double === 'lost', 'Double or Nothing: double gold, or nothing if anyone fell');
+  r = RUN(42, ['snowball']); fightOf(r); Run.finishFight(r, fake(r)); r.phase = 'map'; fightOf(r); Run.finishFight(r, fake(r)); const sn = r.snow;
+  r.phase = 'map'; fightOf(r); Run.finishFight(r, fake(r, true)); ok(sn === 2 && r.snow === 0, 'Snowball: grows with every clean win, melts when a hero falls');
+  r = RUN(43, ['packrat']); r.bag = ['longsword', 'cloth', 'boots']; ok(Run.heroDef(r, r.heroes[0]).atk > Run.heroDef(RUN(43, ['packrat']), r.heroes[0]).atk * 1.08, "Pack Rat's Sack: items in the bag make everyone stronger");
+  r = RUN(44, ['vow']); const v1 = Run.heroDef(r, r.heroes[0]).atk; r.heroes[0].items = ['longsword', 'cloth']; ok(v1 > Run.heroDef(r, r.heroes[0]).atk, "Minimalist's Vow: one item or none = stronger");
+  r = RUN(45, ['xmap']); r.phase = 'map'; r.opts = [{ type: 'event', id: 'recruit' }]; Run.choose(r, 0); const bag45 = r.bag.length; Run.eventAct(r, 0);
+  ok(r.bag.length === bag45 + 1 && r.cur.gains.some(g => g.kind === 'item'), 'Treasure Map: every event also gives an item');
+  r = RUN(46, ['phoenix']); fightOf(r); const ph = fake(r); ph.winner = 1; ph.used = { phoenix: 1 }; res = Run.finishFight(r, ph);
+  ok(!r.relics.includes('phoenix') && res.phoenix, 'Phoenix Egg: once it hatches it is gone for the rest of the game');
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

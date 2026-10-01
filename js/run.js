@@ -89,9 +89,22 @@
     for (const b of setBonuses(h.items)) addMods(m, b.mods);
     for (const id of run.relics) addMods(m, (B.RELIC[id] || {}).mods);
     addMods(m, h.bonus);
+    addMods(m, relicStats(run, h));
     return m;
   }
-  function slots(run, h) { return C.baseSlots + Math.max(0, h.lvl - 2) + (run.relics.includes('backpack') ? 1 : 0); }
+  // v50 (review #62): relics whose bonus depends on the run (how many heroes, relics, wins, bag items, worn items)
+  const has = (run, id) => (run.relics || []).includes(id);
+  const lone = run => has(run, 'solo') && (run.heroes || []).length === 1;
+  function relicStats(run, h) {
+    let p = 0;
+    if (lone(run)) p += 1.5;
+    if (has(run, 'cabinet')) p += 0.03 * run.relics.length;
+    if (has(run, 'snowball')) p += 0.04 * (run.snow || 0);
+    if (has(run, 'packrat')) p += 0.03 * Math.min(10, (run.bag || []).length);
+    if (has(run, 'vow') && h.items.length <= 1) p += 0.5;
+    return p ? { atkPct: p, hpPct: p } : null;
+  }
+  function slots(run, h) { return C.baseSlots + Math.max(0, h.lvl - 2) + (run.relics.includes('backpack') ? 1 : 0) + (lone(run) ? 2 : 0); }
   function heroDef(run, h) {
     const b = B.HEROES[h.key], m = heroMods(run, h), L = h.lvl - 1, all = m.allPct || 0;
     const ab = Object.assign({}, b.ab), fl = (b.fl || []).slice();
@@ -109,15 +122,15 @@
       mr: (b.mr + 4 * L + (m.mr || 0)) * (1 + all),
       as: b.as * Math.max(0.3, 1 + (m.asPct || 0)), range: Math.max(1, b.range + (m.range || 0)), ms: b.ms + (m.ms || 0),
       crit: (b.crit || 0) + (m.crit || 0), critDmg: 1.5 + (m.critDmg || 0), ls: (b.ls || 0) + (m.ls || 0),
-      dodge: (b.dodge || 0) + (m.dodge || 0), mana: Math.max(20, Math.round((b.mana + (m.manaMax || 0)) * (1 + (m.manaMaxPct || 0)))), m0: b.m0,
-      abil: b.abil, ab, fl, m,
+      dodge: has(run, 'giant') ? 0 : (b.dodge || 0) + (m.dodge || 0), mana: Math.max(20, Math.round((b.mana + (m.manaMax || 0)) * (1 + (m.manaMaxPct || 0)))), m0: b.m0,
+      abil: b.abil, ab, fl, m, size: has(run, 'giant') ? 1.25 : undefined,
     };
   }
 
   // ------------------------------------------------------------------ XP & levels
   function gainXp(run, h, amount) {
     const m = heroMods(run, h);
-    h.xp += Math.round(amount * (1 + (m.xpPct || 0)));
+    h.xp += Math.round(amount * (1 + (m.xpPct || 0)) * (lone(run) ? 2 : 1));
     while (h.lvl < C.maxLevel && h.xp >= C.xpLevels[h.lvl + 1]) { h.lvl++; run.pending.push({ uid: h.uid, lvl: h.lvl }); }
   }
   function chooseSpec(run, idx) {
@@ -201,7 +214,9 @@
       for (const r of rows) { const row = Hx.all().filter(h => h.r === r && !taken.has(Hx.key(h.c, h.r))); if (row.length) { spots.push(...row); break; } }
       const h = pick(run, spots); e.c = h.c; e.r = h.r; taken.add(Hx.key(h.c, h.r));
     }
-    const gold = diff === 'boss' ? C.gold.boss : C.gold[diff] || 0;
+    let gold = diff === 'boss' ? C.gold.boss : C.gold[diff] || 0;
+    if (has(run, 'huntmap')) gold = diff === 'hard' ? gold * 2 : diff === 'easy' ? 0 : gold;   // v50
+    if (has(run, 'quill')) gold = Math.max(0, gold - 2);
     return { type: 'fight', diff, fightNo, scale, enemies, gold, map };
   }
   function enemyDefs(run, fight) {
@@ -209,6 +224,7 @@
       const d = B.Sim.mobScaleDef(e.key, fight.scale), M = fight.mod || {};
       if (fight.curse) d.hp *= 1 + fight.curse;
       if (M.enemyHp) d.hp *= 1 + M.enemyHp;
+      if (has(run, 'cursecoin')) d.hp *= 1 + 0.05 * (run.coinN || 0);   // v50
       if (M.enemyAtk) d.atk *= 1 + M.enemyAtk;
       if (e.elite) B.Sim.applyElite(d, B.ELITES.find(x => x.id === e.elite));
       return { def: d, c: e.c, r: e.r };
@@ -250,18 +266,25 @@
       if (u.kind !== 'hero' || !u.uid) continue;
       const h = run.heroes.find(x => x.uid === u.uid); if (!h) continue;
       const before = h.lvl, xp0 = h.xp;
-      gainXp(run, h, u.xpT / B.Sim.TPS);
+      gainXp(run, h, has(run, 'medal') ? (u.kb || 0) * 25 : u.xpT / B.Sim.TPS);   // v50: the Veteran's Medal
       res.xp.push({ uid: h.uid, name: B.HEROES[h.key].name, gained: h.xp - xp0, from: before, to: h.lvl });
     }
     if (win) {
       const M = f.mod || {};
       res.gold = Math.round((goldAfterWin(run, f.gold) + (run.relics.includes('bounty') ? Math.min(6, W.kills) : 0)) * (1 + (M.goldPct || 0))) + (M.rewardGold || 0);
+      // v50 (review #62): Double or Nothing (a fallen hero = no gold) and the Snowball (grows with every fight nobody fell in)
+      const fell = W.units.some(u => u.kind === 'hero' && u.side === 0 && u.dead);
+      if (has(run, 'double')) { res.gold = fell ? 0 : res.gold * 2; res.double = fell ? 'lost' : 'won'; }
+      if (has(run, 'snowball')) { run.snow = fell ? 0 : (run.snow || 0) + 1; res.snow = run.snow; }
       run.gold += res.gold; run.won++;
+      relicsAfterWin(run, res);
       if (M.reward) { const id = randomItem(run, M.reward); run.bag.push(id); res.prize = id; }
       // v44 (review #54): the Moneylender's investments and loans settle on the next won fight
       if (run.bank && run.bank.length) { res.bank = run.bank.reduce((a, x) => a + x, 0); run.gold = Math.max(0, run.gold + res.bank); run.bank = []; }
     }
     else run.lost++;
+    if (has(run, 'cursecoin')) run.coinN = (run.coinN || 0) + 1;
+    if (W.used && W.used.phoenix) { run.relics = run.relics.filter(id => id !== 'phoenix'); res.phoenix = true; }   // v50: the egg hatched
     run.log.push((win ? 'Won ' : 'Lost ') + (f.challenge ? f.challenge.name : f.diff === 'boss' ? 'boss' : f.diff) + ' fight ' + f.fightNo);
     run.cur = null;
     // v44: a challenge from an event pays its reward on a win; lost, the run goes on (only the reward is gone)
@@ -272,13 +295,33 @@
   }
 
 
+  // v50 (review #62): the Heirloom Anvil (a worn item goes up a rarity) and the Changeling Mask (the lowest-level hero
+  // turns into another hero of the same level, keeping its items; its powers are rolled again)
+  function relicsAfterWin(run, res) {
+    if (has(run, 'anvil')) {
+      const worn = []; for (const h of run.heroes) h.items.forEach((id, i) => worn.push({ h, i, id }));
+      for (const w of pickN(run, worn, worn.length)) { const nid = upgradedOf(run, w.id); if (nid) { w.h.items[w.i] = nid; res.anvil = { from: w.id, to: nid }; break; } }
+    }
+    if (has(run, 'changeling') && run.heroes.length) {
+      const low = Math.min(...run.heroes.map(h => h.lvl)), h = pick(run, run.heroes.filter(x => x.lvl === low));
+      const have = new Set(run.heroes.map(x => x.key)), key = pick(run, heroKeysOf(run).filter(k => !have.has(k)));
+      if (key) {
+        const from = h.key; h.key = key;
+        h.specs = B.HEROES[key].specs.slice(0, Math.max(0, h.lvl - 1)).map(pr => pr[Math.floor(rnd(run) * 2)].id);
+        const pend = run.pending.filter(p => p.uid === h.uid).map(p => p.lvl);   // levels still to choose stay open
+        if (pend.length) h.specs = h.specs.slice(0, Math.min(...pend) - 2);
+        res.changeling = { from, to: key };
+      }
+    }
+  }
+
   // ------------------------------------------------------------------ PvP gauntlet (reviews #3 #4): matchmaking + Elo live in api/elo.js
   function teamSnapshot(run) {
     for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
     return run.heroes.map(h => ({ key: h.key, lvl: h.lvl, specs: h.specs.slice(), items: h.items.slice(), bonus: Object.assign({}, h.bonus), pos: { c: h.pos.c, r: h.pos.r } }));
   }
   function gauntletWorld(run, preview) {
-    const o = run.g.opp, ghost = { relics: o.relics || [], heroes: [] };
+    const o = run.g.opp, ghost = { relics: o.relics || [], heroes: o.team || [], bag: [] };
     if (!run.g.map) run.g.map = gauntletMap(run, o, run.g.round);
     for (const h of run.heroes) if (h.pos && blockedAt(run, h.pos.c, h.pos.r)) h.pos = null;
     for (const h of run.heroes) if (!h.pos) autoPlace(run, h);
@@ -315,15 +358,20 @@
     if (t === 'F' || t === 'B') {
       const n = run.fightNo + 1;
       if (t === 'B') run.opts = [makeFight(run, 'boss', n, seqOf(run).slice(0, run.step + 1).filter(x => x === 'B').length)];
-      else run.opts = pickN(run, ['easy', 'medium', 'hard'], 2).sort((a, b) => ['easy', 'medium', 'hard'].indexOf(a) - ['easy', 'medium', 'hard'].indexOf(b)).map(d => makeFight(run, d, n));
+      else {
+        const ORD = ['easy', 'medium', 'hard'], k = has(run, 'quill') ? 3 : 2;
+        const ds = has(run, 'huntmap') && k < 3 ? pickN(run, ['easy', 'medium'], 1).concat('hard') : pickN(run, ORD, k);
+        run.opts = ds.sort((a, b) => ORD.indexOf(a) - ORD.indexOf(b)).map(d => makeFight(run, d, n));
+      }
     } else if (t === 'X') {
-      const w = { heroShop: 0.25, itemShop: 0.3, relicShop: 0.2, event: 0.3 };
-      if (run.heroes.length >= teamMax(run)) delete w.heroShop;
+      const w = { heroShop: 0.25, itemShop: 0.3, relicShop: 0.2, event: has(run, 'xmap') ? 0.6 : 0.3 };
+      if (run.heroes.length >= teamMax(run) || has(run, 'solo')) delete w.heroShop;
       // review #22: with a single hero the hero shop is always one of the two options
-      const a = run.heroes.length === 1 && w.heroShop ? 'heroShop' : wpick(run, w); delete w[a]; const b = wpick(run, w);
-      run.opts = [a, b].map(k => k === 'event' ? { type: 'event', id: pickEvent(run) } : { type: 'shop', kind: k });
+      const a = run.heroes.length === 1 && w.heroShop ? 'heroShop' : wpick(run, w); delete w[a]; const b = wpick(run, w); delete w[b];
+      const ks = [a, b]; if (has(run, 'quill') && Object.keys(w).length) ks.push(wpick(run, w));
+      run.opts = ks.map(k => k === 'event' ? { type: 'event', id: pickEvent(run) } : { type: 'shop', kind: k });
     } else if (t === 'S') {
-      run.opts = pickN(run, ['heroShop', 'itemShop', 'relicShop'].filter(k => k !== 'heroShop' || run.heroes.length < teamMax(run)), 2).map(k => ({ type: 'shop', kind: k, final: true }));
+      run.opts = pickN(run, ['heroShop', 'itemShop', 'relicShop'].filter(k => k !== 'heroShop' || (run.heroes.length < teamMax(run) && !has(run, 'solo'))), has(run, 'quill') ? 3 : 2).map(k => ({ type: 'shop', kind: k, final: true }));
     } else if (t === 'G') {
       // the gauntlet (reviews #3 #4 #9 #10): duels against ghosts of other players' runs
       run.phase = 'gauntlet'; run.g = { status: 'intro', history: [] }; run.cur = null;
@@ -362,16 +410,28 @@
   }
   function randomItem(run, tier) { const t = tier || wpick(run, tierWeights(run)); return pick(run, itemsOf(run).filter(i => i.tier === t)).id; }
   function stockFor(run, kind) {
+    const st = stockBase(run, kind), up = has(run, 'xmap') ? 1 : 0;
+    if (up) for (const s of st) s.price += up;
+    if (has(run, 'ledger') && st.length) { const free = Math.floor(rnd(run) * st.length); st.forEach((s, i) => { s.price = i === free ? 0 : s.price + 2; if (i === free) s.free = true; }); }   // v50
+    return st;
+  }
+  function stockBase(run, kind) {
     if (kind === 'heroShop') {
       const have = new Set(run.heroes.map(h => h.key));
       return pickN(run, heroKeysOf(run).filter(k => !have.has(k)), 3).map(k => ({ kind: 'hero', id: k, price: Math.max(1, C.heroCost - seal(run)) }));
     }
-    if (kind === 'itemShop') return Array.from({ length: run.relics.includes('treasure') ? 7 : 5 }, () => { const id = randomItem(run); return { kind: 'item', id, price: Math.max(1, C.itemCost[B.ITEM[id].tier] - seal(run)) }; });
-    return pickN(run, relicsOf(run).filter(r => !run.relics.includes(r.id)).map(r => r.id), 3).map(id => ({ kind: 'relic', id, price: Math.max(1, C.relicCost - seal(run)) }));
+    if (kind === 'itemShop') return Array.from({ length: (run.relics.includes('treasure') ? 7 : 5) - (has(run, 'anvil') ? 2 : 0) }, () => { const id = randomItem(run); return { kind: 'item', id, price: Math.max(1, C.itemCost[B.ITEM[id].tier] - seal(run)) }; });
+    return pickN(run, relicsOf(run).filter(r => !run.relics.includes(r.id)).map(r => r.id), 3).map(id => ({ kind: 'relic', id, price: Math.max(1, C.relicCost - seal(run)) + (has(run, 'cabinet') ? 3 : 0) }));
   }
   function makeShop(run, kind) { return { type: 'shop', kind, stock: stockFor(run, kind), rerolls: 0 }; }
-  function rerollCost(run) { return run.relics.includes('dice') && run.cur.rerolls === 0 ? 0 : C.reroll; }
-  function reroll(run) { const c = rerollCost(run); if (run.gold < c) return false; run.gold -= c; run.cur.rerolls++; run.cur.stock = stockFor(run, run.cur.kind); return true; }
+  function rerollCost(run) { return has(run, 'deck') || (run.relics.includes('dice') && run.cur.rerolls === 0) ? 0 : C.reroll; }
+  function reroll(run) {
+    const c = rerollCost(run); if (run.gold < c) return false;
+    if (has(run, 'deck') && run.cur.stock.length <= 1) return false;   // v50: the Shuffled Deck has run out of cards
+    const n = run.cur.stock.length; run.gold -= c; run.cur.rerolls++; run.cur.stock = stockFor(run, run.cur.kind);
+    if (has(run, 'deck')) run.cur.stock = run.cur.stock.slice(0, Math.max(1, n - 1));
+    return true;
+  }
   function buy(run, i) {
     const s = run.cur.stock[i]; if (!s || s.sold || run.gold < s.price) return 'Not enough gold';
     if (s.kind === 'hero') { if (run.heroes.length >= teamMax(run)) return 'Team is full'; addHero(run, s.id); }
@@ -384,6 +444,7 @@
     run.relics.push(id);
     if (id === 'purse') run.gold += 10;
     if (id === 'tome') for (const h of run.heroes) gainXp(run, h, 45);
+    if (id === 'cursecoin') { run.gold += 25; run.coinN = 0; }   // v50
   }
   function leave(run) { run.cur = null; advance(run); }
 
@@ -535,9 +596,9 @@
     else if (a === 'upgradeItem') { const nid = upgradedOf(run, it.id); if (nid) { msg = iname(it.id) + ' was reforged into ' + iname(nid) + '.'; it.set(nid); got('item', nid); } else { run.gold += ch.cost || 0; msg = 'Nothing better exists for that item. Your gold is returned.'; } }
     else if (a === 'gambleItem') {
       const nid = upgradedOf(run, it.id);
-      if (nid && rnd(run) < 0.5) { msg = 'Luck! ' + iname(it.id) + ' became ' + iname(nid) + '.'; it.set(nid); got('item', nid); } else { msg = 'You lost ' + iname(it.id) + '.'; it.drop(); }
+      if (nid && (rnd(run) < 0.5 || (has(run, 'loaded') && rnd(run) < 0.5))) { msg = 'Luck! ' + iname(it.id) + ' became ' + iname(nid) + '.'; it.set(nid); got('item', nid); } else { msg = 'You lost ' + iname(it.id) + '.'; it.drop(); }
     }
-    else if (a === 'gamble') { if (rnd(run) < +y) { run.gold += +z; msg = 'You won ' + z + ' gold!'; got('gold', +z); } else msg = 'You lost the bet.'; }
+    else if (a === 'gamble') { if (rnd(run) < +y || (has(run, 'loaded') && rnd(run) < +y)) { run.gold += +z; msg = 'You won ' + z + ' gold!'; got('gold', +z); } else msg = 'You lost the bet.'; }
     else if (a === 'relic') { const r = randomRelic(run); msg = r ? 'You gained ' + r.name + '.' : 'You already own every relic.'; if (r) got('relic', r.id); }
     else if (a === 'relicPick') { if (run.relics.includes(x) || !B.RELIC[x]) { run.gold += ch.cost || 0; msg = 'You already own it. Your gold is returned.'; } else { gainRelic(run, x); msg = 'You gained ' + B.RELIC[x].name + '.'; got('relic', x); } }
     else if (a === 'relicBlood') {
@@ -591,6 +652,7 @@
       for (const k in ch.next) M[k] = typeof ch.next[k] === 'number' ? (M[k] || 0) + ch.next[k] : ch.next[k];
       msg += ' It will matter in your next fight.';
     }
+    if (has(run, 'xmap')) { const id = randomItem(run); run.bag.push(id); got('item', id); msg += ' The Treasure Map finds ' + iname(id) + '.'; }   // v50
     run.cur.done = msg; run.cur.gains = gains; return msg;
   }
   const MOD_NAME = { hpPct: ['max HP', 1], atkPct: ['attack', 1], asPct: ['attack speed', 1], crit: ['crit chance', 1], ap: ['AP', 0], atk: ['attack', 0], armor: ['armor', 0], mr: ['magic resist', 0], manaStart: ['starting mana', 0], cleanseOnce: ['ignores the first crowd control', -1] };

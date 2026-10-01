@@ -29,6 +29,10 @@
     // team relic effects per side: W.fl = the player's relics, W.fl1 = the enemy's (a gauntlet ghost's, review #15)
     for (const id of (o.relics || [])) { const r = B.RELIC[id]; if (r && r.fl) W.fl[r.fl] = 1; }
     for (const id of (o.enemyRelics || [])) { const r = B.RELIC[id]; if (r && r.fl) W.fl1[r.fl] = 1; }
+    // v50 (review #62): the Time Crystal brings sudden death 10 s sooner
+    W.sdAt = sec(B.CFG.suddenDeath - (W.fl.timecrystal || W.fl1.timecrystal ? 10 : 0));
+    // the Hush Bell: its owner's enemies are silenced for 10 s, its owner's heroes for 2 s
+    W.hush = [W.fl1.hush ? sec(10) : W.fl.hush ? sec(2) : 0, W.fl.hush ? sec(10) : W.fl1.hush ? sec(2) : 0];
     for (const h of (o.heroes || [])) spawn(W, h.def, 0, h.c, h.r);
     for (const e of (o.enemies || [])) spawn(W, e.def, 1, e.c, e.r);
     if (!o.noStart) start(W);
@@ -83,19 +87,60 @@
       else if (b.fl === 'rearguard') { buff(u, 'atkPct', 0.2, 1e9); u.ap *= 1.2; }
       else if (b.fl === 'battleline') { buff(u, 'asPct', 0.15, 1e9); buff(u, 'atkPct', 0.15, 1e9); }
       else if (b.fl === 'cover') { u.dodge = Math.min(0.6, u.dodge + 0.15); u.armor += 15; }
+      else if (b.fl === 'highground') { if (b.n > 0) { u.range += 1; buff(u, 'dmgAmp', 0.2, 1e9); } else { buff(u, 'dmgAmp', -0.15, 1e9); continue; } }
+      else if (b.fl === 'center') { if (b.n > 0) { u.maxHp = Math.round(u.maxHp * 1.4); u.hp = u.maxHp; buff(u, 'atkPct', 0.4, 1e9); u.ap *= 1.4; } else { u.maxHp = Math.round(u.maxHp * 0.9); u.hp = Math.min(u.hp, u.maxHp); continue; } }
       fxText(W, u, FORM_LABEL[b.fl], '#bfe6ff');
     }
     for (const s of [0, 1]) {
       const F = flOf(W, s);
       if (F.frostsigil) for (const u of W.units) if (u.side !== s) slow(W, u, 0.4, 4);
       if (F.warhorn) for (const u of W.units) if (u.side === s) buff(u, 'asPct', 0.3, sec(5), W);
+      relicStart(W, s, F);
     }
+  }
+  // v50: the Lodestone's hero: the one with the most max HP still standing
+  const lodestar = (W, s) => heroesOf(W, s).sort((a, b) => b.maxHp - a.maxHp)[0];
+  // v50 (review #62): the new relics that act when a fight starts
+  const heroesOf = (W, s) => W.units.filter(u => !u.dead && u.side === s && u.kind === 'hero');
+  const baseRange = u => (B.HEROES[u.key] || u).range;
+  const nextToTerrain = (W, u) => Hx.neighbors(u.c, u.r).some(h => W.tk[Hx.key(h.c, h.r)]);
+  function relicStart(W, s, F) {
+    const hs = heroesOf(W, s);
+    if (!hs.length) return;
+    if (F.scales) { const avg = Math.round(hs.reduce((a, u) => a + u.maxHp, 0) / hs.length); for (const u of hs) { u.maxHp = avg; u.hp = avg; fxText(W, u, 'BALANCED', '#ffe066'); } }
+    if (F.king) {
+      const k = hs.slice().sort((a, b) => b.lvl - a.lvl || b.maxHp - a.maxHp)[0];
+      k.king = 1; k.maxHp = Math.round(k.maxHp * 1.6); k.hp = k.maxHp; buff(k, 'atkPct', 0.6, 1e9); fxText(W, k, 'THE KING', '#ffd23f');
+    }
+    if (F.harmony && hs.length > 1 && (hs.every(u => baseRange(u) <= 1) || hs.every(u => baseRange(u) > 1))) for (const u of hs) { buff(u, 'atkPct', 0.25, 1e9); buff(u, 'asPct', 0.25, 1e9); fxText(W, u, 'HARMONY', '#ffb3c8'); }
+    if (F.echo) for (const u of hs) u.mana = 0;
+    if (F.fullmana) for (const u of hs) u.mana = u.maxMana;
+    if (F.gravity) {
+      const foes = W.units.filter(u => !u.dead && u.side !== s), pc = 3, pr = s ? 6 : 1;
+      foes.sort((a, b) => Hx.dist(a, { c: pc, r: pr }) - Hx.dist(b, { c: pc, r: pr }));
+      for (const e of foes) {
+        if (W.occ[Hx.key(e.c, e.r)] === e.id) W.occ[Hx.key(e.c, e.r)] = 0;
+        const f = freeNear(W, pc, pr, 6) || { c: e.c, r: e.r };
+        if (Hx.dist(f, { c: pc, r: pr }) < Hx.dist(e, { c: pc, r: pr })) place(W, e, f.c, f.r, 0); else W.occ[Hx.key(e.c, e.r)] = e.id;
+      }
+      fxRing(W, pc, pr, 2, '#a98bff', 14); fx(W, { k: 'banner', text: 'Gravity Stone: the enemies are pulled together', t1: W.t + 40 });
+    }
+    if (F.catapult) {
+      const front = hs.slice().sort((a, b) => s ? b.r - a.r : a.r - b.r)[0];
+      const back = W.units.filter(u => !u.dead && u.side !== s).sort((a, b) => s ? b.r - a.r : a.r - b.r)[0];
+      const spot = back && freeNeighbors(W, back.c, back.r)[0];
+      if (front && spot) {
+        blink(W, front, spot.c, spot.r); shield(W, front, front.maxHp * 0.3, 6); fxText(W, front, 'LAUNCHED!', '#ffb347'); fxRing(W, spot.c, spot.r, 1, '#ffb347', 14);
+        for (const e of W.units) if (!e.dead && e.side !== s && Hx.dist(e, spot) <= 1) cc(W, e, 'stun', 2);
+      }
+    }
+    if (F.anchor) for (const u of hs) u.anchor = { c: u.c, r: u.r };
   }
 
   // review #40 (David): formation relics, judged from the heroes' hexes (front row = 4 for the player, 3 for a ghost;
   // back row = 7 / 0). Pure: start() applies it, the deploy screen lists it.
-  const FORMATION = ['shieldwall', 'lonewolf', 'vanguard', 'rearguard', 'battleline', 'cover'];
-  const FORM_LABEL = { shieldwall: 'SHIELDWALL', lonewolf: 'LONE WOLF', vanguard: 'VANGUARD', rearguard: 'REARGUARD', battleline: 'BATTLE LINE', cover: 'IN COVER' };
+  const FORMATION = ['shieldwall', 'lonewolf', 'vanguard', 'rearguard', 'battleline', 'cover', 'highground', 'center'];
+  const FORM_LABEL = { shieldwall: 'SHIELDWALL', lonewolf: 'LONE WOLF', vanguard: 'VANGUARD', rearguard: 'REARGUARD', battleline: 'BATTLE LINE', cover: 'IN COVER', highground: 'HIGH GROUND', center: 'THE STAR' };
   function formation(W, s) {
     const F = flOf(W, s), out = [];
     if (!FORMATION.some(f => F[f])) return out;
@@ -109,6 +154,14 @@
       if (F.rearguard && u.r === back) out.push({ u, fl: 'rearguard' });
       if (F.battleline && line) out.push({ u, fl: 'battleline' });
       if (F.cover && W.tk && Hx.neighbors(u.c, u.r).some(h => W.tk[Hx.key(h.c, h.r)])) out.push({ u, fl: 'cover' });
+      // v50: back row +1 range and +20% damage, front row 15% less (n = 1 / -1)
+      if (F.highground && (u.r === back || u.r === front)) out.push({ u, fl: 'highground', n: u.r === back ? 1 : -1 });
+    }
+    // v50: the hero closest to the middle of your side is the Star (n = 1), the others pay for it (n = -1)
+    if (F.center && team.length) {
+      const mid = u => Math.abs(u.c - 3.5) + Math.abs(u.r - (s ? 1.5 : 5.5)) * 1.2;
+      const star = team.slice().sort((a, b) => mid(a) - mid(b))[0];
+      for (const u of team) out.push({ u, fl: 'center', n: u === star ? 1 : -1 });
     }
     return out;
   }
@@ -117,7 +170,10 @@
   const alive = u => u && !u.dead;
   const enemies = (W, u) => W.units.filter(v => !v.dead && v.side !== u.side);
   const allies = (W, u) => W.units.filter(v => !v.dead && v.side === u.side);
-  const targetable = (W, v) => !v.dead && !(v.st.untarg > W.t);
+  const targetable = (W, v) => !v.dead && !(v.st.untarg > W.t) && !guarded(W, v);
+  // v50 (review #62): Bodyguard Oath
+  const guarded = (W, v) => v.kind === 'hero' && (W.fl.bodyguard || W.fl1.bodyguard) && flOf(W, v.side).bodyguard && (B.HEROES[v.key] || v).range > 1
+    && W.units.some(a => !a.dead && a.side === v.side && a.kind === 'hero' && (B.HEROES[a.key] || a).range <= 1);
   function freeNear(W, c, r, maxR = 8) {
     // nearest free hex (BFS ring order), ties broken deterministically by the rng
     for (let rad = 0; rad <= maxR; rad++) {
@@ -149,6 +205,7 @@
   function asOf(W, u) {
     let a = u.as * (1 + bsum(W, u, 'asPct') + u.bAsPct + u.focus * (u.ab.focus || 0));
     if (u.st.slowU > W.t) a *= 1 - u.st.slowP * 0.5;
+    if (u.kind === 'hero' && flOf(W, u.side).berserk) a *= 2 - Math.max(0, u.hp) / u.maxHp;   // v50: up to twice as fast
     return Math.min(3.5, Math.max(0.2, a));
   }
   function msOf(W, u) { let m = u.ms; if (u.st.slowU > W.t) m *= 1 - u.st.slowP; return Math.max(0.5, m); }
@@ -181,6 +238,7 @@
     if (!alive(u) || amt <= 0) return 0;
     let m = 1 + (u.m.healPower || 0); if (u.st.antiHealU > W.t) m *= 0.5;
     const before = u.hp; u.hp = Math.min(u.maxHp, u.hp + amt * m);
+    if (u.kind === 'hero' && W.fl && flOf(W, u.side).berserk) u.hp = Math.min(u.hp, Math.max(before, u.maxHp * 0.5));   // v50
     const got = Math.round(u.hp - before);
     if (show && got >= 5) fxNum(W, u, '+' + got, '#6f6');
     return got;
@@ -190,10 +248,16 @@
   function deal(W, src, tgt, raw, type, o = {}) {
     if (!alive(tgt) || raw <= 0) return 0;
     if (tgt.st.invuln > W.t) { if (!o.dot) fxText(W, tgt, 'IMMUNE', '#fff'); return 0; }
-    if (o.atk && tgt.dodge > 0 && W.rng() < tgt.dodge) { fxText(W, tgt, 'miss', '#ccc'); return 0; }
+    // v50: the Mirror Shard sends the first ability that hits each hero back to its caster
+    if (o.ability && src && !o.mirrored && alive(src) && src.side !== tgt.side && tgt.kind === 'hero' && !tgt.once.mirror && flOf(W, tgt.side).mirrorshield) {
+      tgt.once.mirror = 1; fxText(W, tgt, 'REFLECTED', '#bfe6ff'); fx(W, { k: 'bolt', pts: [[tgt.c, tgt.r], [src.c, src.r]], color: '#bfe6ff', t1: W.t + 6 });
+      return deal(W, tgt, src, raw, type, { ability: true, mirrored: true }) && 0;
+    }
+    const lucky = v => v && v.kind === 'hero' && flOf(W, v.side).loaded;   // v50: the Two-Faced Coin rolls twice
+    if (o.atk && tgt.dodge > 0 && (W.rng() < tgt.dodge || (lucky(tgt) && W.rng() < tgt.dodge))) { fxText(W, tgt, 'miss', '#ccc'); return 0; }
     if (o.atk && src && src.st.blindU > W.t) { fxText(W, tgt, 'blind', '#ccc'); return 0; }
     let dmg = raw, crit = false;
-    if (src && (o.atk || o.canCrit) && (o.forceCrit || W.rng() < src.crit)) {
+    if (src && (o.atk || o.canCrit) && (o.forceCrit || W.rng() < src.crit || (lucky(src) && W.rng() < src.crit))) {
       dmg *= src.critDmg; crit = true;
       if (src.m.critStack && (src.sc.cs || 0) < src.m.critStackCap) { const g = Math.min(src.m.critStack, src.m.critStackCap - (src.sc.cs || 0)); src.sc.cs = (src.sc.cs || 0) + g; src.crit += g; }
     }
@@ -204,7 +268,13 @@
       if (src.m.execute && tgt.hp < tgt.maxHp * 0.3) amp += src.m.execute;
       if (src.m.eliteDmg && (tgt.elite || tgt.boss)) amp += src.m.eliteDmg;
       if (src.m.rageDmg) amp += src.m.rageDmg * Math.max(0, 1 - src.hp / src.maxHp);
+      if (src.kind === 'hero') {   // v50 (review #62)
+        const SF = flOf(W, src.side);
+        if (SF.glass) amp += 1;
+        if (SF.packhorn && W.pack && W.pack[src.side] === tgt.id) amp += 0.25;
+      }
     }
+    if (o.atk && tgt.kind === 'hero' && flOf(W, tgt.side).mirrorshield) amp += 0.1;
     if (tgt.st.vulnU > W.t) amp += tgt.st.vulnP;
     if (tgt.st.shatterU > W.t) amp += tgt.st.shatterP;
     dmg *= amp;
@@ -212,9 +282,19 @@
     else if (type === 'magic') dmg *= 100 / (100 + Math.max(0, mrOf(W, tgt)));
     dmg *= 1 - Math.min(0.8, (tgt.m.dmgReduce || 0) + bsum(W, tgt, 'dr'));
     if (tgt.side === 0 && W.tm0 !== 1 && !(type === 'true' && raw >= tgt.hp + tgt.shield)) dmg *= W.tm0;
+    if (tgt.anchor && tgt.c === tgt.anchor.c && tgt.r === tgt.anchor.r) dmg *= 0.75;   // v50: the Anchor Chain
+    if (tgt.kind === 'hero' && flOf(W, tgt.side).lodestone && lodestar(W, tgt.side) === tgt) dmg *= 0.9;   // v50: the Lodestone
     dmg = Math.max(1, Math.round(dmg));
     let abs = 0;
     if (tgt.shield > 0 && tgt.shieldU > W.t) { abs = Math.min(tgt.shield, dmg); tgt.shield -= abs; dmg -= abs; }
+    // v50: the Brotherhood Chain shares what gets through among every hero still standing
+    if (dmg > 0 && tgt.kind === 'hero' && flOf(W, tgt.side).bond) {
+      const mates = W.units.filter(v => !v.dead && v !== tgt && v.side === tgt.side && v.kind === 'hero');
+      if (mates.length) {
+        const share = dmg / (mates.length + 1); dmg = Math.round(share);
+        for (const v of mates) { v.hp -= share; v.hitT = W.t; if (v.hp <= 0) die(W, v, src); }
+      }
+    }
     tgt.hp -= dmg; tgt.hitT = W.t;
     const total = dmg + abs;
     if (src) src.dmgDone = (src.dmgDone || 0) + total;
@@ -226,7 +306,7 @@
       if (o.ability && src.m.abilityBurn && !o.dot) dot(W, tgt, 'burn', src.m.abilityBurn * tgt.maxHp, 3, src);
       if (o.atk && !o.noThorns && tgt.m.thorns && Hx.dist(src, tgt) <= 1) deal(W, tgt, src, total * tgt.m.thorns, 'magic', { noThorns: true });
     }
-    if (tgt.maxMana > 0 && !o.dot) tgt.mana = Math.min(tgt.maxMana, tgt.mana + 3);
+    if (tgt.maxMana > 0 && !o.dot) tgt.mana = Math.min(tgt.maxMana, tgt.mana + 3 * manaGain(W, tgt));
     if (tgt.m.titan && !o.dot) tgt.titan = Math.min(20, tgt.titan + 0.5);
     if (tgt.fl.has('laststand') && !tgt.once.ls && tgt.hp > 0 && tgt.hp < tgt.maxHp * 0.3) {
       tgt.once.ls = 1; tgt.st.invuln = W.t + sec(2); fxText(W, tgt, 'UNBROKEN', '#ffd23f'); A.bulwark(W, tgt);
@@ -236,6 +316,7 @@
     return total;
   }
 
+  const manaGain = () => 1;   // v50: the Overflow Cup's price is in its mana cost now (data.js)
   function reviveAt(W, u, frac, label) {
     u.dead = false; u.hp = Math.max(1, Math.round(u.maxHp * frac)); u.dots = []; u.st = {}; u.busy = W.t + sec(0.4);
     if (W.occ[Hx.key(u.c, u.r)] && W.occ[Hx.key(u.c, u.r)] !== u.id) { const f = freeNear(W, u.c, u.r); if (!f) { u.dead = true; return false; } u.c = f.c; u.r = f.r; }
@@ -270,6 +351,7 @@
     }
     if (u.kind === 'hero' && flOf(W, u.side).lastbreath) { fxRing(W, u.c, u.r, 1, '#ff7a3d', 12); for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) deal(W, u, e, 3 * atkOf(W, u), 'magic', {}); }
     if (u.kind === 'hero' && flOf(W, u.side).vengeance) for (const a of allies(W, u)) if (a.kind === 'hero') { buff(a, 'atkPct', 0.2, 1e9); fxText(W, a, 'VENGEANCE', '#f66'); }
+    relicDeath(W, u);
     if (u.kind === 'hero') {  // either side: gauntlet teams are heroes too
       const lum = allies(W, u).find(a => a.fl.has('resurrect') && !a.once.res);
       if (lum) { lum.once.res = 1; at(W, W.t + sec(1), () => { if (u.dead && !W.over) reviveAt(W, u, 0.5, 'RESURRECTED'); }); }
@@ -277,6 +359,40 @@
     if (src && alive(src)) {
       if (src.fl.has('bloodrush')) { src.mana = Math.min(src.maxMana, src.mana + src.maxMana * 0.6); buff(src, 'asPct', 0.3, sec(3), W); }
       if (src.fl.has('rampage')) src.mana = Math.min(src.maxMana, src.mana + src.maxMana * 0.5);
+    }
+  }
+
+  // v50 (review #62): the new relics that act when a unit falls. K = the side that wanted it to fall
+  function relicDeath(W, u) {
+    const KF = flOf(W, 1 - u.side), OF = flOf(W, u.side), k = Hx.key(u.c, u.r), real = u.kind !== 'summon';
+    if (KF.gravestone && real && !W.occ[k] && !W.over) { W.occ[k] = BLOCK; W.tk[k] = 'rock'; W.terrain.push({ c: u.c, r: u.r, k: 'rock', grave: 1 }); }
+    if (KF.pyre && real) {
+      fxRing(W, u.c, u.r, 1, '#ff7a3d', 10);
+      for (const v of W.units) if (!v.dead && v !== u && Hx.dist(v, u) === 1) deal(W, null, v, Math.min(600, u.maxHp * 0.15) * (v.side === u.side ? 1 : 0.1), 'magic', {});
+    }
+    if (KF.contagion) {
+      const ds = u.dots.filter(d => (d.k === 'burn' || d.k === 'poison') && d.until > W.t);
+      if (ds.length) { fxRing(W, u.c, u.r, 2, '#9ad94a', 10); for (const v of W.units) if (!v.dead && v.side === u.side && Hx.dist(v, u) <= 2) for (const d of ds) v.dots.push({ k: d.k, v: d.v, until: d.until, src: d.src }); }
+    }
+    if (KF.souljar && real) {
+      const s = 1 - u.side; W.souls = W.souls || [0, 0]; W.souls[s]++;
+      if (W.souls[s] % 4 === 0) {
+        const fallen = W.units.find(v => v.dead && v.side === s && v.kind === 'hero');
+        if (fallen) reviveAt(W, fallen, 0.5, 'SOUL JAR'); else for (const v of heroesOf(W, s)) heal(W, v, v.maxHp * 0.3, true);
+      }
+    }
+    if (KF.gravecaller && real && !u.boss && !W.over) {
+      const d = { kind: 'summon', key: u.key, name: u.name, glyph: u.glyph, color: u.color, hp: u.maxHp * 0.5, atk: u.atk * 0.5, armor: u.armor, mr: u.mr,
+        as: u.as, range: u.range, ms: u.ms, mana: 0, crit: 0, size: u.size, scale: u.scale, alpha: 0.75 };
+      const r = spawn(W, d, 1 - u.side, u.c, u.r);
+      if (r) { r.expireT = W.t + sec(6); fxText(W, r, 'RISEN', '#7ee08e'); }
+    }
+    if (u.kind === 'hero') {
+      if (OF.lastone && !W.once['last' + u.side]) {
+        const left = heroesOf(W, u.side);
+        if (left.length === 1) { const h = left[0]; W.once['last' + u.side] = 1; h.hp = h.maxHp; buff(h, 'atkPct', 1, 1e9); buff(h, 'asPct', 0.5, 1e9); fxText(W, h, 'LAST STAND', '#ffd23f'); fxRing(W, h.c, h.r, 1, '#ffd23f', 14); }
+      }
+      if (u.king) for (const a of heroesOf(W, u.side)) { cc(W, a, 'stun', 2); fxText(W, a, 'PANIC', '#ff8a8a'); }
     }
   }
 
@@ -304,6 +420,14 @@
   }
   function tryMove(W, u, tgt) {
     if (u.ms <= 0 || u.st.root > W.t) return false;
+    if (u.kind === 'hero') {   // v50 (review #62)
+      const F = flOf(W, u.side);
+      if (F.stonefoot) return false;
+      if (F.blinkstone && baseRange(u) <= 1 && W.t >= (u.blinkT || 0)) {
+        const n = freeNeighbors(W, tgt.c, tgt.r).sort((a, b) => Hx.dist(a, u) - Hx.dist(b, u))[0];
+        if (n) { blink(W, u, n.c, n.r); u.blinkT = W.t + sec(4); u.busy = W.t + 3; u.moved = true; return true; }
+      }
+    }
     let step = pathStep(W, u, (c, r) => Hx.dist({ c, r }, tgt) <= u.range);
     if (!step) { // target boxed in: go for anything reachable
       const es = enemies(W, u).filter(e => targetable(W, e));
@@ -330,6 +454,19 @@
       if (best) { u.tgt = best.id; return best; }
     }
     if (u.st.tauntU > W.t) { const t = W.byId[u.st.tauntBy]; if (alive(t) && targetable(W, t)) return t; }
+    // v50 (review #62): the Lodestone (both ways) and the Pack Horn (one prey for the whole team)
+    const mine = u.kind === 'hero' ? flOf(W, u.side) : {}, theirs = flOf(W, 1 - u.side);
+    if (theirs.lodestone) { const best = lodestar(W, 1 - u.side); if (best && targetable(W, best)) { u.tgt = best.id; return best; } }
+    if (mine.packhorn) {
+      W.pack = W.pack || {};
+      let p = W.byId[W.pack[u.side]];
+      if (!alive(p) || !targetable(W, p)) {
+        const hs = heroesOf(W, u.side), cc0 = hs.reduce((a, h) => a + h.c, 0) / hs.length, cr0 = hs.reduce((a, h) => a + h.r, 0) / hs.length;
+        p = W.units.filter(e => !e.dead && e.side !== u.side && targetable(W, e)).sort((a, b) => Hx.dist(a, { c: Math.round(cc0), r: Math.round(cr0) }) - Hx.dist(b, { c: Math.round(cc0), r: Math.round(cr0) }))[0];
+        if (p) { W.pack[u.side] = p.id; fxText(W, p, 'HUNTED', '#ffb347'); }
+      }
+      if (p) { u.tgt = p.id; return p; }
+    }
     const cur = W.byId[u.tgt];
     if (alive(cur) && cur.side !== u.side && targetable(W, cur) && Hx.dist(u, cur) <= Math.max(1, u.range)) return cur;
     let best = null, bd = 99;
@@ -367,7 +504,7 @@
     const dealt = deal(W, u, tgt, atk * mult, 'phys', { atk: true });
     u.atkN++;
     if (!u.dead) {
-      u.mana = Math.min(u.maxMana, u.mana + 10 + (u.m.manaOnHit || 0)); if (u.ab.focus) u.focus = Math.min(u.ab.focusCap || 15, u.focus + 1); if (u.m.titan) u.titan = Math.min(20, u.titan + 0.5);
+      u.mana = Math.min(u.maxMana, u.mana + (10 + (u.m.manaOnHit || 0)) * manaGain(W, u)); if (u.ab.focus) u.focus = Math.min(u.ab.focusCap || 15, u.focus + 1); if (u.m.titan) u.titan = Math.min(20, u.titan + 0.5);
       if (u.m.stackAtk && (u.sc.sa || 0) < u.m.stackAtkCap) { u.sc.sa = (u.sc.sa || 0) + 1; u.bAtk += u.m.stackAtk; }
       if (u.m.stackAs && (u.sc.ss || 0) < u.m.stackAsCap) { u.sc.ss = (u.sc.ss || 0) + 1; u.bAsPct += u.m.stackAs; }
       if (u.m.apPerAtk) u.ap += u.m.apPerAtk;
@@ -577,7 +714,7 @@
       fx(W, { k: 'bolt', pts: [[u.c, u.r], [t.c, t.r]], color: '#2fb3a0', t1: W.t + 6 });
       if (Hx.dist(u, t) > 1) {
         const n = freeNeighbors(W, u.c, u.r).sort((a, b) => Hx.dist(a, t) - Hx.dist(b, t))[0];
-        if (n) { place(W, t, n.c, n.r, 5); t.busy = Math.max(t.busy, W.t + 5); t.anim = null; }
+        if (n && !t.anchor) { place(W, t, n.c, n.r, 5); t.busy = Math.max(t.busy, W.t + 5); t.anim = null; }
       }
       deal(W, u, t, ab.dmg * atkOf(W, u), 'phys', { ability: true });
       cc(W, t, 'stun', ab.stun);
@@ -586,7 +723,7 @@
     if (ab.whirl) at(W, W.t + 6, () => { if (u.dead) return; fxRing(W, u.c, u.r, 1, '#2fb3a0', 8); for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) { deal(W, u, e, atkOf(W, u), 'phys', { ability: true }); slow(W, e, 0.3, 2); } });
     if (ab.pullAll) for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 3 && Hx.dist(e, u) > 1) {
       const n = freeNeighbors(W, e.c, e.r).filter(h => Hx.dist(h, u) < Hx.dist(e, u))[0];
-      if (n) { place(W, e, n.c, n.r, 5); e.busy = Math.max(e.busy, W.t + 5); }
+      if (n && !e.anchor) { place(W, e, n.c, n.r, 5); e.busy = Math.max(e.busy, W.t + 5); }
       cc(W, e, 'stun', 1);
     }
     return true;
@@ -663,7 +800,7 @@
   };
   // --- v12 heroes (review #11)
   function push(W, src, t, n) {
-    if (t.dead || n <= 0) return;
+    if (t.dead || n <= 0 || t.anchor) return;
     let c = t.c, r = t.r, steps = 0;
     for (let i = 0; i < n; i++) {
       const away = Hx.neighbors(c, r).filter(h => Hx.dist(h, src) > Hx.dist({ c, r }, src));
@@ -932,8 +1069,16 @@
     if (u.boss) bossPassives(W, u);
     if (W.t < u.busy || u.st.stun > W.t) return;
     u.anim = null;
-    if (u.abil && u.maxMana > 0 && u.mana >= u.maxMana && !(u.st.silence > W.t) && !(u.castFail > W.t)) {
-      if (A[u.abil](W, u)) { u.mana = 0; u.castT = W.t; if (u.busy < W.t + 6) u.busy = W.t + 6; fx(W, { k: 'cast', id: u.id, color: u.color || '#fff', t1: W.t + 10 }); return; }
+    if (u.abil && u.maxMana > 0 && u.mana >= u.maxMana && !(u.st.silence > W.t) && !(u.castFail > W.t) && !(W.hush[u.side] > W.t)) {
+      if (A[u.abil](W, u)) {
+        u.mana = 0; u.castT = W.t; if (u.busy < W.t + 6) u.busy = W.t + 6; fx(W, { k: 'cast', id: u.id, color: u.color || '#fff', t1: W.t + 10 });
+        if (u.kind === 'hero') {   // v50 (review #62)
+          const F = flOf(W, u.side);
+          if (F.echo && !u.once.echo) { u.once.echo = 1; at(W, W.t + sec(1), () => { if (!u.dead && !W.over && !(u.st.stun > W.t) && A[u.abil](W, u)) { fxText(W, u, 'ECHO', '#c77dff'); fx(W, { k: 'cast', id: u.id, color: u.color || '#fff', t1: W.t + 10 }); } }); }
+          if (F.leyline) for (const a of heroesOf(W, u.side)) if (a !== u && a.r === u.r) { a.mana = Math.min(a.maxMana, a.mana + 30); fxRing(W, a.c, a.r, 0, '#5fd0ff', 6); }
+        }
+        return;
+      }
       u.castFail = W.t + 10;
     }
     const tgt = pickTarget(W, u);
@@ -944,6 +1089,7 @@
   }
 
   function periodic(W, u) {
+    if (u.expireT && W.t >= u.expireT) { u.suicide = 1; die(W, u, null); return; }   // v50: the Gravecaller's risen
     const m = u.m;
     if (m.regen) heal(W, u, u.maxHp * m.regen / TPS);
     if (m.manaRegen && u.maxMana) u.mana = Math.min(u.maxMana, u.mana + m.manaRegen / TPS);
@@ -983,9 +1129,9 @@
     }
     // review #24 (David): sudden death is damage over time that grows slowly and hits EVERY unit, allies and enemies:
     // each second after it starts, true damage of (1% x seconds into sudden death) of the unit's max HP
-    if (W.mode === 'fight' && W.t > sec(B.CFG.suddenDeath) && W.t % TPS === 0) {
+    if (W.mode === 'fight' && W.t > W.sdAt && W.t % TPS === 0) {
       W.sd += 0.15;
-      const k = Math.round((W.t - sec(B.CFG.suddenDeath)) / TPS);
+      const k = Math.round((W.t - W.sdAt) / TPS);
       if (k === 1) fx(W, { k: 'banner', text: 'Sudden death: everyone burns', t1: W.t + 40 });
       for (const u of W.units) if (alive(u)) deal(W, null, u, u.maxHp * B.CFG.suddenDeathRamp * k, 'true', { dot: true });
     }
@@ -993,6 +1139,7 @@
       const es = W.units.filter(v => !v.dead && v.side !== s);
       if (es.length) { const e = es[Math.floor(W.rng() * es.length)]; fx(W, { k: 'bolt', pts: [[e.c, e.r - 2], [e.c, e.r]], color: '#fff6a0', t1: W.t + 6 }); deal(W, null, e, 60 + 30 * W.fightNo + 5 * W.wave, 'magic', {}); }
     }
+    relicTick(W);
     if (W.zones.length && W.t % 10 === 0) {
       W.zones = W.zones.filter(z => z.until > W.t);
       for (const z of W.zones) for (const e of W.units) if (!e.dead && Hx.dist(e, z) <= z.rad) { if (e.side !== z.side) deal(W, W.byId[z.src] || null, e, z.dps * 0.5, 'magic', { dot: true }); else if (z.heal) heal(W, e, e.maxHp * z.heal * 0.5); }
@@ -1002,7 +1149,14 @@
     for (const u of list) if (!u.dead) act(W, u);
     if (W.t % 40 === 0) { W.fx = W.fx.filter(f => f.t1 > W.t - 20); if (W.units.length > 120) W.units = W.units.filter(u => !u.dead || W.t - u.deathT < 40 || u.kind === 'hero'); }
     // end conditions
-    const heroes = W.units.some(u => !u.dead && u.side === 0 && u.kind === 'hero');
+    let heroes = W.units.some(u => !u.dead && u.side === 0 && u.kind === 'hero');
+    // v50 (review #62): the Phoenix Egg: the whole team rises once, and the egg is used up (run.js takes it away)
+    if (!heroes && W.fl.phoenix && !W.once.phoenix) {
+      W.once.phoenix = 1; W.used = Object.assign(W.used || {}, { phoenix: 1 });
+      for (const u of W.units) if (u.dead && u.side === 0 && u.kind === 'hero') reviveAt(W, u, 0.5, 'REBORN');
+      fx(W, { k: 'banner', text: 'The Phoenix Egg hatches!', t1: W.t + 50 });
+      heroes = W.units.some(u => !u.dead && u.side === 0 && u.kind === 'hero');
+    }
     const foes = W.units.some(u => !u.dead && u.side === 1);
     if (!heroes) { W.over = true; W.winner = 1; }
     else if (W.mode === 'fight' && !foes) { W.over = true; W.winner = 0; }
@@ -1010,6 +1164,37 @@
   }
 
   function run(W, maxTicks = 20 * 60 * 30) { while (!W.over && W.t < maxTicks) step(W); return W; }
+  // v50 (review #62): the new relics that act on a clock
+  function relicTick(W) {
+    const any = f => W.fl[f] || W.fl1[f];
+    if (any('quakedrum') && W.t % sec(8) === 0) {
+      fx(W, { k: 'banner', text: 'The ground shakes!', t1: W.t + 24 });
+      for (const u of W.units) if (!u.dead && nextToTerrain(W, u)) { cc(W, u, 'stun', 1); fxText(W, u, 'QUAKE', '#e8d9b0'); }
+    }
+    if (W.t % TPS === 0) for (const s of [0, 1]) if (flOf(W, s).bramblecrown) {
+      for (const u of W.units) if (!u.dead && nextToTerrain(W, u) && (u.side !== s || u.kind === 'hero')) deal(W, null, u, u.maxHp * (u.side !== s ? 0.03 : 0.01), 'true', { dot: true });
+    }
+    for (const s of [0, 1]) {
+      const F = flOf(W, s);
+      if (F.trickcoin && W.t % sec(8) === 0) {
+        const hs = heroesOf(W, s).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp), lo = hs[0], hi = hs[hs.length - 1];
+        if (hs.length > 1 && lo.hp / lo.maxHp < 0.7 && hi.hp / hi.maxHp - lo.hp / lo.maxHp > 0.2) {
+          const a = { c: lo.c, r: lo.r }, b = { c: hi.c, r: hi.r };
+          W.occ[Hx.key(a.c, a.r)] = 0; W.occ[Hx.key(b.c, b.r)] = 0;
+          for (const [u, h] of [[lo, b], [hi, a]]) { fx(W, { k: 'blink', c: u.c, r: u.r, color: '#c9c9d9', t1: W.t + 8 }); u.c = u.fc = h.c; u.r = u.fr = h.r; u.m0t = u.m1t = W.t; W.occ[Hx.key(h.c, h.r)] = u.id; if (u.anchor) u.anchor = null; }
+          fxText(W, lo, 'SWAP', '#c9c9d9'); fxText(W, hi, 'SWAP', '#c9c9d9');
+        }
+      }
+      if (F.timecrystal && W.t % sec(12) === 0) {
+        fx(W, { k: 'banner', text: 'Time stops!', t1: W.t + 24 });
+        for (const u of W.units) if (!u.dead && u.side !== s) { cc(W, u, 'stun', 1.5); u.st.frozenU = Math.max(u.st.frozenU || 0, W.t + sec(1.5)); }
+      }
+    }
+    if (any('jesterbell') && W.t % sec(8) === sec(4)) {
+      const pool = W.units.filter(u => !u.dead && !u.boss && !ccImmune(W, u));
+      if (pool.length) { const u = pool[Math.floor(W.rng() * pool.length)]; u.st.confuseU = W.t + sec(2.5); u.tgt = 0; fxText(W, u, 'CONFUSED', '#ff6fb5'); fxRing(W, u.c, u.r, 0, '#ff6fb5', 10); }
+    }
+  }
 
   // interpolated position (in hex coordinates as fractional pixel, via callback) for rendering at fractional tick T
   function posAt(u, T, size) {

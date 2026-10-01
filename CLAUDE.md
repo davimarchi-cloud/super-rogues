@@ -47,6 +47,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `tools/vigia.js` | vigia em segundo plano (checa a cada 20 s): sai, e me acorda, assim que chega um envio novo |
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote; avisa "📎 arte"), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma`, `arte <lote>` (salva as imagens em `art-inbox/`, fora do git) |
 | `tools/sim-run.js`, `tools/boss-matrix.js`, `tools/tune-heroes.js`, `tools/audit-abilities.js`, `tools/challenge-odds.js` | robô joga runs inteiras / todos os times de 3 contra os 2 chefes / vitória contra chefe por herói e ajuste automático (v34) |
+| `tools/relic-odds.js` | v50: quanto cada relíquia de luta muda a chance de vencer (times aleatórios com o nível e os itens da luta N, a mesma luta Hard com e sem a relíquia, mesmas sementes). `node tools/relic-odds.js [times=60] [luta=4] [ids|all] [força=1.45]` (1.45 deixa a base perto de 50%) |
 | `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `vitrine.mjs` (fotos de todas as telas no celular e em 3 PCs, v29), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
 
 ## Regras do jogo que vieram do briefing (ponto de partida: os jogadores podem mudar qualquer uma)
@@ -128,6 +129,37 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v50 (2026-10-01), lote 48 do David (#62: "50 relíquias realmente inventivas: momentos memoráveis, mudar posição e montagem do time, interagir com o tabuleiro, mudar o alvo e a IA, sinergias, economia, rota, lojas, recompensas, escolha de herói, itens e risco; cada uma com identidade e troca").** Pausado na noite de 30/09 a pedido do dono ("volte quando o de 5 h resetar") e retomado por agendamento. 100 relíquias agora (50 novas, todas com `fl`). **Combate** (`sim.js`, `flOf`, então o fantasma do Gauntlet usa também):
+  - `relicStart`: Scales of Balance, King's Crown, Harmony Chord, Echo Chime, Overflow Cup, Gravity Stone, Siege Sling, Anchor Chain.
+  - Formação: Watchtower Flag e Spotlight Lamp (`formation`).
+  - `deal`: Mirror Shard, Two-Faced Coin, Glass Crown, Pack Horn, Anchor Chain, Lodestone, Brotherhood Chain.
+  - `relicDeath`: Undertaker's Shovel (lápide vira `rock` no `W.terrain`), Chain Pyre, Plague Flask, Soul Jar, Gravecaller (inimigo volta do seu lado por 6 s, `expireT`), Last Stand Banner, a pane do Rei.
+  - `pickTarget`: Lodestone, Pack Horn. `targetable`: Bodyguard Oath. `tryMove`: Stonefoot Idol, Blink Pebble.
+  - Cast: Echo Chime, Ley Line Chalk. Silêncio: Hush Bell (`W.hush[side]`).
+  - `relicTick`: Earthshaker Drum, Thorn Crown, Swapper's Coin, Time Crystal (`W.sdAt`), Jester's Bell.
+  - Fim da luta: Phoenix Egg revive o time uma vez; `W.used.phoenix` faz o run.js tirar a relíquia.
+  - Berserker Chain em `asOf`/`heal`.
+
+  **Run** (`run.js`):
+  - `relicStats`: Lone Crown, Curio Cabinet, Snowball, Pack Rat's Sack, Minimalist's Vow.
+  - Giant's Brew (`size`, sem esquiva).
+  - Pathfinder's Quill (3 caminhos, classe `.banners.three`) e Bounty Hunter's Map no `advance`/`makeFight`.
+  - Merchant's Ledger (oferta "Free!"), Treasure Map, Heirloom Anvil, Curio Cabinet e Shuffled Deck no `stockFor`/`reroll`.
+  - Cursed Doubloon (`run.coinN`).
+  - Veteran's Medal, Double or Nothing, Snowball, Anvil e Changeling Mask (`relicsAfterWin`) no `finishFight`.
+  - Two-Faced Coin nas apostas; Treasure Map no `eventAct`.
+  - As só de run entram no `NONCOMBAT`.
+
+  Calibradas com `tools/relic-odds.js` (luta 4 e luta 7): as fortes ficam entre +15 e +30%, como as antigas boas; a Phoenix Egg dá +43%, mas é uma vez por jogo; as situacionais ficam perto de 0. Retocadas na medição:
+  - Overflow Cup: o custo virou +10% de mana nas habilidades.
+  - Lodestone: só os inimigos mudam de alvo, e o herói-alvo leva 10% menos dano.
+  - Hush Bell: inimigos calados por 10 s, os seus por 2 s.
+  - Chain Pyre: seus heróis levam 1/10.
+  - Glass Crown: −35% de vida.
+  - Siege Sling: escudo de 30% e 2 s de atordoamento.
+  - Two-Faced Coin: −10% de ataque.
+
+  Testes: todas as 100 numa luta inteira nos dois lados (sem NaN), mais um teste de comportamento por relíquia não óbvia.
 - **v49 (2026-09-30), lote 47 do David.** #60 ("nova identidade Super Rogues; logo para 14 anos com letras gordas e divertidas; tela inicial super simples, o resto na barra ou em ícones; só o Play, e embaixo o tabuleiro com times aleatórios lutando, como um trailer; com jogo em andamento, sem novo jogo: Continue e uma bandeirinha branca give up; o jogo só conta depois de herói e relíquia"): nome Super Rogues (index.html, favicon de estrela de máscara); logo em CSS (`logoHTML`: marca SVG, fita rosa SUPER, letras ROGUES coloridas com contorno grosso e entrada pulando); tela inicial = logo + Play (ou Continue + "Give up", que pergunta antes e só descarta o jogo, sem contar derrota) + trailer (`trailerWorld`/`trailerLoop`: 3 heróis aleatórios contra uma luta aleatória, 1,5×, mudo via `Render.draw(..., { mute: true })`, recomeça 2,6 s depois do fim; para quando sai da tela ou a aba some). Topo da tela inicial: nível (chip com barra, abre a trilha), coroas, ladder, sugestões e ☰ (`homeMenuHTML`: How to play, recompensas de nível, perfil, Crown Shop, ladder, Art Lab, som, sugestão). Jogo na fase `start` não aparece como Continue. #61 ("acabamento de roguelike comercial: menos cartões iguais, fonte limpa nas descrições, ícones próprios no lugar de emoji, level-up com etiquetas de estilo e caminho ramificado"): `js/uiicons.js` e troca dos emojis de interface (topo, trilha, cartões de luta/loja, preparação, batalha, resultado, lojas, eventos, fim de jogo, cabeçalhos dos menus, How to play; os desenhos dos eventos e das dicas continuam emoji); `--read` (Nunito) nas descrições; o time do mapa e os heróis do resultado viraram linhas num painel só; level-up com até 2 etiquetas por poder (`STYLE`: Damage, Tank, Control, Heal, Speed, Area, Summon; senão Upgrade) e a trilha como árvore (`sp-fork` do galho escolhido; escolhidos em dourado, os de hoje brilhando, os futuros apagados).
 - **v48 (2026-09-30), lote 46 do PC boy (#59): splash de 10 heróis pelo Art Lab.** Garm (rex), Leshy (bramble), Sarab
   (mirage), Hyppolita (hippolyta), Snezhana (glacia), Licht (seraph), Azgoth (azgul), Pimples (pip), Brigid (lumen) e

@@ -1897,3 +1897,11 @@ svg.ui + b, b + svg.ui { margin-left: 2px; }
 .banner .emb { display: flex; align-items: center; justify-content: center; flex-wrap: nowrap; }
 .banner .emb svg.ui + svg.ui { margin-left: -10px; } .banner.b-hard .emb svg.ui { width: 32px; height: 32px; }
 .lugain svg.ui { color: #7dffb0; }
+
+/* v50 (review #62): three paths on the map (Pathfinder's Quill): the third one takes the whole row on a phone */
+.banners.three > :last-child { grid-column: 1 / -1; }
+body.desk .banners.three { grid-template-columns: repeat(3, 1fr); } body.desk .banners.three > :last-child { grid-column: auto; }
+.banners.three .banner { min-height: 0; padding-top: 10px; padding-bottom: 14px; gap: 2px; } .banners.three .banner .emb { width: 50px; height: 50px; }
+.banners.three .banner .emb svg.ui { width: 30px; height: 30px; } .banners.three > :last-child { display: grid; grid-template-columns: 56px 1fr auto; grid-template-areas: "emb bt rw" "emb bd rw"; text-align: left; align-items: center; column-gap: 10px; padding: 10px 14px; }
+.banners.three > :last-child .emb { grid-area: emb; } .banners.three > :last-child .bt { grid-area: bt; } .banners.three > :last-child .bd { grid-area: bd; } .banners.three > :last-child .rw { grid-area: rw; position: static; } .banners.three > :last-child .rod { display: none; }
+body.desk .banners.three > :last-child { display: flex; text-align: center; padding: inherit; }

@@ -110,6 +110,16 @@
     purse: ['purse'], tome: ['book', '#1f2f55'], wind: ['wind'], mark: ['target'], ember: ['flame'], warhorn: ['horn'], ironwill: ['fist', '#9aa0a8'], seed: ['leaf', '#8ac43a'], bounty: ['scroll'], bloodpact: ['drop', '#8a1f24'],
     shieldwall: ['shield', '#4d7fd0'], lonewolf: ['fang', '#9aa0a8'], vanguard: ['horn', '#e8b84a'], rearguard: ['bow', '#4a6a3a'], battleline: ['banner', '#c43a3a'], cover: ['leaf', '#3fa34d'],  // v33
     lastbreath: ['skull'], whetset: ['stone', '#9aa0a8'], battery: ['gem', '#c77dff'], treasure: ['scroll', '#e8c890'], rally: ['banner', '#3a5ac4'],
+    // v50 (review #62)
+    gravestone: ['skull', '#9aa0a8'], quakedrum: ['drum', '#a0622d'], bramblecrown: ['crown', '#3fa34d'], catapult: ['hammer', '#c48a3a'], gravity: ['stone', '#6a4bd0'], anchor: ['totem', '#4a5a7a'],
+    stonefoot: ['idol', '#9aa0a8'], blinkstone: ['gem', '#5fd0ff'], trickcoin: ['coin', '#c9c9d9'], highground: ['banner', '#e8b84a'], center: ['lantern', '#ffd23f'], lodestone: ['stone', '#c43a3a'],
+    bodyguard: ['shield', '#3a5ac4'], packhorn: ['horn', '#8a5a2e'], jesterbell: ['hat', '#ff6fb5'], mirrorshield: ['lens', '#bfe6ff'], phoenix: ['flame', '#ff7a3d'], souljar: ['vial', '#9fe8ff'],
+    gravecaller: ['lantern', '#7ee08e'], lastone: ['crest', '#c43a3a'], pyre: ['flame', '#ffd23f'], contagion: ['vial', '#7acb3a'], king: ['crown', '#ffd23f'], echo: ['horn', '#c77dff'],
+    fullmana: ['drop', '#3f7dff'], hush: ['candle', '#dfe6ff'], leyline: ['scroll', '#5fd0ff'], scales: ['amulet', '#e8b84a'], glass: ['gem', '#e6f7ff'], giant: ['fist', '#c48a3a'],
+    berserk: ['axe', '#c43a3a'], bond: ['ring', '#e05555'], loaded: ['dice', '#ffd23f'], timecrystal: ['hourglass', '#5fd0ff'], harmony: ['wing', '#ffb3c8'], ledger: ['book', '#8a5a2e'],
+    deck: ['scroll', '#ff8ad8'], quill: ['feather', '#3a5ac4'], huntmap: ['target', '#c43a3a'], anvil: ['hammer', '#9aa0a8'], cabinet: ['backpack', '#c48a3a'], solo: ['crown', '#c77dff'],
+    changeling: ['mask', '#7ee08e'], cursecoin: ['coin', '#7a2a8a'], xmap: ['eye', '#e8c890'], medal: ['amulet', '#c0c0d0'], double: ['coin', '#ffd23f'], snowball: ['snowflake', '#dff4ff'],
+    packrat: ['purse', '#a0622d'], vow: ['ring', '#ffffff'],
   };
   const tierColor = t => t === 'relic' ? '#e8b84a' : B.RARITY && B.RARITY[t] ? B.RARITY[t].color : '#9aa3b5';
   const cache = {};

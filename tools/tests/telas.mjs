@@ -484,6 +484,15 @@ if (!REMOTE) {
   ok(await ev(`!B.Art.sprite('rook') && !JSON.parse(localStorage.getItem('balance.artlab') || '{}').rook && !B.Splash.image('rook', 44, 44, 'bust').startsWith('data:image/jpeg')`), '"Remove from my game" brings the drawn art back');
 }
 
+// v50 (review #62): new relics on screen: three paths (Pathfinder's Quill), a free offer (Merchant's Ledger)
+await ev(`__bal.ACT['new-run']()`); await sleep(150);
+await click('[data-act=start-pick]'); await click('[data-act=start-next]'); await click('[data-act=start-relic]'); await click('[data-act=start-go]'); await sleep(150);
+await ev(`(() => { const r = __bal.run; B.Run.gainRelic(r, 'quill'); B.Run.gainRelic(r, 'ledger'); r.step -= 1; r.fightNo = 0; B.Run.advance(r); __bal.render(); })()`); await sleep(200);
+ok(await ev(`document.querySelectorAll('.banners.three .banner').length === 3`), "v50: the Pathfinder's Quill shows three paths");
+await shot('27-three-paths'); await noHScroll('three paths'); await noVScroll('three paths');
+await ev(`(() => { const r = __bal.run; r.phase = 'map'; r.opts = [{ type: 'shop', kind: 'itemShop' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(200);
+ok(await ev(`[...document.querySelectorAll('.buyb')].filter(b => /Free!/.test(b.textContent)).length === 1`), "v50: the Merchant's Ledger shows one free offer");
+await shot('28-ledger-shop');
 ok(errors.length === 0, 'no JS errors / CSP violations' + (errors.length ? ': ' + errors.slice(0, 5).join(' || ') : ''));
 console.log(`telas: ${oks} ok, ${fails} fail (screens in ${OUT})`);
 try { ws.close(); } catch (_) {}
