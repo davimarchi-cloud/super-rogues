@@ -36,15 +36,24 @@ const boardFits = async where => {
   ok(r.right <= r.vw + 1 && r.bottom <= r.vh + 1, `${where}: board fits the screen (${Math.round(r.w)}px wide, bottom ${Math.round(r.bottom)} of ${r.vh})`);
   return r;
 };
+// v53 (review #65, David: "NEVER, EVER MAKE ME SCROLL ON SCREEN NO MATTER WHAT"): on the phones, every main screen fits
+const noVScroll = async where => { const r = await ev(`(() => { const m = document.querySelector('#modal:not([hidden]) .sheet'); return m ? [m.scrollHeight, m.clientHeight] : [document.documentElement.scrollHeight, innerHeight]; })()`); ok(r[0] <= r[1] + 2, `fits without scrolling: ${where} (${r[0]}px of ${r[1]}px)`); };
+const PHONE = d => d.name === 'phone' || d.name === 'phone-small';
+const force = js => ev(`(() => { const r = __bal.run; ${js}; __bal.render(); })()`);
 for (const d of DEVICES) {
   await send('Emulation.setDeviceMetricsOverride', { width: d.w, height: d.h, deviceScaleFactor: d.dpr, mobile: d.mobile });
   await send('Emulation.setTouchEmulationEnabled', { enabled: d.mobile });
   await send('Page.navigate', { url: `http://localhost:${PORT}/` }); await sleep(900);
   await ev(`localStorage.clear()`); await send('Page.reload'); await sleep(900);
-  await noHScroll(d.name + ' title');
+  await noHScroll(d.name + ' title'); if (PHONE(d)) await noVScroll(d.name + ' title');
   await ev(`document.querySelector('[data-act=new-run]').click()`); await sleep(200);
   await ev(`document.querySelectorAll('[data-act=start-pick]')[0].click(); document.querySelector('[data-act=start-next]').click(); document.querySelectorAll('[data-act=start-relic]')[0].click(); document.querySelector('[data-act=start-go]').click()`); await sleep(300);
-  await noHScroll(d.name + ' map'); await shot('dev-' + d.name + '-map');
+  await noHScroll(d.name + ' map'); await shot('dev-' + d.name + '-map'); if (PHONE(d)) await noVScroll(d.name + ' map');
+  if (PHONE(d)) {
+    for (const kind of ['heroShop', 'itemShop', 'relicShop']) { await force(`r.phase = 'map'; r.opts = [{ type: 'shop', kind: '${kind}' }]; B.Run.choose(r, 0)`); await sleep(500); await noVScroll(d.name + ' ' + kind); await shot('dev-' + d.name + '-' + kind); }
+    for (const id of ['smith', 'altar', 'merchant', 'bounty']) { await force(`r.phase = 'map'; r.opts = [{ type: 'event', id: '${id}' }]; B.Run.choose(r, 0)`); await sleep(300); await noVScroll(d.name + ' event ' + id); }
+    await force(`r.phase = 'map'; r.cur = null; r.step -= 1; B.Run.advance(r)`); await sleep(300);
+  }
   await ev(`document.querySelector('[data-act=choose]').click()`); await sleep(400);
   await noHScroll(d.name + ' deploy');
   const r = await boardFits(d.name + ' deploy');
@@ -54,7 +63,7 @@ for (const d of DEVICES) {
   await ev(`document.querySelector('[data-act=fight]').click()`); await sleep(1500);
   await noHScroll(d.name + ' battle'); await boardFits(d.name + ' battle'); await shot('dev-' + d.name + '-battle');
   await ev(`__bal.skipBattle()`); for (let k = 0; k < 40 && (await ev('!!__bal.battle')); k++) await sleep(100);
-  await noHScroll(d.name + ' result');
+  await noHScroll(d.name + ' result'); await sleep(1500); if (PHONE(d)) { await noVScroll(d.name + ' result'); await shot('dev-' + d.name + '-result'); }
 }
 ok(errors.length === 0, 'no JS errors' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
 console.log(`dispositivos: ${oks} ok, ${fails} fail`);

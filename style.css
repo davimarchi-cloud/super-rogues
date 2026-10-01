@@ -1930,3 +1930,66 @@ body.desk .banners.three > :last-child { display: flex; text-align: center; padd
 .fs .por { width: 24px; height: 24px; border-radius: 50%; } .fs svg.ui { width: 13px; height: 13px; opacity: .85; } .fs .st { font-style: normal; color: #ffe46b; }
 .fs.elite { border-color: #ffe46b; }
 .fo b svg.ui { width: 14px; height: 14px; vertical-align: -2px; }
+
+/* v53 (review #65, David: "Make sure text never overflows ... its terrible when the text cuts off"): nothing is cut off
+   with "..." or clamped to a few lines any more; text wraps (or moves behind a tap) */
+.stock .small, body.wide .stock .small, body.desk .stock .small { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.hud-l b, .tsb b, .ctbl td.who span, .eqhero > .small, .eqhero > .setline, .floor .grow, .ts .tsn b, .abline, .crl b, .card.stock .itag, .card.stock .tier, .albmeta .small, .xpup b {
+  white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.fo b { display: inline; } .fo > div > b:first-child { display: block; } .fo .fw b { font-size: inherit; }
+.hdet.sm { min-height: 26px; padding: 1px 9px; margin: 4px 0 0; font-size: 12px; }
+
+/* v53: the Gauntlet, epic and on one screen */
+.gintro2 { gap: 0; }
+.gcrest { display: grid; place-items: center; width: 64px; height: 64px; margin: 2px auto 0; border-radius: 50%; color: #5a3000;
+  background: radial-gradient(circle at 38% 30%, #fff8d2, #ffd23f 50%, #c47f00); box-shadow: 0 0 0 4px #fff, 0 5px 0 4px #b27200, 0 0 40px #ffd23faa; animation: markbob 3.2s ease-in-out infinite; }
+.gcrest svg.ui { width: 36px; height: 36px; }
+.gtitle { margin: 8px 0 0; font-size: 30px; letter-spacing: 1px; }
+.gsub { margin: 4px auto 6px; max-width: 420px; font: 600 14px/1.35 var(--read); color: #ffffffd9; }
+.gintro2 .gitems, .gintro2 .relics.inline { display: none; }
+.gintro2 .gteam { margin: 6px 0 2px; } .gintro2 .gh .por { width: 44px; height: 44px; }
+.gintro2 .hdet { margin: 4px auto 2px; }
+.gintro2 form.stack { margin: 4px 0 0; gap: 4px; } .gintro2 form input { min-height: 46px; }
+.tower { display: grid; gap: 4px; margin: 6px 0; }
+.tower .floor { --pad: calc(max(0, var(--rows) - 1 - var(--n)) * 0px + (var(--n) * 0px)); margin-inline: calc(max(0, 4 - var(--n)) * 9px); min-height: 38px; padding: 5px 12px;
+  border-radius: 12px; background: linear-gradient(180deg, #5a64b8, #3a4290); border: 2px solid #ffffff2e; box-shadow: 0 3px 0 #1b2270; position: relative; gap: 8px; }
+.tower .floor.crown { background: linear-gradient(180deg, #ffe46b, #f0a800); color: #5a3000; border-color: #fff; box-shadow: 0 3px 0 #b27200, 0 0 26px #ffd23f99; }
+.tower .floor.crown .fn svg.ui { width: 22px; height: 22px; } .tower .floor.crown b { color: #5a3000; }
+.tower .floor.cur { background: linear-gradient(180deg, #ffe46b, #ffc21a); color: #5a3000; border-color: #fff; box-shadow: 0 3px 0 #c47f00, 0 0 22px #ffd23f88; }
+.tower .floor.cleared { background: linear-gradient(180deg, #4fd38a, #239a5a); } .tower .floor.fell { background: linear-gradient(180deg, #ff8a8a, #c43a3a); }
+.tower .floor.locked { opacity: .75; } .tower .floor.locked svg.ui { width: 16px; height: 16px; opacity: .8; }
+.tower .floor.ground { background: linear-gradient(180deg, #3a4290, #262c6e); border-style: dashed; }
+.tower .floor .fn { font: 700 13px var(--fun); white-space: nowrap; }
+.g2 h2 svg.ui { width: 26px; height: 26px; color: #ffd23f; vertical-align: -4px; }
+.vsc { position: relative; padding-top: 10px; }
+.vsme { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 2px; } .vsme b { font: 700 15px var(--fun); margin-left: 4px; }
+.vsme .por { width: 40px; height: 40px; border-radius: 12px; box-shadow: 0 0 0 2px #9fd8ff; }
+.vsb { display: block; width: max-content; margin: 2px auto 6px; padding: 2px 16px; border-radius: 999px; font: 800 20px/1.1 var(--fun); letter-spacing: 2px; color: #fff;
+  background: linear-gradient(180deg, #ff7a3d, #e0474f); box-shadow: 0 3px 0 #9c2330, 0 0 20px #ff7a3d88; }
+.vsline { margin: 2px 0 4px; }
+
+/* v53: the token never covers the floor name; the gate row you stand on is gold too */
+.tower .floor.cur { padding-left: 52px; } .tower .floor.ground.cur { background: linear-gradient(180deg, #ffe46b, #ffc21a); border-style: solid; }
+.tower .floor .token { width: 34px; height: 34px; margin-top: -17px; left: 8px; } .tower .floor .token .por { width: 34px !important; height: 34px !important; }
+
+/* v53: three or more rewards unlocked at once: a row of small cards, names under the pictures */
+.xpups.many { display: grid; grid-template-columns: repeat(3, 1fr); } .xpups.many .xpup { flex-direction: column; text-align: center; gap: 2px; padding: 6px 4px; }
+.xpups.many .xpup small { font-size: 9.5px; } .xpups.many .xpup b { font-size: 12.5px; white-space: normal; }
+
+/* v53 (review #65): tags never break in the middle of a word; small phones (640px tall) get tighter shops and events so
+   nothing scrolls */
+.card.stock .itag, .card.stock .tier { overflow-wrap: normal; word-break: keep-all; letter-spacing: 0; }
+@media (max-height: 700px) and (max-width: 500px) {
+  section.shop > h2, section.event > h2 { margin: 2px 0 4px; font-size: 20px; }
+  section.shop > p.center { margin: 0 0 4px; } section.shop .grid { gap: 6px; }
+  .card.stock { padding: 9px 8px 8px; gap: 3px; }
+  .card.stock .ico.big, .card.stock .por.big { width: 34px; height: 34px; } .card.stock .srow { gap: 7px; }
+  .card.stock .ctitle { font-size: 13px; } .card.stock .itag, .card.stock .tier { font-size: 9.5px; padding: 0 6px; margin-top: 1px; }
+  .card.stock .small { font-size: 11.5px; line-height: 1.25; }
+  .card.stock .buyb { min-height: 36px; padding-top: 2px; padding-bottom: 2px; } .buyb .price { font-size: 16px; }
+  .htag { font-size: 12.5px; margin: 2px 0 0; line-height: 1.25; } .hfoot { margin: 2px 0 3px; } .hfoot .hdet { min-height: 26px; font-size: 12px; } .hfoot .rangeline { font-size: 11px; }
+  .evmed { width: 56px; height: 56px; font-size: 28px; margin-top: 2px; } section.event > p { margin: 2px 0 6px; font-size: 13.5px; }
+  .evch { padding-top: 7px; padding-bottom: 7px; min-height: 0; } .evch .t .evn { font-size: 15px; } .evch .t .eve { font-size: 12.5px; }
+  .evchoices { gap: 6px; } .evch .ico, .evch .por { width: 34px; height: 34px; }
+  .bar.sticky { padding-top: 4px; padding-bottom: 4px; }
+}

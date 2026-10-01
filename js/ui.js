@@ -82,7 +82,7 @@
         <span class="xpbar big"><i id="xpfill" style="width:${Math.round(100 * S.into / S.need)}%"></i></span><small id="xpnum">${S.into}/${S.need} XP</small></div>
         <b class="xpgot" id="xpgot">+${done ? got : 0}</b></div>
       ${log.length ? `<ul class="xplines">${xpChips(log).map(c => `<li data-xp="${c.xp}" title="${esc(c.why.join(' · '))}"><i>${XP_ICON[c.k] || '✨'}</i><span>${esc(c.name)}</span><b>+${c.xp}</b></li>`).join('')}</ul>` : note ? `<p class="small center">${note}</p>` : ''}
-      ${ups.length ? `<div class="xpups">${ups.map(x => `<div class="xpup" data-lvl="${x.lvl}">${unlockPic(x, 34)}<span><small>New ${x.kind}!</small><b>${esc(unlockName(x))}</b></span></div>`).join('')}</div>` : ''}
+      ${ups.length ? `<div class="xpups ${ups.length > 2 ? 'many' : ''}">${ups.map(x => `<div class="xpup" data-lvl="${x.lvl}">${unlockPic(x, 34)}<span><small>New ${x.kind}!</small><b>${esc(unlockName(x))}</b></span></div>`).join('')}</div>` : ''}
       ${u ? `<div class="xpnext">${unlockPic(u, 48)}<span><small>Next reward · level ${u.lvl}</small><b>${esc(unlockName(u))}</b><i>${B.xpForLevel(u.lvl) - to} XP to go</i></span><em>🔒</em></div>` : '<p class="small center">🏅 Every reward unlocked!</p>'}
     </div>`;
   }
@@ -532,7 +532,7 @@
   // review #18: the enemy roster on the deploy screen, grouped, with what each one does (positioning is the decision here)
   function foesHTML(gau, f) {
     const groups = [];
-    if (gau) for (const h of run.g.opp.team) groups.push({ key: h.key, n: 1, name: HEROES[h.key].name + ' Lv ' + h.lvl, what: HEROES[h.key].abName + ': ' + HEROES[h.key].abDesc });
+    if (gau) for (const h of run.g.opp.team) groups.push({ key: h.key, n: 1, name: HEROES[h.key].name + ' Lv ' + h.lvl, what: HEROES[h.key].tag || HEROES[h.key].abName, peek: true });   // v53: a few words, More for the rest
     else {
       const by = {};
       for (const e of f.enemies) {
@@ -547,7 +547,7 @@
     const big = groups.filter(g => g.what), small = groups.filter(g => !g.what);
     const nm = g => `${esc(g.name)}${g.n > 1 ? ' ×' + g.n : ''}`;
     return `<div class="foes"><div class="bph"><b>${gau ? 'Their team' : 'Enemies'}</b><span class="dim small">${groups.reduce((a, g) => a + g.n, 0)}</span></div>
-      ${big.length ? `<div class="fgrid">${big.map(g => `<div class="fo ${g.boss ? 'boss' : ''} ${g.elite ? 'elite' : ''}">${img(g.key, 34, 'por')}<div><b>${nm(g)}${g.ranged ? ' ' + I('bow') : ''}${g.elite ? ` <span class="elt">★ ${esc(g.elite)}</span>` : ''}</b><small class="fw">${fmt(g.what)}</small></div></div>`).join('')}</div>` : ''}
+      ${big.length ? `<div class="fgrid">${big.map(g => `<div class="fo ${g.boss ? 'boss' : ''} ${g.elite ? 'elite' : ''}">${img(g.key, 34, 'por')}<div><b>${nm(g)}${g.ranged ? ' ' + I('bow') : ''}${g.elite ? ` <span class="elt">★ ${esc(g.elite)}</span>` : ''}</b><small class="fw">${fmt(g.what)}</small>${g.peek ? `<button class="hdet sm" data-act="hero-peek" data-arg="${g.key}">${I('info')} More</button>` : ''}</div></div>`).join('')}</div>` : ''}
       ${small.length ? `<div class="fsmall">${small.map(g => `<span class="fs ${g.elite ? 'elite' : ''}" title="${g.elite ? esc(g.elite) + ' ' : ''}${esc(g.name)}${g.ranged ? ', attacks from range' : ''}">${img(g.key, 24, 'por')}<b>${nm(g)}</b>${g.elite ? '<i class="st">★</i>' : ''}${g.ranged ? I('bow') : ''}</span>`).join('')}</div>` : ''}</div>`;
   }
   function deployHTML() {
@@ -745,11 +745,11 @@
     const cur = mode === 'intro' ? -1 : champion ? null : lost ? duels.length - 1 : g.round;
     const known = g.peak != null && g.peak >= 0 ? g.peak + 1 : null;   // review #27: floor k = ghosts that lost there; the champion on floor peak + 1
     const floors = Math.max(known || 0, (cur == null ? duels.length : cur + 1) + (known ? 0 : 1), 1);
-    const lo = Math.max(0, (cur == null ? floors : Math.max(cur, 0)) - 2), hi = Math.min(floors - 1, Math.max(cur == null ? floors - 1 : cur, 0) + 3);
+    const near = mode === 'near' || mode === 'end' ? 1 : 2, lo = Math.max(0, (cur == null ? floors : Math.max(cur, 0)) - near), hi = Math.min(floors - 1, Math.max(cur == null ? floors - 1 : cur, 0) + (mode === 'near' || mode === 'end' ? 1 : 3));
     const token = run.heroes[0] ? `<span class="token">${img(run.heroes[0].key, 24, 'por')}</span>` : '<span class="token"></span>';
     const climb = ui.climb; ui.climb = false;
     const rows = [];
-    rows.push(`<div class="floor crown ${champion ? 'cur' : ''}">${champion ? token : ''}<span class="fn">👑</span><span>${champion ? '<b>Champion!</b> The crown is yours until someone beats your ghost' : 'Beat the champion (or reach a floor nobody reached) to take the crown'}</span></div>`);
+    rows.push(`<div class="floor crown ${champion ? 'cur' : ''}">${champion ? token : ''}<span class="fn">${I('crown')}</span><span class="grow">${champion ? '<b>Champion!</b> The crown is yours' : 'The crown'}</span></div>`);
     if (hi < floors - 1) rows.push(`<div class="floor gap">⋯ ${floors - 1 - hi} more floor${floors - 1 - hi > 1 ? 's' : ''}</div>`);
     for (let k = hi; k >= lo; k--) {
       const d = duels[k], isCur = k === cur, o = isCur && !lost ? g.opp : null;
@@ -759,12 +759,13 @@
       } else if (isCur) {
         rows.push(`<div class="floor cur">${token}<span class="fn">Floor ${k + 1}</span><span class="grow">vs <b>${o ? plink(o.name, o.code) : '?'}</b></span>${o ? `<span class="elo">⚜ ${o.elo}</span>` : ''}</div>`);
       } else {
-        rows.push(`<div class="floor locked"><span class="fn">Floor ${k + 1}</span><span class="grow dim">${known && k + 1 === known ? `the champion, ${k}-0` : `a ghost that lost here (${k}-1)`}</span><span>🔒</span></div>`);
+        rows.push(`<div class="floor locked"><span class="fn">Floor ${k + 1}</span><span class="grow dim">${known && k + 1 === known ? 'the champion' : 'ghosts that fell here'}</span>${I('lock')}</div>`);
       }
     }
     if (lo > 0) rows.push(`<div class="floor gap">⋯ ${lo} floor${lo > 1 ? 's' : ''} cleared below</div>`);
-    rows.push(`<div class="floor ground ${cur === -1 ? 'cur' : ''}">${cur === -1 ? token : ''}<span class="fn">Gate</span><span class="grow">${reach ? `Reached the Gauntlet <span class="win">+${reach.delta}</span>` : 'Your team enters as a ghost'}</span></div>`);
-    return `<div class="tower ${climb ? 'climb' : ''}">${rows.join('')}</div>`;
+    if (mode !== 'end') rows.push(`<div class="floor ground ${cur === -1 ? 'cur' : ''}">${cur === -1 ? token : ''}<span class="fn">Gate</span><span class="grow">${reach ? `Reached the Gauntlet <span class="win">+${reach.delta}</span>` : 'Your ghost enters here'}</span></div>`);
+    // v53: a stack that narrows toward the crown (--n = the row's place from the top)
+    return `<div class="tower ${climb ? 'climb' : ''}">${rows.map((r, i) => r.replace('<div class="floor', `<div style="--n:${i};--rows:${rows.length}" class="floor`)).join('')}</div>`;
   }
   // v27: the ladder name is picked once, here; changing it later is a Crown Shop purchase
   function gateForm() {
@@ -776,19 +777,23 @@
     const g = run.g;
     if (g.status === 'intro') {
       if (g.peak == null && !ui.peakAsked) { ui.peakAsked = true; Net.get('elo?peak=1').then(r => { g.peak = r.peak; if (run.g === g && g.status === 'intro') render(); }).catch(() => {}); }
-      return `<section class="title"><h2 class="sc">The Gauntlet</h2>
-        <div class="card gintro"><p class="small">Your team is saved as a <b>ghost</b> and climbs a tower of other players' ghosts. Each floor holds the ghosts that lost there: floor 1 the ones that went 0-1, floor 2 the ones that went 1-1, and so on; you duel one of them at random. Win and you climb; lose and your ghost stays on that floor for the next players. The top floor holds the <b>one champion</b>: beat it, or reach a floor nobody reached, and the crown is yours until someone beats your ghost. Your Elo only moves here: each duel is a 1v1 Elo game. Ghosts keep their own Elo.</p>
-          ${teamRow(Run.teamSnapshot(run), run.relics)}
-          ${g.peak != null ? towerHTML(g, 'intro') : ''}
-          ${gateForm()}</div></section>`;
+      // v53 (review #65, David: "Make the gauntlet ui more epic, its just a list right now. And it makes me scroll on my phone"):
+      // a crest, one line of what it is, the tower, your team and the gate; the rules wait behind "How it works"
+      return `<section class="title gintro2"><div class="gcrest">${I('trophy')}</div><h2 class="sc gtitle">The Gauntlet</h2>
+        <p class="gsub">Climb a tower of other players' teams. Every win takes you up a floor; one loss ends the climb.</p>
+        ${g.peak != null ? towerHTML(g, 'intro') : ''}
+        ${teamRow(Run.teamSnapshot(run), run.relics)}
+        <button class="hdet" data-act="g-rules">${I('help')} How it works</button>
+        ${gateForm()}</section>`;
     }
     // match card
     const o = g.opp;
     const def = o.defW || o.defL ? ` As a ghost it defended ${o.defW} time${o.defW === 1 ? '' : 's'} and fell ${o.defL}.` : '';
-    return `<section class="gauntlet"><h2 class="sc">Gauntlet · floor ${g.round + 1}</h2>
-      <div class="gwrap">${towerHTML(g)}
-      <div class="card opp"><div class="row"><b class="sc">👻 ${plink(o.name, o.code)}</b><span class="grow"></span><span class="elo">⚜ ${o.elo}</span></div>
-        <p class="small dim">${o.status === 'champion' ? '👑 The reigning champion: beat it and the crown is yours.' : (o.own ? 'A ghost of one of your own earlier games. ' : '') + 'It lost on this floor (went ' + o.wins + '-1).'}${def}</p>${teamRow(o.team, o.relics)}</div></div>
+    return `<section class="gauntlet g2"><h2 class="sc">${I('trophy')} Floor ${g.round + 1}</h2>
+      <div class="gwrap">${towerHTML(g, 'near')}
+      <div class="card opp vsc"><div class="vsme">${run.heroes.map(h => img(h.key, 40, 'por')).join('')}<b>You</b></div><div class="vsb">VS</div>
+        <div class="row"><b class="sc">${I('ghost')} ${plink(o.name, o.code)}</b><span class="grow"></span><span class="elo">⚜ ${o.elo}</span></div>
+        <p class="small vsline" title="${esc(def.trim())}">${o.status === 'champion' ? 'The reigning champion: beat it and the crown is yours.' : (o.own ? 'Your own old ghost. ' : '') + 'It lost on this floor (went ' + o.wins + '-1).'}</p>${teamRow(o.team, o.relics)}</div></div>
       <div class="bar"><button data-act="team">Team & items</button><button class="primary big" data-act="to-duel">Prepare the duel</button></div></section>`;
   }
   function stockCard(s, i) {
@@ -867,7 +872,7 @@
       body = `<h2 class="sc">${g.status === 'champion' ? '👑 Champion' : 'The Gauntlet is over'}</h2>
         <p class="gline"><b class="score sm">${g.wins}</b> duel${g.wins === 1 ? '' : 's'} won · Elo ${g.eloStart} → <b>${g.elo}</b> <span class="${d >= 0 ? 'win' : 'lose'}">(${d >= 0 ? '+' : ''}${d})</span></p>
         ${g.lgNow ? leagueLine(Object.assign({}, g.lgNow, { delta: g.lgGain, promoted: g.lgPromoted })) : ''}
-        ${g.history.length ? towerHTML(g) : ''}${xpPanelHTML()}`;
+        ${g.history.length ? towerHTML(g, 'end') : ''}${xpPanelHTML()}`;
     } else {
       // v42 (review #51): the end of a run as a small scoreboard: the team, fights won, the fight it fell at
       body = `<div class="evmed over">${I('flag')}</div><h2 class="sc">Game over</h2>
@@ -1063,14 +1068,14 @@
           : `<button class="dslot d-${t}" style="--rc:${TIER_COLOR[it.tier]}" data-act="unequip" data-arg="${h.uid}:${i}" title="${esc(it.name + ': ' + it.desc + ' (tap to take off)')}">${pic}</button>`;
       };
       const sc = Run.setCounts(h.items);
-      const sets = Object.keys(sc).map(sid => { const S = B.SETS[sid], n = sc[sid]; return `<div class="setline ${n >= 2 ? 'on' : ''}">◆ <b>${esc(S.name)}</b> ${n}/3${n >= 2 ? ' · ' + fmt(S.bonus[2].desc) : ''}${n >= 3 ? ' · ' + fmt(S.bonus[3].desc) : ''}</div>`; }).join('');
+      const sets = Object.keys(sc).map(sid => { const S = B.SETS[sid], n = sc[sid]; return `<div class="setline ${n >= 2 ? 'on' : ''}">◆ <b>${esc(S.name)}</b> ${n}/3${n >= 2 ? ' ✓' : ''}</div>`; }).join('');   // v53: the bonuses in words are on the hero card (tap the portrait)
       return `<div class="eqhero ${can ? 'target' : ''} ${sel && !can ? 'full' : ''}" ${sel ? `data-act="equip" data-arg="${h.uid}"` : ''}>
         <div class="hrow"><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span>
           <div class="xpbar" title="XP"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></div>
           ${can ? `<span class="tap">${swap ? 'tap to swap' : 'tap to equip'}</span>` : sel ? '<span class="tap dim">no free slot</span>' : ''}</div>
         <div class="hbody"><div class="doll">${DOLL.map(cell).join('')}<button class="dpor" data-act="hero-info" data-arg="${h.uid}" aria-label="${esc(d.name)}: ability">${img(h.key, 52)}</button></div>
         <div class="eqrole"><b>${esc(d.role)}</b><span>${d.range <= 1 ? I('sword') + ' Fights up close' : I('bow') + ' Attacks from afar'}</span><span class="dim">Tap the portrait for stats</span></div></div>${sets}
-        <button class="small abline" data-act="hero-info" data-arg="${h.uid}"><span class="ib">ⓘ</span> <b>${esc(d.abName)}</b>${specs.length ? ' · ' + specs.map(sp => `<span class="spec">★ ${esc(sp.name)}</span>`).join(' ') : ''}</button>
+        <button class="small abline" data-act="hero-info" data-arg="${h.uid}"><span class="ib">ⓘ</span> <b>${esc(d.abName)}</b>${specs.length ? ` · <span class="spec">★ ${specs.length} power${specs.length > 1 ? 's' : ''}</span>` : ''}</button>
       </div>`;
     }).join('');
     return `<div class="shead"><b>Team & items</b><button data-act="close">✕</button></div>
@@ -1101,7 +1106,8 @@
     return `<div class="hdetail"><div class="row">${img(h.key, 44)}<div class="grow"><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span> <span class="dim small">${esc(d.role)}</span>
         <div class="small">${abilHTML(d)}</div></div><button class="chip" data-act="hero-info" data-arg="0" aria-label="Close">✕</button></div>
       ${scalingHTML(def)}
-      ${specs.length ? `<div class="hspecs">${specs.map(sp => `<div class="small"><b class="spec">★ ${esc(sp.name)}</b> ${fmt(sp.desc)}</div>`).join('')}</div>` : ''}</div>`;
+      ${specs.length ? `<div class="hspecs">${specs.map(sp => `<div class="small"><b class="spec">★ ${esc(sp.name)}</b> ${fmt(sp.desc)}</div>`).join('')}</div>` : ''}
+      ${Object.entries(Run.setCounts(h.items)).filter(([, n]) => n >= 2).map(([sid, n]) => `<div class="small setfull">◆ <b>${esc(B.SETS[sid].name)}</b> ${n}/3 · ${fmt(B.SETS[sid].bonus[2].desc)}${n >= 3 ? ' · ' + fmt(B.SETS[sid].bonus[3].desc) : ''}</div>`).join('')}</div>`;
   }
   function ago(ms, now) { const s = Math.max(0, Math.round((now - ms) / 1000)); return s < 60 ? s + 's ago' : s < 3600 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago'; }
   // Suggestions: the player writes changes into a local list (up to 10), then presses "Send for review".
@@ -1471,6 +1477,12 @@
     'give-up': () => { openModal(`<div class="shead"><b>Give up?</b><button data-act="close" aria-label="Close">✕</button></div><div class="giveupask">${I('flag', 'big')}<p>Your team goes home and this game ends. It does not count as a loss.</p><div class="bar"><button data-act="close">Keep playing</button><button class="danger" data-act="give-up-yes">${I('flag')} Give up</button></div></div>`); },
     'give-up-yes': () => { run = null; store.del(SAVE); closeModal(); ui.lastGold = null; ui.goldHold = null; screen = 'title'; render(); },
     'form-info': t => toast(t),
+    'g-rules': () => openModal(`<div class="shead"><b>${I('trophy')} How the Gauntlet works</b><button data-act="close" aria-label="Close">✕</button></div><ol class="howbasics">
+      <li>${I('ghost')}<span><b>Your team becomes a ghost</b> and enters the tower.</span></li>
+      <li>${I('swords')}<span><b>Every floor holds ghosts that fell there.</b> You duel one of them.</span></li>
+      <li>${I('up')}<span><b>Win and you climb.</b> Lose and your ghost stays on that floor for the next players.</span></li>
+      <li>${I('crown')}<span><b>Beat the champion on top</b> (or reach a floor nobody reached) and the crown is yours until someone beats your ghost.</span></li>
+      <li>${I('chart')}<span><b>Your Elo only moves here:</b> every duel is a 1v1 Elo game.</span></li></ol>`),
     'hero-peek': k => { if (HEROES[k]) { openModal(heroPeekHTML(k)); ui.modal = 'peek'; } },
     path: () => { if (run) { openModal(pathHTML()); ui.modal = 'path'; } },
     'result-more': () => { ui.rmore = !ui.rmore; render(); },
