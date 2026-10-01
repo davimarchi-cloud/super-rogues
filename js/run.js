@@ -424,7 +424,8 @@
       const have = new Set(run.heroes.map(h => h.key));
       return pickN(run, heroKeysOf(run).filter(k => !have.has(k)), 4).map(k => ({ kind: 'hero', id: k, price: Math.max(1, C.heroCost - seal(run)) }));
     }
-    if (kind === 'itemShop') return Array.from({ length: (run.relics.includes('treasure') ? 8 : 6) - (has(run, 'anvil') ? 2 : 0) }, () => { const id = randomItem(run); return { kind: 'item', id, price: Math.max(1, C.itemCost[B.ITEM[id].tier] - seal(run)) }; });
+    // v58 (review #70, "Reduce shop products from six to four choices"): 4 items (6 with the Faded Chart)
+    if (kind === 'itemShop') return Array.from({ length: (run.relics.includes('treasure') ? 6 : 4) - (has(run, 'anvil') ? 2 : 0) }, () => { const id = randomItem(run); return { kind: 'item', id, price: Math.max(1, C.itemCost[B.ITEM[id].tier] - seal(run)) }; });
     return pickN(run, relicsOf(run).filter(r => !run.relics.includes(r.id)).map(r => r.id), 4).map(id => ({ kind: 'relic', id, price: Math.max(1, C.relicCost - seal(run)) + (has(run, 'cabinet') ? 3 : 0) }));
   }
   function makeShop(run, kind) { return { type: 'shop', kind, stock: stockFor(run, kind), rerolls: 0 }; }

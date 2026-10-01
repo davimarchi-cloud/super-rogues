@@ -188,7 +188,7 @@
   }
   function drawUnit(v, W, u, p, T, o, dt) {
     const { ctx, size } = v, s = W.t, d = o.deploy ? null : look(v, W, u);
-    const S = size * 1.38 * u.size;
+    const S = size * 1.5 * u.size;   // v58 (review #70, "Improve combat scale"): bigger units
     // v55: a hit makes the body flinch away and flash white for a moment
     if (d) { const now = (d.now += dt || 0.016); if (u.hp < d.hp - 0.5) d.hitAt = now; d.hp = u.hp; d.trail = Math.max(u.hp, d.trail - (d.trail - u.hp) * Math.min(1, (dt || 0.016) * 3.2) - u.maxHp * 0.002); }
     const since = d && d.hitAt >= 0 ? d.now - d.hitAt : 9, flinch = since < 0.18 ? Math.sin(since / 0.18 * Math.PI) * size * 0.08 : 0;
@@ -291,7 +291,7 @@
       if (f.k === 'num' || f.k === 'text') {
         const u = W.byId[f.id]; const p = u ? unitPos(v, W, u, T) : hexScreen(v, f.c, f.r);
         ctx.globalAlpha = 1 - k * k;
-        ctx.font = (f.k === 'text' ? '700 ' + Math.round(size * 0.5) : (f.big ? '700 ' : '600 ') + Math.round(size * (f.big ? 0.7 : 0.5))) + "px 'Fredoka', 'Nunito', system-ui, sans-serif";
+        ctx.font = (f.k === 'text' ? '700 ' + Math.max(12, Math.round(size * 0.55)) : (f.big ? '700 ' : '600 ') + Math.max(f.big ? 16 : 13, Math.round(size * (f.big ? 0.78 : 0.58)))) + "px 'Fredoka', 'Nunito', system-ui, sans-serif";   // v58: numbers big enough to read
         ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#000';
         const y = p.y - size * 2.2 - k * size * (f.k === 'text' ? 0.6 : 1.0), x = p.x + (f.k === 'num' ? ((f.t0 * 7) % 11 - 5) * size * 0.05 : 0);
         const pop = k < 0.15 ? 1 + (1 - k / 0.15) * (f.big ? 0.8 : 0.35) : 1;

@@ -275,7 +275,7 @@ if (!REMOTE) {
   await click('[data-act=new-run]'); await sleep(150);
   await click('[data-act=start-pick]'); await click('[data-act=start-next]'); await click('[data-act=start-relic]'); await click('[data-act=start-go]'); await sleep(150);
   await ev(`(() => { const r = __bal.run; while (r.heroes.length < 3) B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k)));
-    r.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[0].id); h.items = ['bloodthirster', 'warmog', 'deathcap', 'guardian']; }); r.heroes[0].items = ['obs_blade', 'obs_plate', 'obs_helm', 'mountainheart']; r.bag.push('worldsplitter', 'aegis', 'storm_boots');
+    r.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[0].id); h.items = ['bloodthirster', 'warmog', 'deathcap', 'guardian']; }); r.heroes[0].items = ['obs_blade', 'obs_plate', 'obs_helm', 'mountainheart']; r.bag.push('worldsplitter', 'aegis', 'storm_boots'); r.autoGear = false;
     r.relics.push('drum'); r.step = B.Run.seqOf(r).length - 2; r.fightNo = 8; B.Run.advance(r); __bal.render(); })()`);
   ok(await ev(`__bal.run.phase === 'gauntlet' && !!document.querySelector('form[data-form=gauntlet]') && !document.querySelector('form[data-form=score]') && !/Onslaught/.test(document.body.textContent)`), 'after the last shop comes the Gauntlet (no Onslaught)');
   await shot('16-gauntlet-intro');
@@ -391,16 +391,16 @@ if (REMOTE) {
   ok(await ev(`(() => { const n = document.querySelector('#notice'); return !n.hidden && n.className === 'wait' && n.textContent.includes('#' + ${batch}); })()`), 'top bar follows the review while it waits');
   await shot('14-notice-waiting');
   await ev(`fetch('/__dev/resolve?batch=${batch}')`); await ev(`__bal.poll()`); await sleep(300);
-  ok(await ev(`(() => { const n = document.querySelector('#notice'); return n.className === 'ready' && /ready/.test(n.textContent) && /F5/.test(n.textContent); })()`), 'when Claude finishes: "Your changes are ready! Press F5"');
+  ok(await ev(`(() => { const n = document.querySelector('#notice'); return n.className === 'ready' && /live/.test(n.textContent) && /reload/.test(n.textContent); })()`), 'when Claude finishes: "Your changes are live: tap to reload" (v58: a small pill)');
   await shot('15-notice-ready');
   await click('#notice'); await sleep(1800);
-  ok(await ev(`(() => { const n = document.querySelector('#notice'); return !n.hidden && n.textContent.includes('is live: 2 applied'); })()`), 'after reloading, the bar says what went live');
+  ok(await ev(`(() => { const n = document.querySelector('#notice'); return !n.hidden && /live: tap for replies/.test(n.textContent); })()`), 'after reloading, the pill says the review is live');
   ok(await ev(`__bal.run && __bal.run.phase === 'over'`), 'the run survives the reload');
   await ev(`document.querySelector('#notice [data-act=notice-x]').click()`);
   ok(await ev(`document.querySelector('#notice').hidden && !localStorage.getItem('balance.pending')`), 'the bar can be dismissed');
   // somebody else's update ships while this page is open
   await ev(`__bal.poll()`); await sleep(200); await ev(`fetch('/__dev/ship')`); await sleep(50); await ev(`__bal.poll()`); await sleep(300);
-  ok(await ev(`/just updated/.test(document.querySelector('#notice').textContent)`), 'other players get "the game was just updated"');
+  ok(await ev(`/New version/.test(document.querySelector('#notice').textContent)`), 'other players get "New version: tap to reload"');
 }
 
 // ---- Art Lab (owner, 2026-09-29): attach a splash and a pose sheet, see them on the cards and in a test fight
@@ -511,7 +511,7 @@ await shot('30-hero-details'); await noHScroll('hero details');
 await click('#modal [data-act=close]'); await sleep(100);
 // v54 (review #66): the Gear screen, always: two heroes, gear in the bag; drag on, drag off, drag to the other hero's tab, Auto-equip
 {
-  await ev(`(() => { const r = __bal.run; r.phase = 'map'; r.cur = null; r.heroes = r.heroes.slice(0, 1); r.heroes[0].lvl = 3; r.heroes[0].items = []; B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k))); r.bag = ['longsword', 'h_iron', 'boots', 'warmog']; r.step -= 1; B.Run.advance(r); __bal.render(); })()`); await sleep(200);
+  await ev(`(() => { const r = __bal.run; r.phase = 'map'; r.cur = null; r.heroes = r.heroes.slice(0, 1); r.heroes[0].lvl = 3; r.heroes[0].items = []; B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k))); r.bag = ['longsword', 'h_iron', 'boots', 'warmog']; r.autoGear = false; r.step -= 1; B.Run.advance(r); __bal.render(); })()`); await sleep(200);
   await click('#top [data-act=team]'); await sleep(250);
   const pt = sel => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   const drag = async (from, to) => { const p = await pt(from), q = await pt(to); if (!p || !q) return false;
@@ -534,6 +534,17 @@ await click('#modal [data-act=close]'); await sleep(100);
   await click('#modal [data-act=gear-auto]'); await sleep(250);
   ok(await ev(`__bal.run.heroes.every(h => h.items.length === B.Run.slots(__bal.run, h)) || !__bal.run.bag.length`), 'v54 gear: Auto-equip fills every free slot');
   await click('#modal [data-act=close]'); await sleep(100);
+}
+// v58 (review #70): Auto-equip is the default: new gear goes on by itself; a choice by hand turns it off; the review notice is a small pill
+{
+  await ev(`(() => { const r = __bal.run; r.autoGear = undefined; r.phase = 'map'; r.cur = null; r.heroes.forEach(h => { h.items = []; }); r.bag = ['longsword']; r.step -= 1; B.Run.advance(r); __bal.render(); })()`); await sleep(300);
+  ok(await ev(`__bal.run.bag.length === 0 && __bal.run.heroes.some(h => h.items.includes('longsword'))`), 'v58: with Auto-equip on (the default) new gear goes on by itself');
+  await click('#top [data-act=team]'); await sleep(250);
+  ok(await ev(`!!document.querySelector('#modal .gauto.on .gon')`), 'v58: the Gear screen shows Auto-equip ON');
+  await ev(`__bal.ACT['gear-pick']('w:' + __bal.run.heroes.find(h => h.items.length).uid + ':0')`); await sleep(120); await click('#modal [data-act=gear-off]'); await sleep(200);
+  ok(await ev(`__bal.run.autoGear === false && __bal.run.bag.includes('longsword')`), 'v58: taking gear off by hand turns Auto-equip off (and it stays off)');
+  await click('#modal [data-act=close]'); await sleep(150);
+  ok(await ev(`__bal.run.bag.includes('longsword')`), '...so the item stays where you put it');
 }
 ok(errors.length === 0, 'no JS errors / CSP violations' + (errors.length ? ': ' + errors.slice(0, 5).join(' || ') : ''));
 console.log(`telas: ${oks} ok, ${fails} fail (screens in ${OUT})`);

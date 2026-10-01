@@ -131,6 +131,18 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v58 (2026-10-01), lote 56 do David (#70, 12 itens de acabamento).**
+  - **Aviso de revisão:** virou uma pílula pequena que flutua sob a barra, sem empurrar a tela ("⏳ #N queued", "✅ … live: tap to reload").
+  - **Relíquias:** todas ganharam uma linha curta (`r.short` em data.js) usada na loja e no início; a regra completa fica em "More" (`relic-info`).
+  - **Lojas:** loja de itens com 4 (6 com o Faded Chart, 2 com o Heirloom Anvil).
+  - **Auto-equip é o padrão:** `run.autoGear` (ligado por omissão). O `autoGear()` roda a cada render e veste o que chega na mochila; uma escolha à mão no Gear desliga (com aviso); o botão roxo religa e mostra "ON".
+  - **Combate:** bonecos com 1,5 do hex; números de dano com tamanho mínimo legível.
+  - **Amarelo só para a ação principal e as recompensas:** seleção e "você está aqui" passaram para branco e ciano (abas do Gear, relíquia escolhida, herói escolhido, passos, andar atual da torre, poder escolhido).
+  - **Áreas seguras:** `env(safe-area-inset-*)` no corpo, nas barras fixas, nas folhas e no aviso.
+  - **Recompensas mais fortes:** clarão no título, estrelas que caem com rotação e confete, moeda brilhando com mais moedas voando, XP contando e barras com brilho correndo.
+  - **Menos bordas e sombras:** sombra única nos cartões; os painéis dentro de painéis perderam borda e sombra.
+  - **Fonte:** Inter (fonts/inter.woff2, OFL) no texto; Fredoka nos títulos.
+  - **Padrões:** tokens de altura de botão (34/46/54) e de cor (`--c-primary` amarelo, `--c-accent` ciano, `--c-magic` roxo, `--c-danger` vermelho); cartões de loja com altura mínima igual.
 - **v57 (2026-10-01), lote 55 do David (#69: "melhorar o Auto-equip: a ideia é boa, a execução péssima; um algoritmo que decida bem sempre; AP em herói de AD não; botão roxo").** `Run.autoEquip` em run.js (testável):
   - **Perfil por herói** (`heroProfile`): fração de AP, contando "% AP" contra "% AD" na habilidade e nos poderes; tanque pela função ou por corpo a corpo com 850+ de vida; à distância.
   - **Nota por item** (`itemScore`): cada atributo normalizado (10 de ataque, 20 de AP, 10% de velocidade de ataque... = 1 ponto) vezes o peso do perfil. AP vale ~0 para herói de AD e ataque ~0 para mago; o tanque dá 1,8× à defesa. Os efeitos especiais contam como "no golpe" (AD), "na habilidade" (AP) ou "defesa" (tanque); mais um pouco pela raridade e pelas peças do mesmo conjunto.

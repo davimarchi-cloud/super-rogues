@@ -595,9 +595,9 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   r = RUN(33, ['ledger']); r.phase = 'map'; r.opts = [{ type: 'shop', kind: 'itemShop' }]; Run.choose(r, 0);
   ok(r.cur.stock.filter(s => s.price === 0 && s.free).length === 1 && r.cur.stock.filter(s => !s.free).every(s => s.price === CFG.itemCost[B.ITEM[s.id].tier] + 2), "Merchant's Ledger: one free offer, the rest +2");
   r = RUN(34, ['deck']); r.phase = 'map'; r.opts = [{ type: 'shop', kind: 'itemShop' }]; Run.choose(r, 0); const g34 = r.gold, n34 = r.cur.stock.length;
-  Run.reroll(r); Run.reroll(r);
-  ok(r.gold === g34 && r.cur.stock.length === n34 - 4, 'Shuffled Deck: free rerolls, two offers fewer each time');
-  Run.reroll(r); Run.reroll(r); ok(r.cur.stock.length === 2 && !Run.reroll(r), '...down to two offers, then no more rerolls');
+  const ok34 = Run.reroll(r);
+  ok(ok34 && r.gold === g34 && r.cur.stock.length === n34 - 2, 'Shuffled Deck: a free reroll takes two offers away');
+  ok(r.cur.stock.length === 2 && !Run.reroll(r), '...down to two offers, then no more rerolls');
   r = RUN(35, ['quill']); r.step = -1; r.fightNo = 0; Run.advance(r);
   ok(r.opts.length === 3 && r.opts.every(o => o.type === 'fight' && o.gold === Math.max(0, CFG.gold[o.diff] - 2)), "Pathfinder's Quill: 3 paths, fights pay 2 less");
   r = RUN(36, ['huntmap']); r.step = 1; r.fightNo = 1; Run.advance(r);
@@ -631,7 +631,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   for (const [rel, kinds] of [[[], ['heroShop', 'itemShop', 'relicShop']], [['treasure'], ['itemShop']], [['anvil'], ['itemShop']], [['treasure', 'anvil'], ['itemShop']]]) for (const kind of kinds) for (let i = 0; i < 6; i++) {
     const r = Run.newRun(900 + i); Run.pickStart(r, ['bastion'], null); for (const id of rel) Run.gainRelic(r, id); r.phase = 'map'; r.opts = [{ type: 'shop', kind }]; Run.choose(r, 0); sizes.add(kind + (rel.length ? '+' + rel.join('+') : '') + ':' + r.cur.stock.length);
   }
-  ok([...sizes].every(x => +x.split(':')[1] % 2 === 0) && sizes.has('heroShop:4') && sizes.has('itemShop:6') && sizes.has('relicShop:4') && sizes.has('itemShop+treasure:8') && sizes.has('itemShop+anvil:4'), 'v51: every shop has an even number of offers (' + [...sizes].join(' ') + ')');
+  ok([...sizes].every(x => +x.split(':')[1] % 2 === 0) && sizes.has('heroShop:4') && sizes.has('itemShop:4') && sizes.has('relicShop:4') && sizes.has('itemShop+treasure:6') && sizes.has('itemShop+anvil:2'), 'v51: every shop has an even number of offers (' + [...sizes].join(' ') + ')');
   ok(Object.values(HEROES).every(h => typeof h.tag === 'string' && h.tag.length >= 10 && h.tag.length <= 38), 'v51: every hero has a short plain blurb for the shop');
 }
 // ---- v52 (review #64): the two new bosses fight, and their tricks go off

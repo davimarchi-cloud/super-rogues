@@ -2052,3 +2052,80 @@ body.desk .sheet.gearsheet { max-width: 640px; }
 /* v57 (review #69): Auto-equip in purple */
 .gbar button.gauto { background: linear-gradient(180deg, #b48cff, #7c4dff) !important; color: #fff !important; border-color: #ffffff66 !important; box-shadow: 0 4px 0 #4a24a0, 0 0 18px #9a6bff66 !important; }
 .gbar button.gauto svg.ui { color: #ffe46b; }
+
+/* ==================================================================== v58 (review #70, David): the polish batch */
+/* a more readable body typeface (Inter, self-hosted, OFL); titles and buttons keep Fredoka */
+@font-face { font-family: 'Inter'; src: url(fonts/inter.woff2) format('woff2'); font-weight: 400 800; font-display: swap; }
+:root { --read: 'Inter', 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* standard sizes and colour meanings: yellow = the main action and key rewards only */
+  --btn-h: 46px; --btn-h-big: 54px; --btn-h-sm: 34px; --radius: 16px;
+  --c-primary: #ffc21a; --c-accent: #5fd0ff; --c-pick: #7dffb0; --c-magic: #9a6bff; --c-danger: #e0474f;
+  --soft-shadow: 0 3px 0 #1b227099; }
+html, body { font-family: var(--read); }
+body { letter-spacing: 0; }
+
+/* the review notice: a small pill floating under the top bar (it no longer pushes the screen down) */
+#stick { position: sticky; }
+#notice { position: absolute; top: calc(100% + 6px); right: 10px; left: auto; width: auto; max-width: calc(100% - 20px); min-height: 30px;
+  padding: 4px 12px; border-radius: 999px !important; border: 0 !important; font: 600 12.5px/1.2 var(--fun); box-shadow: 0 3px 10px #0d114666; z-index: 30; gap: 6px; }
+#notice .nx { margin-left: 4px; padding: 0 2px; }
+#notice.ready { animation: none; }
+
+/* bottom safe areas (phones with a home bar, notches in landscape) */
+body { padding-bottom: env(safe-area-inset-bottom); }
+#app { padding-left: max(0px, env(safe-area-inset-left)); padding-right: max(0px, env(safe-area-inset-right)); }
+.bar.sticky { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+.sheet { padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important; }
+#toast { bottom: calc(16px + env(safe-area-inset-bottom)) !important; }
+
+/* yellow only for the main action and rewards: selection and "you are here" use white and cyan */
+.gtab.on { background: linear-gradient(180deg, #ffffff, #dfe7ff) !important; color: #1a1f6b; box-shadow: 0 3px 0 #9aa8e8 !important; }
+.gtab.on i { color: #3a4290; }
+.gsock.on, .gitem.on { outline-color: var(--c-accent); }
+.srelic.on { background: linear-gradient(180deg, #e8fbff, #bdefff) !important; color: #0d3a4a; border-color: #fff; box-shadow: 0 0 0 3px #5fd0ff99, 0 4px 0 #2b8fb0 !important; }
+.srelic.on b, .srelics.big .srelic.on .srd, .srelics.big .srelic.on .srd * { color: #0d3a4a !important; }
+.hbanner.on { box-shadow: 0 0 0 4px var(--c-accent), 0 0 24px #5fd0ff88 !important; }
+.hbanner .chk, .srelic .chk { background: linear-gradient(180deg, #8ff0ff, #3fb8e8) !important; color: #06303e !important; box-shadow: 0 3px 0 #1d7c9c !important; }
+.ssteps li.on i { background: linear-gradient(180deg, #8ff0ff, #3fb8e8); color: #06303e; }
+.how3 li::before { background: linear-gradient(180deg, #ffffff, #dfe7ff); color: #1a1f6b; box-shadow: 0 2px 0 #9aa8e8; }
+.tower .floor.cur { background: linear-gradient(180deg, #8ff0ff, #3fb8e8); color: #06303e; box-shadow: 0 3px 0 #1d7c9c, 0 0 20px #5fd0ff77; }
+.tower .floor.ground.cur { background: linear-gradient(180deg, #8ff0ff, #3fb8e8); }
+.tree .sp-row.done .sp-n.on { background: linear-gradient(180deg, #ffffff, #dfe7ff); color: #1a1f6b; box-shadow: 0 3px 0 #9aa8e8; }
+.tree .sp-row.now .sp-n { border-color: #8ff0ff; background: #5fd0ff22; }
+@keyframes nowglow { 0%, 100% { box-shadow: 0 0 8px #5fd0ff55; } 50% { box-shadow: 0 0 20px #5fd0ffbb; } }
+button.on { outline-color: var(--c-accent); }
+
+/* fewer borders, shadows and boxes inside boxes */
+.card { box-shadow: var(--soft-shadow); border-width: 1.5px; }
+.party, .result.v2 .rheroes, .gstage { border: 0 !important; box-shadow: none !important; }
+.gbag { border: 0; background: #ffffff10; }
+.gdet { border-width: 1.5px; }
+.card .card, .sheet .card { box-shadow: none; }
+.fo { box-shadow: none !important; border-width: 1.5px !important; }
+.stock { box-shadow: var(--soft-shadow); }
+.nextboss { box-shadow: 0 3px 0 #4a24a0 !important; border-width: 1.5px !important; }
+
+/* standard button heights and colour meanings */
+button { min-height: var(--btn-h); border-radius: 14px; }
+button.big, .bar > button.primary.big { min-height: var(--btn-h-big); }
+.hdet, .chip, .gpg, .relicbtn, .plink, .lvchip, #top button, .mrow, .gtab, .gsock, .gitem, .fr, .tpick, .srelic, .banner, .hbanner, .card.opt, .evch, .pm, .nextboss, .xpnext, .giveup { min-height: 0; }
+.hdet { min-height: var(--btn-h-sm); }
+button.danger { background: linear-gradient(180deg, #ff7a7a, var(--c-danger)) !important; }
+.card.stock { min-height: 196px; }
+.card.stock.k-item, .card.stock.k-relic { min-height: 168px; }
+
+/* the Auto-equip switch state */
+.gauto .gon { font-style: normal; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #ffffff33; font: 700 11px var(--fun); }
+
+/* stronger rewards (P1): a flash on the headline, stars that slam in, a glowing gold chip, shining XP bars */
+.rhead.rflash::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 50% 40%, #ffffffcc, #fff0 70%); pointer-events: none; animation: rflash .7s ease-out forwards; }
+@keyframes rflash { from { opacity: 1; } to { opacity: 0; } }
+.rhead { position: relative; overflow: visible; }
+.rstars .st.slam { animation: starslam .55s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes starslam { 0% { scale: 3; rotate: -40deg; opacity: 0; } 60% { scale: .85; rotate: 6deg; opacity: 1; } 100% { scale: 1; rotate: 0deg; } }
+.rw-gold.glow { box-shadow: 0 0 0 3px #fff, 0 0 30px #ffd23fdd !important; animation: goldglow 1.2s ease-in-out 2; }
+@keyframes goldglow { 50% { box-shadow: 0 0 0 3px #fff, 0 0 46px #ffd23f; } }
+.xpbar.shine { position: relative; overflow: hidden; }
+.xpbar.shine::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -40%; background: linear-gradient(90deg, #fff0, #ffffffcc, #fff0); animation: xpshine 1s ease-out .2s 2; }
+@keyframes xpshine { to { left: 110%; } }
+@media (prefers-reduced-motion: reduce) { .rstars .st.slam, .rw-gold.glow, .xpbar.shine::after, .rhead.rflash::before { animation: none; } }

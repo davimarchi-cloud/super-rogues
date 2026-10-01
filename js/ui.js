@@ -320,6 +320,7 @@
     if (screen === 'result' && ui.result && !ui.result.fx) celebrate(ui.result);
     if (run && screen === 'run' && run.phase === 'over' && !run.xpShown) animXp();
     if (screen === 'title' || !run) startTrailer();
+    autoGear();
   }
   function screenKey() {
     if (screen === 'title' || !run) return 'title';
@@ -425,7 +426,7 @@
     if (ui.startStep === 2 && n === CFG.startHeroes && relics.length) {
       const rsel = ui.startRelic && relics.includes(ui.startRelic) ? ui.startRelic : null;
       return `<section class="start s2">${stepsHTML(2)}<h2 class="sc">Pick a relic</h2><p class="ssub">A bonus for your whole team, all game long.</p>
-        <div class="srelics big">${relics.map(id => `<button class="srelic ${rsel === id ? 'on' : ''}" data-act="start-relic" data-arg="${id}">${ico('relic', id, 44)}<span class="srt"><b class="relic">${esc(RELIC[id].name)}</b><small class="srd">${fmt(RELIC[id].desc)}</small></span>${rsel === id ? '<span class="chk">✓</span>' : ''}</button>`).join('')}</div>
+        <div class="srelics big">${relics.map(id => `<button class="srelic ${rsel === id ? 'on' : ''}" data-act="start-relic" data-arg="${id}">${ico('relic', id, 44)}<span class="srt"><b class="relic">${esc(RELIC[id].name)}</b><small class="srd">${esc(RELIC[id].short)}</small></span>${rsel === id ? '<span class="chk">✓</span>' : ''}</button>`).join('')}</div>
         <div class="bar"><button data-act="start-back">◀ Back</button><button class="primary big" data-act="start-go" ${rsel ? '' : 'disabled'}>${rsel ? 'Start the game!' : 'Tap a relic'}</button></div></section>`;
     }
     const f = run.startOffer.includes(ui.focus) ? ui.focus : ui.startPick[0] || null, h = f && HEROES[f];
@@ -705,22 +706,23 @@
     if (r.fx) return;
     const fx = r.fx = {}, J = B.Juice, live = () => ui.result === r && screen === 'result';
     if (!J || J.reduced() || !r.win) { Object.assign(fx, { stars: r.stars || 0, gold: true, xp: true, done: true }); ui.goldHold = null; render(); return; }
-    const head = $('.rhead'); if (head) J.confettiAt(head, 70);
+    const head = $('.rhead'); if (head) { J.confettiAt(head, 90); head.classList.add('rflash'); }   // v58 (review #70, P1): stronger rewards
     await J.wait(380);
     for (let i = 0; i < (r.stars || 0); i++) {
       if (!live()) return; fx.stars = i + 1;
-      const el = document.querySelectorAll('.rstars .st')[i]; if (el) { el.classList.add('lit'); J.bump(el, 'pop'); J.confettiAt(el, 10, { speed: 260 }); }
+      const el = document.querySelectorAll('.rstars .st')[i]; if (el) { el.classList.add('lit', 'slam'); J.confettiAt(el, 22, { speed: 320 }); }
       sfx('star', i); if (i === 2) { const fl = $('.flawless'); if (fl) fl.classList.add('on'); }
       await J.wait(300);
     }
     if (!live()) return;
     const chip = $('.rw-gold'), gold = !r.gauntlet ? r.gold || 0 : 0;
     if (gold && chip) {
-      J.bump(chip, 'pop'); await J.countUp(chip.querySelector('b'), 0, gold, 520, v => '+' + v, k => sfx('tick', k)); fx.gold = true;
-      J.flyCoins(chip, $('#top .gold'), Math.min(12, 4 + Math.round(gold / 2)), () => sfx('coin')).then(() => { if (ui.goldHold != null) { ui.goldHold = null; animGold(); } });
+      J.bump(chip, 'pop'); chip.classList.add('glow'); J.confettiAt(chip, 18, { speed: 240 }); await J.countUp(chip.querySelector('b'), 0, gold, 620, v => '+' + v, k => sfx('tick', k)); fx.gold = true;
+      J.flyCoins(chip, $('#top .gold'), Math.min(18, 6 + Math.round(gold * 0.8)), () => sfx('coin')).then(() => { if (ui.goldHold != null) { ui.goldHold = null; animGold(); } });
     } else { fx.gold = true; ui.goldHold = null; animGold(); }
     await J.wait(260); if (!live()) return;
-    fx.xp = true; for (const i of document.querySelectorAll('.rh .xpbar i[data-w]')) i.style.width = i.dataset.w + '%';
+    fx.xp = true; for (const i of document.querySelectorAll('.rh .xpbar i[data-w]')) { i.style.width = i.dataset.w + '%'; i.parentElement.classList.add('shine'); }
+    { const xc = $('.rw-xp b'); if (xc) { const n = +String(xc.textContent).replace(/[^0-9]/g, '') || 0; J.bump(xc.parentElement, 'pop'); J.countUp(xc, 0, n, 600, v => '+' + v); } }
     await J.wait(750); if (!live()) return;
     fx.done = true;
     const ups = document.querySelectorAll('.rh .up.wait');
@@ -801,7 +803,7 @@
     let body = '';
     if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><p class="htag">${esc(h.tag || h.abName)}</p><div class="hfoot"><span class="rangeline">${h.range <= 1 ? I('sword') + ' Up close' : I('bow') + ' From afar'}</span><button class="hdet" data-act="hero-peek" data-arg="${s.id}" aria-label="Details">${I('info')} More</button></div>`; }
     else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div>${itemTag(it)}</div></div><div class="small">${fmt(it.desc)}</div>${setInfo(it)}`; }
-    else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier t-relic">relic</div></div></div><div class="small">${fmt(r.desc)}</div>`; }
+    else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier t-relic">relic</div></div></div><p class="htag">${esc(r.short)}</p>${r.short !== r.desc ? `<div class="hfoot"><span></span><button class="hdet" data-act="relic-info" data-arg="${s.id}">${I('info')} More</button></div>` : ''}`; }
     // review #44: a stripe in the rarity colour (hero colour for heroes, gold for relics) makes the rarity readable at a glance
     const rc = s.kind === 'item' ? TIER_COLOR[ITEM[s.id].tier] : s.kind === 'hero' ? HEROES[s.id].color : '#ffd23f';
     // v42 (review #51): epic, set, legendary and mythic items shine; a bought card gets a SOLD stamp
@@ -1103,7 +1105,7 @@
       ${det}
       <div class="gbag" data-drop="bag"><div class="gbh"><b>Bag</b><span>${run.bag.length}</span>${pages > 1 ? `<span class="grow"></span><button class="gpg" data-act="gear-page" data-arg="-1" ${pg ? '' : 'disabled'} aria-label="Previous">${I('back')}</button><span>${pg + 1}/${pages}</span><button class="gpg" data-act="gear-page" data-arg="1" ${pg < pages - 1 ? '' : 'disabled'} aria-label="Next">${I('arrow')}</button>` : ''}</div>
         <div class="gbgrid">${tiles || `<p class="dim small">Empty</p>`}</div></div>
-      <div class="bar gbar"><button class="gauto" data-act="gear-auto" ${run.bag.length || run.heroes.some(h => h.items.length) ? '' : 'disabled'}>${I('bolt')} Auto-equip</button><button class="primary" data-act="close">Done</button></div>`;
+      <div class="bar gbar"><button class="gauto ${autoOn() ? 'on' : ''}" data-act="gear-auto" ${run.bag.length || run.heroes.some(h => h.items.length) ? '' : 'disabled'}>${I('bolt')} Auto-equip${autoOn() ? '<i class="gon">ON</i>' : ''}</button><button class="primary" data-act="close">Done</button></div>`;
   }
   function openGear() { openModal(gearHTML()); ui.modal = 'gear'; const sh = $('#modal .sheet'); if (sh) sh.classList.add('gearsheet'); }
   // put a bag item on hero uid: same type = swap; full = replaces the socket j (or the weakest one); returns the socket it went into
@@ -1125,7 +1127,17 @@
     if (art && id && ITEM[id]) B.Juice.floater(art, ITEM[id].desc.split(',')[0], 'up');
     for (const k of ['hp', 'atk', 'ap']) if (after[k] !== before[k]) { const el = $(`#modal .gstats [data-st=${k}] b`); if (el) { B.Juice.countUp(el, before[k], after[k], 500); B.Juice.bump(el.parentElement); } }
   }
-  function gearDo(fn, uid) { const h = run.heroes.find(x => x.uid === uid), before = h ? gearStats(h) : null; const r = fn(); ui.gsel = null; ui.gHero = uid; save(); openGear(); refreshBehind(); if (r && r.sock >= 0 && before) gearFx(uid, r.sock, r.id, before); }
+  // v58 (review #70, "Make Auto-equip the default gear experience"): with Auto on (the default), gear that lands in the
+  // bag goes on by itself; a choice by hand in Gear turns Auto off, the purple button turns it on again
+  const autoOn = () => run && run.autoGear !== false;
+  function autoGear() {
+    if (!autoOn() || battle || !run.bag.length || run.phase === 'over' || ui.modal === 'gear') return;
+    const n = Run.autoEquip(run); if (!n) return;
+    save(); header(); const t = $('#top [data-act=team]'); if (t && B.Juice) B.Juice.bump(t, 'pop');
+    clearTimeout(autoGear.h); autoGear.h = setTimeout(() => toast('Auto-equip put on your new gear'), 500);
+  }
+  function manualGear() { if (autoOn()) { run.autoGear = false; toast('Auto-equip is off: you choose. The purple button turns it back on.'); } }
+  function gearDo(fn, uid) { manualGear(); const h = run.heroes.find(x => x.uid === uid), before = h ? gearStats(h) : null; const r = fn(); ui.gsel = null; ui.gHero = uid; save(); openGear(); refreshBehind(); if (r && r.sock >= 0 && before) gearFx(uid, r.sock, r.id, before); }
   // v57 (review #69): the decisions live in run.js (Run.autoEquip: hero profiles, item scores, best match first)
   function gearAuto() { return Run.autoEquip(run); }
 
@@ -1463,19 +1475,16 @@
     let cls = '', html = '';
     if (p && p.state === 'waiting') {
       cls = 'wait';
-      const where = p.held ? `Review #${p.batch} is waiting for the owner's OK<span class="dots"></span>` : p.working ? `Claude is working on your review #${p.batch}<span class="dots"></span>`
-        : p.ahead ? `Review #${p.batch} is queued, ${p.ahead} ahead of yours<span class="dots"></span>`
-        : `Review #${p.batch} sent. Waiting for Claude<span class="dots"></span>`;
-      html = `⏳ ${where}${p.offline && !p.working ? ' <span class="dim">(reviewer offline, it will start when back)</span>' : ''}<span class="nx">details</span>`;
+      const where = p.held ? `#${p.batch} waits for the owner` : p.working ? `#${p.batch} in progress` : p.ahead ? `#${p.batch} queued (${p.ahead} ahead)` : `#${p.batch} sent`;
+      html = `⏳ ${where}`;   // v58 (review #70, "Remove or minimise the review-status banner"): one short line, tap for details
     } else if (p && p.state === 'ready' && p.done > 0) {
-      cls = 'ready'; html = `✅ Your changes are ready! Press F5 (or tap here) to see them.`;
+      cls = 'ready'; html = `✅ Your changes are live: tap to reload`;
     } else if (p && (p.state === 'shown' || (p.state === 'ready' && !p.done))) {
       cls = 'info';
-      html = p.done ? `✅ Review #${p.batch} is live: ${p.done} applied${p.declined ? ', ' + p.declined + ' declined' : ''}. Tap to read the replies.`
-        : `Review #${p.batch} is done: nothing shipped (${p.declined} declined). Tap to read why.`;
+      html = p.done ? `✅ #${p.batch} live: tap for replies` : `#${p.batch} done: tap for replies`;
       html += '<span class="nx" data-act="notice-x" aria-label="Dismiss">✕</span>';
     } else if (nt.update) {
-      cls = 'info'; html = '🔄 The game was just updated. Press F5 (or tap here) to get the new version.<span class="nx" data-act="notice-x" aria-label="Dismiss">✕</span>';
+      cls = 'info'; html = '🔄 New version: tap to reload<span class="nx" data-act="notice-x" aria-label="Dismiss">✕</span>';
     }
     el.className = cls; el.innerHTML = html; el.hidden = !html;
   }
@@ -1581,7 +1590,7 @@
     'gear-pick': a => { const [k, x, y] = a.split(':'), sl = k === 'b' ? { k, i: +x } : { k, uid: +x, i: +y }; ui.gsel = ui.gsel && JSON.stringify(ui.gsel) === JSON.stringify(sl) ? null : sl; if (k === 'w') ui.gHero = +x; openGear(); },
     'gear-equip': () => { const g = ui.gsel; if (!g || g.k !== 'b') return; const h = gearHero(), id = run.bag[g.i]; gearDo(() => ({ sock: gearPut(g.i, h.uid, null), id }), h.uid); },
     'gear-off': () => { const g = ui.gsel; if (!g || g.k !== 'w') return; gearDo(() => { Run.unequip(run, g.uid, g.i); }, g.uid); },
-    'gear-auto': () => { const n = gearAuto(); ui.gsel = null; save(); openGear(); refreshBehind(); if (n) { sfx('unlock'); const st = $('#modal .gstage'); if (st && B.Juice) { B.Juice.confettiAt(st, 50); B.Juice.bump(st, 'pop'); } toast(n > 1 ? n + ' heroes got better gear' : 'A hero got better gear'); } else toast('Your team already wears its best gear'); },
+    'gear-auto': () => { run.autoGear = true; const n = gearAuto(); ui.gsel = null; save(); openGear(); refreshBehind(); if (n) { sfx('unlock'); const st = $('#modal .gstage'); if (st && B.Juice) { B.Juice.confettiAt(st, 50); B.Juice.bump(st, 'pop'); } toast(n > 1 ? n + ' heroes got better gear' : 'A hero got better gear'); } else toast('Your team already wears its best gear'); },
     'gear-page': d => { ui.gPage = Math.max(0, (ui.gPage || 0) + +d); openGear(); },
     sell: () => { const g = ui.gsel; if (!g || g.k !== 'b') return; Run.sell(run, g.i); ui.gsel = null; sfx('coin'); save(); openGear(); header(); },
     close: () => { closeModal(); ui.gsel = null; ui.heroInfo = 0; if (!battle) render(); },
