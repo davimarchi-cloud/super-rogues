@@ -47,6 +47,7 @@
       seq: C.seq.slice(), fightScale: C.fightScale.slice(), locked: ((opts && opts.locked) || []).slice() };
     run.startOffer = pickN(run, heroKeysOf(run), C.startOffer);
     run.relicOffer = pickN(run, relicsOf(run).map(r => r.id), C.startOffer);  // review #22: the run also starts with a relic
+    run.bosses = B.BOSS_SLOTS.map(s => pick(run, s));   // v52 (review #64): which boss waits in each slot this game
     return run;
   }
   function addHero(run, key) {
@@ -190,7 +191,7 @@
     const enemies = [];
     if (o && o.keys) { for (const k of o.keys) enemies.push({ key: k }); for (const e of pickN(run, enemies, o.elites || 0)) e.elite = pick(run, B.ELITES).id; }
     else if (diff === 'boss') {
-      const boss = (nth || (fightNo <= 4 ? 1 : 2)) === 1 ? B.BOSSES.gorewarden : B.BOSSES.hollowking;
+      const boss = B.BOSSES[bossOf(run, nth || (fightNo <= 4 ? 1 : 2))];
       enemies.push({ key: boss.key, c: 3 + Math.floor(rnd(run) * 2), r: 1 });
       boss.escort.forEach(k => enemies.push({ key: k }));
     } else {
@@ -350,6 +351,8 @@
 
   // ------------------------------------------------------------------ map
   // the fight number of the n-th boss in this run's sequence
+  // v52: the boss of slot n in this game (games from before v52 keep the two old ones)
+  function bossOf(run, n) { return ((run && run.bosses) || ['gorewarden', 'hollowking'])[n - 1] || (n === 1 ? 'gorewarden' : 'hollowking'); }
   function bossFight(run, n) { let f = 0, b = 0; for (const t of seqOf(run)) { if (t === 'F' || t === 'B') f++; if (t === 'B' && ++b === n) return f; } return f; }
   function advance(run) {
     run.step++;
@@ -695,6 +698,6 @@
   B.Run = { mapOf, blockedAt, gauntletMap, newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
     finishFight, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
     eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate, canEquip, setCounts, setBonuses, seqOf, bossFight,
-    eventChoices, eventTargets, canChoose, itemRefs, upgradedOf, reqHeroes, evScale, pickEvent, startChallenge, CH };
+    eventChoices, eventTargets, canChoose, itemRefs, upgradedOf, reqHeroes, evScale, pickEvent, startChallenge, CH, bossOf };
   if (typeof module !== 'undefined') module.exports = B.Run;
 })(typeof window !== 'undefined' ? window : globalThis);

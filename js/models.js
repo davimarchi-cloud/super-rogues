@@ -64,6 +64,8 @@
     // bosses
     gorewarden: H({ skin: '#9a4a3a', body: '#4a1f1a', trim: '#c9a26a', legs: '#2a1510', bulk: 1.7, h: 1.2, head: 'horns', horn: '#e8dcc0', weapon: 'axe', pauldrons: '#6a3a2a', cape: '#6a1a14' }),
     hollowking: { type: 'wraith', body: '#2a1f3a', trim: '#a44dff', crown: '#ffcf5a' },
+    mirewitch: H({ skin: '#7aa05a', body: '#2f4a2a', trim: '#9ad94a', robe: '#26391f', legs: '#1f2a18', bulk: 1.3, h: 1.15, head: 'hood', hood: '#1f2f18', weapon: 'staff', orb: '#9ad94a', eyes: '#d9ff7a' }),   // v52
+    colossus: { type: 'golem', body: '#5a5f6a', trim: '#ffcf5a' },   // v52
     // summons
     skeleton: H({ skin: '#e8e2d0', body: '#cfc8b4', trim: '#8a8474', legs: '#cfc8b4', bulk: 0.8, head: 'skull', weapon: 'sword', eyes: '#6effc4', bones: true }),
     turret: { type: 'turret', body: '#d9a441', trim: '#5a4a2a' },

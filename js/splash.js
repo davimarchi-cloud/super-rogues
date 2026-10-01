@@ -11,7 +11,7 @@
 
   function colorOf(key) {
     if (B.HEROES && B.HEROES[key]) return B.HEROES[key].color;
-    if (B.BOSSES && B.BOSSES[key]) return key === 'hollowking' ? '#8a3aff' : '#c8321e';
+    if (B.BOSSES && B.BOSSES[key]) return ({ hollowking: '#8a3aff', mirewitch: '#3a8a3a', colossus: '#c48a1a' })[key] || '#c8321e';
     return '#8c3a3a';
   }
   function poseOf(key) {

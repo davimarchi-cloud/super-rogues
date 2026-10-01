@@ -44,7 +44,7 @@
   function xpToast(list) {
     const n = list.reduce((a, g) => a + g.xp, 0), up = list.filter(g => g.up).pop();
     const u = up && B.UNLOCKS.find(x => x.lvl === up.level);
-    setTimeout(() => toast(`✨ +${n} XP` + (list.length === 1 ? ` (${list[0].why})` : '') + (up ? ` · Level ${up.level}!${u ? ` New ${u.kind}: ${unlockName(u)}` : ''}` : '')), 700);
+    clearTimeout(xpToast.h); xpToast.h = setTimeout(() => toast(`✨ +${n} XP` + (list.length === 1 ? ` (${list[0].why})` : '') + (up ? ` · Level ${up.level}!${u ? ` New ${u.kind}: ${unlockName(u)}` : ''}` : '')), 700);
   }
   const lvlNow = () => B.levelOf(acct.axp || 0);
   // v46 (review #57, David: "Bring the player xp progression to the forefront of the game ... visually show progress after
@@ -315,7 +315,7 @@
     else if (run.phase === 'event') m.innerHTML = eventHTML();
     // v42: the screen plays its entrance only when it is a new screen (buying an item no longer makes the shop jump)
     const sec = m.firstElementChild;
-    if (sec && key !== ui.lastKey) { sec.classList.add('enter'); onEnter(key); }
+    if (sec && key !== ui.lastKey) { sec.classList.add('enter'); onEnter(key); clearLeftovers(); }
     ui.lastKey = key;
     if (screen === 'result' && ui.result && !ui.result.fx) celebrate(ui.result);
     if (run && screen === 'run' && run.phase === 'over' && !run.xpShown) animXp();
@@ -494,7 +494,7 @@
     let boss = '';
     const seq = Run.seqOf(run);
     for (let k = Math.max(0, run.step); k < seq.length; k++) if (seq[k] === 'B') {
-      const nth = seq.slice(0, k + 1).filter(x => x === 'B').length, b = nth === 1 ? B.BOSSES.gorewarden : B.BOSSES.hollowking, d = k - run.step;
+      const nth = seq.slice(0, k + 1).filter(x => x === 'B').length, b = B.BOSSES[Run.bossOf(run, nth)], d = k - run.step;
       boss = `<button class="nextboss" data-act="form-info" data-arg="${esc(b.name + ': ' + b.desc)}">${img(b.key, 40, 'por')}<div><b>${I('skull')} ${esc(b.name)}</b> <span class="dim">${d <= 0 ? 'today' : 'in ' + d + ' day' + (d > 1 ? 's' : '')}</span></div>${I('info', 'chev')}</button>`;
       break;
     }
@@ -542,8 +542,13 @@
         by[k].n++;
       }
     }
+    // v52 (review #64, David: "Pre battle screen highlight only the enemies with abilities, the rest is smaller"): enemies
+    // that do something special get a card with what they do; the plain ones are small chips under them
+    const big = groups.filter(g => g.what), small = groups.filter(g => !g.what);
+    const nm = g => `${esc(g.name)}${g.n > 1 ? ' ×' + g.n : ''}`;
     return `<div class="foes"><div class="bph"><b>${gau ? 'Their team' : 'Enemies'}</b><span class="dim small">${groups.reduce((a, g) => a + g.n, 0)}</span></div>
-      <div class="fgrid">${groups.map(g => `<div class="fo ${g.boss ? 'boss' : ''} ${g.elite ? 'elite' : ''} ${g.what ? '' : 'plain'}">${img(g.key, 34, 'por')}<div><b>${esc(g.name)}${g.n > 1 ? ' ×' + g.n : ''}${g.ranged ? ' <i class="rng" title="Attacks from range">➶</i>' : ''}${g.elite ? ` <span class="elt">★ ${esc(g.elite)}</span>` : ''}</b>${g.what ? `<small class="fw">${fmt(g.what)}</small>` : ''}</div></div>`).join('')}</div></div>`;
+      ${big.length ? `<div class="fgrid">${big.map(g => `<div class="fo ${g.boss ? 'boss' : ''} ${g.elite ? 'elite' : ''}">${img(g.key, 34, 'por')}<div><b>${nm(g)}${g.ranged ? ' ' + I('bow') : ''}${g.elite ? ` <span class="elt">★ ${esc(g.elite)}</span>` : ''}</b><small class="fw">${fmt(g.what)}</small></div></div>`).join('')}</div>` : ''}
+      ${small.length ? `<div class="fsmall">${small.map(g => `<span class="fs ${g.elite ? 'elite' : ''}" title="${g.elite ? esc(g.elite) + ' ' : ''}${esc(g.name)}${g.ranged ? ', attacks from range' : ''}">${img(g.key, 24, 'por')}<b>${nm(g)}</b>${g.elite ? '<i class="st">★</i>' : ''}${g.ranged ? I('bow') : ''}</span>`).join('')}</div>` : ''}</div>`;
   }
   function deployHTML() {
     const gau = run.cur && run.cur.type === 'gauntlet';
@@ -1023,9 +1028,17 @@
   function skipBattle() { const b = battle; if (!b) return; let n = 0; while (!b.W.over && n++ < 20 * 60 * 30) Sim.step(b.W); b.endAt = performance.now(); }
 
   // ------------------------------------------------------------------ modals
-  function openModal(html) { const m = $('#modal'); m.innerHTML = `<div class="sheet">${html}</div>`; m.hidden = false; ui.modal = true; }
+  // v52 (review #64, David: "Make sure menus and messages disappear between menu switches, nothing stays over"): when
+  // the screen changes, a toast or a sheet left from the screen before goes away (the ones this tap just opened stay)
+  function clearLeftovers() {
+    const now = performance.now();
+    clearTimeout(xpToast.h);
+    if (toast.t && now - toast.t > 350) { const t = $('#toast'); if (t) t.classList.remove('on'); }
+    if (ui.modal && ui.modal !== 'artlab' && now - (ui.modalT || 0) > 350) closeModal();
+  }
+  function openModal(html) { ui.modalT = performance.now(); const m = $('#modal'); m.innerHTML = `<div class="sheet">${html}</div>`; m.hidden = false; ui.modal = true; }
   function closeModal() { if (ui.modal === 'artlab' && B.ArtLab) B.ArtLab.closed(); const m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.modal = null; ui.confirmBuy = null; clearInterval(ui.sugTimer); }
-  function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), Math.max(2200, String(msg).length * 45)); }
+  function toast(msg) { toast.t = performance.now(); const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), Math.max(2200, String(msg).length * 45)); }
 
   // Team sheet (review #2): items on the LEFT, heroes on the RIGHT. Tap an item, then tap a hero to equip it.
   // Itemization v16: the bag is an inventory grid of rarity-framed icons (best first) and the selected item's card sits

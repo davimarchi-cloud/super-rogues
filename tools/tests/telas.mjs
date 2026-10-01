@@ -72,7 +72,10 @@ ok(await ev(`document.querySelectorAll('#modal .howbasics li').length === 5 && !
 await click('[data-act=close]'); await sleep(100);
 
 // new game, pick 1 hero and 1 relic (review #22), in two steps (v45, review #56)
+// v52 (review #64): a message and a sheet from the screen before do not stay over the next screen
+await ev(`__bal.ACT['form-info']('a leftover message')`); await click('#top [data-act=home-menu]'); await sleep(450);
 await click('[data-act=new-run]'); await sleep(200);
+ok(await ev(`document.getElementById('modal').hidden && !document.getElementById('toast').classList.contains('on')`), 'v52: the toast and the sheet from the screen before are gone once the screen changes');
 const picks = await ev(`[...document.querySelectorAll('[data-act=start-pick]')].length`);
 ok(picks === 3, 'start offers 3 heroes side by side');
 // v49 (review #60): a game only counts once its hero and relic are picked: back on the landing it is Play, not Continue
@@ -170,6 +173,7 @@ while (steps++ < 80) {
     fightsSeen++;
     if (fightsSeen === 1) {
       await shot('04-deploy'); await noHScroll('deploy'); await noVScroll('deploy');
+      ok(await ev(`[...document.querySelectorAll('.foes .fo')].every(f => !!f.querySelector('.fw')) && document.querySelectorAll('.foes .fo, .foes .fs').length >= 1`), 'v52: before a fight, only enemies with abilities get a card; plain ones are small chips');
       // drag a hero to another blue hex with real pointer events
       const moved = await ev(`(async () => {
         const cv = document.querySelector('#board'), h = __bal.run.heroes[0], tgt = { c: h.pos.c === 0 ? 1 : 0, r: 6 };

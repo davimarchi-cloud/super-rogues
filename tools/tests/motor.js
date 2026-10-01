@@ -105,7 +105,7 @@ for (const r of RELICS) {
   Run.choose(run, 0); const W = Run.fightWorld(run); W.over = true; W.winner = 0; Run.finishFight(run, W); while (run.pending.length) Run.chooseSpec(run, 0);
   ok(run.opts.some(o => o.kind === 'heroShop'), 'with a single hero, the first shop/event step offers the Hero Shop');
   const b1 = Run.makeFight(run, 'boss', 4, 1), b2 = Run.makeFight(run, 'boss', 8, 2);
-  ok(b1.enemies.some(e => e.key === 'gorewarden') && b2.enemies.some(e => e.key === 'hollowking') && b1.scale === CFG.fightScale[4] && b2.scale === CFG.fightScale[8] && b2.scale > b1.scale, `bosses at fights 4 and 8 (scale ${b1.scale} and ${b2.scale})`);
+  ok(b1.enemies.some(e => e.key === Run.bossOf(run, 1)) && b2.enemies.some(e => e.key === Run.bossOf(run, 2)) && b1.scale === CFG.fightScale[4] && b2.scale === CFG.fightScale[8] && b2.scale > b1.scale, `bosses at fights 4 and 8 (scale ${b1.scale} and ${b2.scale})`);
   const old = Run.migrate({ v: 4, step: 4, heroes: [], bag: [], relics: [], fightNo: 2 });
   ok(old.v === 5 && old.seq.length === 13 && old.seq[4] === 'B' && old.fightScale[3] === 1.3, 'a run saved before this change keeps its 13 steps and scale');
 }
@@ -333,7 +333,10 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(grew('seraph', (W, u) => Sim.armorOf(W, u)), 'Seraph: armor grows every second');
   ok(grew('bramble', (W, u) => u.maxHp), 'Bramble: max HP grows every second');
   ok(grew('nyx', (W, u) => Sim.atkOf(W, u), 25, 'easy', 1), 'Nyx: attack grows when enemies die nearby');
-  ok(grew('blaze', (W, u) => u.crit, 25), 'Blaze: crit chance grows on crits');
+  ok(grew('blaze', (W, u) => u.crit, 25, 'easy', 2), 'Blaze: crit chance grows on crits');
+  // v52 (review #64): each boss slot has two bosses; every game draws one of each
+  { const seen = [new Set(), new Set()]; for (let i = 0; i < 40; i++) { const r = Run.newRun(4000 + i); seen[0].add(Run.bossOf(r, 1)); seen[1].add(Run.bossOf(r, 2)); }
+    ok(seen[0].size === 2 && seen[1].size === 2 && [...seen[0]].every(k => B.BOSS_SLOTS[0].includes(k)) && [...seen[1]].every(k => B.BOSS_SLOTS[1].includes(k)) && Run.bossOf({}, 1) === 'gorewarden' && Run.bossOf({}, 2) === 'hollowking', 'v52: each game draws one of two bosses per slot (games from before keep the old two)'); }
   ok(grew('echo', (W, u) => W.units.filter(a => a.side === 0).reduce((t, a) => t + Sim.asOf(W, a), 0)), 'Echo: allies attack faster over time');
   ok(CFG.maxTeam === 3, 'team size is 3');
 }
@@ -630,6 +633,16 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   }
   ok([...sizes].every(x => +x.split(':')[1] % 2 === 0) && sizes.has('heroShop:4') && sizes.has('itemShop:6') && sizes.has('relicShop:4') && sizes.has('itemShop+treasure:8') && sizes.has('itemShop+anvil:4'), 'v51: every shop has an even number of offers (' + [...sizes].join(' ') + ')');
   ok(Object.values(HEROES).every(h => typeof h.tag === 'string' && h.tag.length >= 10 && h.tag.length <= 38), 'v51: every hero has a short plain blurb for the shop');
+}
+// ---- v52 (review #64): the two new bosses fight, and their tricks go off
+{
+  const tricks = { mirewitch: ['FROGGED!', 'SINKS INTO THE BOG'], colossus: ['VENTING STEAM', 'SHIELD BEARERS'] };
+  for (const key of Object.keys(B.BOSSES)) {
+    const W = Sim.create({ mode: 'fight', seed: 5, heroes: [['bastion', 3, 5], ['pyra', 4, 7], ['lumen', 2, 7]].map(([k, c, r]) => ({ def: Run.heroDef({ relics: [], heroes: [], bag: [] }, { key: k, lvl: 4, specs: [], items: [], bonus: {}, uid: 1 }), c, r })),
+      enemies: [{ def: Sim.mobScaleDef(key, 1.2), c: 3, r: 1 }] });
+    const seen = new Set(); for (let i = 0; i < 20 * 90 && !W.over; i++) { Sim.step(W); for (const f of W.fx) if (f.k === 'text' && f.t0 === W.t) seen.add(f.text); }
+    ok(finite(W) && (tricks[key] || []).every(t => seen.has(t)), `v52: ${B.BOSSES[key].name} fights cleanly` + (tricks[key] ? ' (' + tricks[key].join(', ') + ')' : ''));
+  }
 }
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

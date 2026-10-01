@@ -1044,8 +1044,45 @@
   A.cleave = (W, u) => { if (!enemies(W, u).some(e => Hx.dist(e, u) <= 1)) return false; fxRing(W, u.c, u.r, 1, '#f44', 12); for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) { deal(W, u, e, 2 * atkOf(W, u), 'phys', { ability: true }); cc(W, e, 'stun', 0.8); } return true; };
   A.nova = (W, u) => { if (!enemies(W, u).some(e => Hx.dist(e, u) <= 2)) return false; fxRing(W, u.c, u.r, 2, '#a4f', 14); for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 2) { deal(W, u, e, 1.5 * atkOf(W, u), 'magic', { ability: true }); cc(W, e, 'stun', 1); } return true; };
 
+  // v52 (review #64): the two new bosses' abilities
+  A.bog = (W, u) => {
+    const t = bestCluster(W, u, 1); if (!t || Hx.dist(u, t) > u.range + 1) return false;
+    fx(W, { k: 'proj', from: u.id, fc: u.c, fr: u.r, to: t.id, tc: t.c, tr: t.r, color: '#7acb3a', t1: W.t + 6 });
+    const c = t.c, r = t.r;
+    at(W, W.t + 6, () => {
+      if (u.dead) return;
+      fxRing(W, c, r, 1, '#7acb3a', 12);
+      for (const e of enemies(W, u)) if (Hx.dist(e, { c, r }) <= 1) { deal(W, u, e, 1.1 * atkOf(W, u), 'magic', { ability: true }); dot(W, e, 'poison', e.maxHp * 0.01, 3, u); }
+      W.zones.push({ c, r, rad: 1, until: W.t + sec(4), dps: 0.25 * atkOf(W, u), side: u.side, src: u.id, color: '#7acb3a' });
+    });
+    return true;
+  };
+  A.quake = (W, u) => {
+    const near = enemies(W, u).filter(e => Hx.dist(e, u) <= 2); if (!near.length) return false;
+    fxRing(W, u.c, u.r, 2, '#ffb347', 14);
+    for (const e of near) { deal(W, u, e, 1.6 * atkOf(W, u), 'phys', { ability: true }); push(W, u, e, 1); }
+    return true;
+  };
   function bossPassives(W, u) {
     const f = u.hp / u.maxHp;
+    if (u.key === 'mirewitch') {
+      if (W.t % sec(9) === 0) {   // the frog: your hero with the most attack is silenced and slowed
+        const t = enemies(W, u).filter(e => e.kind === 'hero' && targetable(W, e)).sort((a, b) => atkOf(W, b) - atkOf(W, a))[0];
+        if (t) { cc(W, t, 'silence', 2); slow(W, t, 0.5, 2); fxText(W, t, 'FROGGED!', '#9ad94a'); fx(W, { k: 'bolt', pts: [[u.c, u.r], [t.c, t.r]], color: '#9ad94a', t1: W.t + 8 }); }
+      }
+      if (f < 0.5 && !u.once.sink) {
+        u.once.sink = 1; u.st.untarg = W.t + sec(3); fxText(W, u, 'SINKS INTO THE BOG', '#9ad94a');
+        for (let i = 0; i < 2; i++) summon(W, u, mobScaleDef('spitter', u.scale || 1));
+        const opts = Hx.all().filter(h => h.r <= 2 && !W.occ[Hx.key(h.c, h.r)]);
+        if (opts.length) { const h = opts[Math.floor(W.rng() * opts.length)]; blink(W, u, h.c, h.r); }
+      }
+      if (f < 0.25 && !u.once.hour) { u.once.hour = 1; fxText(W, u, 'WITCHING HOUR', '#9ad94a'); buff(u, 'asPct', 0.5, 1e9); }
+    }
+    if (u.key === 'colossus') {
+      if (W.t % sec(8) === sec(4)) { u.st.vulnU = W.t + sec(3); u.st.vulnP = Math.max(u.st.vulnP || 0, 0.25); fxText(W, u, 'VENTING STEAM', '#ffffff'); fxRing(W, u.c, u.r, 1, '#ffffff', 12); }
+      if (f < 0.6 && !u.once.gen) { u.once.gen = 1; fxText(W, u, 'SHIELD BEARERS', '#ffcf5a'); for (let i = 0; i < 2; i++) summon(W, u, mobScaleDef('shieldbearer', u.scale || 1)); }
+      if (f < 0.3 && !u.once.melt) { u.once.melt = 1; fxText(W, u, 'MELTDOWN', '#ff7a3d'); buff(u, 'asPct', 0.6, 1e9); buff(u, 'atkPct', 0.2, 1e9); u.m.dmgReduce = (u.m.dmgReduce || 0) - 0.15; }
+    }
     if (u.key === 'gorewarden') {
       if (f < 0.5 && !u.once.horde) { u.once.horde = 1; fxText(W, u, 'CALL THE HORDE', '#f44'); for (let i = 0; i < 3; i++) summon(W, u, mobScaleDef('grunt', u.scale || 1)); }
       if (f < 0.25 && !u.once.enrage) { u.once.enrage = 1; fxText(W, u, 'ENRAGED', '#f44'); buff(u, 'asPct', 0.6, 1e9); buff(u, 'atkPct', 0.2, 1e9); }

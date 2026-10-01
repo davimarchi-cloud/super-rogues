@@ -48,6 +48,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `tools/sugestoes.js` | fila do meu lado: listar (por lote; avisa "📎 arte"), `lendo`, `feito`, `recusa`, `status`, `pausa`/`retoma`, `arte <lote>` (salva as imagens em `art-inbox/`, fora do git) |
 | `tools/sim-run.js`, `tools/boss-matrix.js`, `tools/tune-heroes.js`, `tools/audit-abilities.js`, `tools/challenge-odds.js` | robô joga runs inteiras / todos os times de 3 contra os 2 chefes / vitória contra chefe por herói e ajuste automático (v34) |
 | `tools/relic-odds.js` | v50: quanto cada relíquia de luta muda a chance de vencer (times aleatórios com o nível e os itens da luta N, a mesma luta Hard com e sem a relíquia, mesmas sementes). `node tools/relic-odds.js [times=60] [luta=4] [ids|all] [força=1.45]` (1.45 deixa a base perto de 50%) |
+| `tools/boss-odds.js` | v52: chance de vencer cada chefe de cada posição (times aleatórios um pouco abaixo de uma run típica: posição 1 na luta 4 com Lv 2 e 1 item, posição 2 na luta 8 com Lv 4 e 3 itens; mesmas sementes). `node tools/boss-odds.js [times=80]` |
 | `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `vitrine.mjs` (fotos de todas as telas no celular e em 3 PCs, v29), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
 
 ## Regras do jogo que vieram do briefing (ponto de partida: os jogadores podem mudar qualquer uma)
@@ -129,6 +130,13 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v52 (2026-10-01), lote 50 do David (#64).** (1) "Antes da luta, destacar só os inimigos com habilidade, o resto menor": o `foesHTML` dá cartão só aos grupos com `what`; os outros viram fichinhas `.fs`. (2) "Uma possibilidade a mais para cada chefe, sorteada no início de cada run, e equilibrar": `B.BOSS_SLOTS` = [Gorewarden ou **Mirewitch Morra**, Ashen Sovereign ou **Iron Colossus**], sorteados em `newRun` (`run.bosses`; `Run.bossOf(run, n)`; runs antigas ficam com os dois de antes).
+  - **Mirewitch** (alcance 3, `A.bog`): pântano venenoso que fica no chão (`W.zones`); a cada 9 s transforma em sapo o herói de mais ataque (silêncio e lentidão por 2 s); com 50% afunda (intocável por 3 s), chama 2 serpentes e reaparece; com 25%, Witching Hour.
+  - **Iron Colossus** (golem, `A.quake`): pisa e empurra 1 hex quem está a 2 hex (empurrão contra pedra = SLAM); a cada 8 s solta vapor e leva +25% de dano por 3 s; com 60% chama 2 escudeiros; com 30%, Meltdown (mais rápido e mais forte, mas leva +15%).
+  - Equilibrados com `tools/boss-odds.js`: Gorewarden 53% × Mirewitch 55%; Sovereign 66% × Colossus 68%.
+  - Modelos em models.js, cor do retrato em splash.js, na galeria de testes.
+
+  (3) "Menus e mensagens somem ao trocar de tela": `clearLeftovers()` na troca de tela fecha o toast e o sheet abertos antes (os que o próprio toque acabou de abrir ficam, 350 ms) e cancela o toast de XP pendente.
 - **v51 (2026-10-01), lote 49 do David (#63: "loja nunca com número ímpar de coisas; heróis na loja com descrição simples (tipo joga tortas nos inimigos) e um botão de detalhes").** Lojas sempre pares: heróis 4, itens 6 (8 com o Faded Chart, 4 com o Heirloom Anvil), relíquias 4. O `stockFor` tira a última se ainda sair ímpar, e o Shuffled Deck tira 2 por troca até sobrar 2. Cada herói ganhou uma frase curta (`HEROES[k].tag` em data.js), usada na loja e no 1º passo do início. O botão "More"/"Details" (`hero-peek` → `heroPeekHTML`) abre a ficha: a arte, a frase, a habilidade inteira com os números, como escala e os poderes de cada nível.
 - **v50 (2026-10-01), lote 48 do David (#62: "50 relíquias realmente inventivas: momentos memoráveis, mudar posição e montagem do time, interagir com o tabuleiro, mudar o alvo e a IA, sinergias, economia, rota, lojas, recompensas, escolha de herói, itens e risco; cada uma com identidade e troca").** Pausado na noite de 30/09 a pedido do dono ("volte quando o de 5 h resetar") e retomado por agendamento. 100 relíquias agora (50 novas, todas com `fl`). **Combate** (`sim.js`, `flOf`, então o fantasma do Gauntlet usa também):
   - `relicStart`: Scales of Balance, King's Crown, Harmony Chord, Echo Chime, Overflow Cup, Gravity Stone, Siege Sling, Anchor Chain.

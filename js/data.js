@@ -923,7 +923,15 @@
       desc: 'Cleaves everything around it. Calls the horde at half health and enrages at 25%.', escort: ['grunt', 'grunt', 'archer'] },
     hollowking: { key: 'hollowking', name: 'The Ashen Sovereign', glyph: '👑', boss: 2, hp: 2250, atk: 48, armor: 45, mr: 45, as: 0.7, range: 2, ms: 2, mana: 60, abil: 'nova',
       desc: 'Void Nova stuns everything near it. Rends the weakest hero from afar. Splits its court at 66% and 33%.', escort: ['hexer', 'archer'] },
+    // v52 (review #64, David: "Add an additional possibility for each of the bosses (not chosen, is chosen at random at
+    // start of each run) and balance it"): slot 1 is the Gorewarden or the Mirewitch, slot 2 the Ashen Sovereign or the
+    // Iron Colossus (run.bosses, drawn in Run.newRun). Their strength is tuned with tools/boss-odds.js
+    mirewitch: { key: 'mirewitch', name: 'Mirewitch Morra', glyph: '🧪', boss: 1, slot: 1, hp: 1350, atk: 42, armor: 25, mr: 50, as: 0.7, range: 3, ms: 1.8, mana: 50, abil: 'bog',
+      desc: 'Hurls poison bog that stays on the ground. Turns your strongest hero into a frog every 9s. Sinks into the swamp at half health and calls serpents.', escort: ['grunt', 'spitter', 'archer'] },
+    colossus: { key: 'colossus', name: 'The Iron Colossus', glyph: '🗿', boss: 2, slot: 2, hp: 3500, atk: 64, armor: 60, mr: 35, as: 0.55, range: 1, ms: 1.5, mana: 70, abil: 'quake',
+      desc: 'Stomps the ground and shoves heroes away (into stones, they are stunned). Vents steam every 8s and takes more damage while it does. Calls shield bearers at 60%, melts down at 30%.', escort: ['knight', 'bomber'] },
   };
+  B.BOSS_SLOTS = [['gorewarden', 'mirewitch'], ['hollowking', 'colossus']];
   B.ELITES = [
     { id: 'vampiric', name: 'Vampiric', mods: { ls: 0.3 } },
     { id: 'armored', name: 'Armored', mods: { armor: 50, mr: 50 } },
