@@ -88,7 +88,7 @@
       else if (b.fl === 'rearguard') { buff(u, 'atkPct', 0.2, 1e9); u.ap *= 1.2; }
       else if (b.fl === 'battleline') { buff(u, 'asPct', 0.15, 1e9); buff(u, 'atkPct', 0.15, 1e9); }
       else if (b.fl === 'cover') { u.dodge = Math.min(0.6, u.dodge + 0.15); u.armor += 15; }
-      else if (b.fl === 'highground') { if (b.n > 0) { u.range += 1; buff(u, 'dmgAmp', 0.2, 1e9); } else { buff(u, 'dmgAmp', -0.15, 1e9); continue; } }
+      else if (b.fl === 'highground') { if (b.n > 0) { u.range += 1; buff(u, 'dmgAmp', 0.25, 1e9); } else { buff(u, 'dmgAmp', -0.05, 1e9); continue; } }
       else if (b.fl === 'center') { if (b.n > 0) { u.maxHp = Math.round(u.maxHp * 1.4); u.hp = u.maxHp; buff(u, 'atkPct', 0.4, 1e9); u.ap *= 1.4; } else { u.maxHp = Math.round(u.maxHp * 0.9); u.hp = Math.min(u.hp, u.maxHp); continue; } }
       fxText(W, u, FORM_LABEL[b.fl], '#bfe6ff');
     }
@@ -108,10 +108,11 @@
   function relicStart(W, s, F) {
     const hs = heroesOf(W, s);
     if (!hs.length) return;
-    if (F.scales) { const avg = Math.round(hs.reduce((a, u) => a + u.maxHp, 0) / hs.length); for (const u of hs) { u.maxHp = avg; u.hp = avg; fxText(W, u, 'BALANCED', '#ffe066'); } }
+    if (F.bodyguard) for (const u of hs) if (baseRange(u) <= 1) { u.armor += 20; u.mr += 20; }   // v61 (review #73): the guards hold the line
+    if (F.scales) { const avg = Math.round(1.1 * hs.reduce((a, u) => a + u.maxHp, 0) / hs.length); for (const u of hs) { u.maxHp = avg; u.hp = avg; fxText(W, u, 'BALANCED', '#ffe066'); } }
     if (F.king) {
       const k = hs.slice().sort((a, b) => b.lvl - a.lvl || b.maxHp - a.maxHp)[0];
-      k.king = 1; k.maxHp = Math.round(k.maxHp * 1.6); k.hp = k.maxHp; buff(k, 'atkPct', 0.6, 1e9); fxText(W, k, 'THE KING', '#ffd23f');
+      k.king = 1; k.maxHp = Math.round(k.maxHp * 1.4); k.hp = k.maxHp; buff(k, 'atkPct', 0.4, 1e9);   // v61 (review #73): was +60% fxText(W, k, 'THE KING', '#ffd23f');
     }
     if (F.harmony && hs.length > 1 && (hs.every(u => baseRange(u) <= 1) || hs.every(u => baseRange(u) > 1))) for (const u of hs) { buff(u, 'atkPct', 0.25, 1e9); buff(u, 'asPct', 0.25, 1e9); fxText(W, u, 'HARMONY', '#ffb3c8'); }
     if (F.echo) for (const u of hs) u.mana = 0;
@@ -155,7 +156,7 @@
       if (F.rearguard && u.r === back) out.push({ u, fl: 'rearguard' });
       if (F.battleline && line) out.push({ u, fl: 'battleline' });
       if (F.cover && W.tk && Hx.neighbors(u.c, u.r).some(h => W.tk[Hx.key(h.c, h.r)])) out.push({ u, fl: 'cover' });
-      // v50: back row +1 range and +20% damage, front row 15% less (n = 1 / -1)
+      // v50: back row +1 range and more damage, front row a little less (n = 1 / -1; v61: +25% / -5%)
       if (F.highground && (u.r === back || u.r === front)) out.push({ u, fl: 'highground', n: u.r === back ? 1 : -1 });
     }
     // v50: the hero closest to the middle of your side is the Star (n = 1), the others pay for it (n = -1)
@@ -272,10 +273,9 @@
       if (src.kind === 'hero') {   // v50 (review #62)
         const SF = flOf(W, src.side);
         if (SF.glass) amp += 1;
-        if (SF.packhorn && W.pack && W.pack[src.side] === tgt.id) amp += 0.25;
+        if (SF.packhorn && W.pack && W.pack[src.side] === tgt.id) amp += 0.35;
       }
     }
-    if (o.atk && tgt.kind === 'hero' && flOf(W, tgt.side).mirrorshield) amp += 0.1;
     if (tgt.st.vulnU > W.t) amp += tgt.st.vulnP;
     if (tgt.st.shatterU > W.t) amp += tgt.st.shatterP;
     dmg *= amp;
@@ -285,6 +285,9 @@
     if (tgt.side === 0 && W.tm0 !== 1 && !(type === 'true' && raw >= tgt.hp + tgt.shield)) dmg *= W.tm0;
     if (tgt.anchor && tgt.c === tgt.anchor.c && tgt.r === tgt.anchor.r) dmg *= 0.75;   // v50: the Anchor Chain
     if (tgt.kind === 'hero' && flOf(W, tgt.side).lodestone && lodestar(W, tgt.side) === tgt) dmg *= 0.9;   // v50: the Lodestone
+    // v61 (review #73): the Brotherhood Chain also lowers the damage; a gravestone shelters the heroes next to it
+    if (tgt.kind === 'hero' && flOf(W, tgt.side).bond) dmg *= 0.9;
+    if (tgt.kind === 'hero' && flOf(W, tgt.side).gravestone && W.terrain.some(t => t.grave && Hx.dist(t, tgt) === 1)) dmg *= 0.8;
     dmg = Math.max(1, Math.round(dmg));
     let abs = 0;
     if (tgt.shield > 0 && tgt.shieldU > W.t) { abs = Math.min(tgt.shield, dmg); tgt.shield -= abs; dmg -= abs; }
@@ -308,7 +311,7 @@
       if (o.atk && !o.noThorns && tgt.m.thorns && Hx.dist(src, tgt) <= 1) deal(W, tgt, src, total * tgt.m.thorns, 'magic', { noThorns: true });
     }
     if (tgt.maxMana > 0 && !o.dot) tgt.mana = Math.min(tgt.maxMana, tgt.mana + 3 * manaGain(W, tgt));
-    if (tgt.m.titan && !o.dot) tgt.titan = Math.min(20, tgt.titan + 0.5);
+    if (tgt.m.titan && !o.dot) tgt.titan = Math.min(15, tgt.titan + 0.5);
     if (tgt.fl.has('laststand') && !tgt.once.ls && tgt.hp > 0 && tgt.hp < tgt.maxHp * 0.3) {
       tgt.once.ls = 1; tgt.st.invuln = W.t + sec(2); fxText(W, tgt, 'UNBROKEN', '#ffd23f'); A.bulwark(W, tgt);
     }
@@ -378,7 +381,7 @@
     }
     if (KF.souljar && real) {
       const s = 1 - u.side; W.souls = W.souls || [0, 0]; W.souls[s]++;
-      if (W.souls[s] % 4 === 0) {
+      if (W.souls[s] % 5 === 0) {
         const fallen = W.units.find(v => v.dead && v.side === s && v.kind === 'hero');
         if (fallen) reviveAt(W, fallen, 0.5, 'SOUL JAR'); else for (const v of heroesOf(W, s)) heal(W, v, v.maxHp * 0.3, true);
       }
@@ -507,7 +510,7 @@
     u.atkN++;
     if (u.garrison && dealt > 0) { const t = W.byId[u.garrison]; if (t && !t.dead && t.maxMana) t.mana = Math.min(t.maxMana, t.mana + 5); }   // v60: Citadel
     if (!u.dead) {
-      u.mana = Math.min(u.maxMana, u.mana + (10 + (u.m.manaOnHit || 0)) * manaGain(W, u)); if (u.ab.focus) u.focus = Math.min(u.ab.focusCap || 15, u.focus + 1); if (u.m.titan) u.titan = Math.min(20, u.titan + 0.5);
+      u.mana = Math.min(u.maxMana, u.mana + (10 + (u.m.manaOnHit || 0)) * manaGain(W, u)); if (u.ab.focus) u.focus = Math.min(u.ab.focusCap || 15, u.focus + 1); if (u.m.titan) u.titan = Math.min(15, u.titan + 0.5);
       if (u.m.stackAtk && (u.sc.sa || 0) < u.m.stackAtkCap) { u.sc.sa = (u.sc.sa || 0) + 1; u.bAtk += u.m.stackAtk; }
       if (u.m.stackAs && (u.sc.ss || 0) < u.m.stackAsCap) { u.sc.ss = (u.sc.ss || 0) + 1; u.bAsPct += u.m.stackAs; }
       if (u.m.apPerAtk) u.ap += u.m.apPerAtk;
@@ -1262,9 +1265,10 @@
   // v50 (review #62): the new relics that act on a clock
   function relicTick(W) {
     const any = f => W.fl[f] || W.fl1[f];
-    if (any('quakedrum') && W.t % sec(8) === 0) {
+    // v61 (review #73): the quake only stuns the drummer's enemies (it stunned your own heroes too, and cost fights)
+    for (const s of [0, 1]) if (flOf(W, s).quakedrum && W.t % sec(8) === 0) {
       fx(W, { k: 'banner', text: 'The ground shakes!', t1: W.t + 24 });
-      for (const u of W.units) if (!u.dead && nextToTerrain(W, u)) { cc(W, u, 'stun', 1); fxText(W, u, 'QUAKE', '#e8d9b0'); }
+      for (const u of W.units) if (!u.dead && u.side !== s && nextToTerrain(W, u)) { cc(W, u, 'stun', 1); fxText(W, u, 'QUAKE', '#e8d9b0'); }
     }
     if (W.t % TPS === 0) for (const s of [0, 1]) if (flOf(W, s).bramblecrown) {
       for (const u of W.units) if (!u.dead && nextToTerrain(W, u) && (u.side !== s || u.kind === 'hero')) deal(W, null, u, u.maxHp * (u.side !== s ? 0.03 : 0.01), 'true', { dot: true });
@@ -1277,7 +1281,7 @@
           const a = { c: lo.c, r: lo.r }, b = { c: hi.c, r: hi.r };
           W.occ[Hx.key(a.c, a.r)] = 0; W.occ[Hx.key(b.c, b.r)] = 0;
           for (const [u, h] of [[lo, b], [hi, a]]) { fx(W, { k: 'blink', c: u.c, r: u.r, color: '#c9c9d9', t1: W.t + 8 }); u.c = u.fc = h.c; u.r = u.fr = h.r; u.m0t = u.m1t = W.t; W.occ[Hx.key(h.c, h.r)] = u.id; if (u.anchor) u.anchor = null; }
-          fxText(W, lo, 'SWAP', '#c9c9d9'); fxText(W, hi, 'SWAP', '#c9c9d9');
+          fxText(W, lo, 'SWAP', '#c9c9d9'); fxText(W, hi, 'SWAP', '#c9c9d9'); heal(W, lo, lo.maxHp * 0.15, true);
         }
       }
       if (F.timecrystal && W.t % sec(12) === 0) {
@@ -1285,8 +1289,9 @@
         for (const u of W.units) if (!u.dead && u.side !== s) { cc(W, u, 'stun', 1.5); u.st.frozenU = Math.max(u.st.frozenU || 0, W.t + sec(1.5)); }
       }
     }
-    if (any('jesterbell') && W.t % sec(8) === sec(4)) {
-      const pool = W.units.filter(u => !u.dead && !u.boss && !ccImmune(W, u));
+    // v61 (review #73): 3 times in 4 the bell picks among the ringer's enemies, else among everyone
+    for (const s of [0, 1]) if (flOf(W, s).jesterbell && W.t % sec(8) === sec(4)) {
+      const foes = W.rng() < 0.75, pool = W.units.filter(u => !u.dead && !u.boss && !ccImmune(W, u) && (!foes || u.side !== s));
       if (pool.length) { const u = pool[Math.floor(W.rng() * pool.length)]; u.st.confuseU = W.t + sec(2.5); u.tgt = 0; fxText(W, u, 'CONFUSED', '#ff6fb5'); fxRing(W, u.c, u.r, 0, '#ff6fb5', 10); }
     }
   }

@@ -185,7 +185,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   const W = Run.gauntletWorld(run);
   const ghost = W.units.filter(u => u.side === 1), mine = W.units.filter(u => u.side === 0);
   const exp = Run.heroDef({ relics }, other.heroes[0]);
-  ok(ghost.length === 2 && Math.round(ghost.find(u => u.key === 'bastion').maxHp) === Math.round(exp.hp) && ghost.find(u => u.key === 'bastion').m.hp >= 400 + 150, 'ghost heroes wear their items and stat relics (Warmog + Giant Tooth)');
+  ok(ghost.length === 2 && Math.round(ghost.find(u => u.key === 'bastion').maxHp) === Math.round(exp.hp) && ghost.find(u => u.key === 'bastion').m.hp >= 200 + 150, 'ghost heroes wear their items and stat relics (Warmog + Giant Tooth)');
   ok(mine.every(u => u.st.slowU > W.t) && ghost.every(u => u.buffs.some(b => b.s === 'asPct' && b.v === 0.3)) && !mine.some(u => u.buffs.some(b => b.s === 'asPct' && b.v === 0.3)), "the ghost's team relics work for the ghost: its Frost Sigil slows us, its War Horn speeds up its own heroes");
   for (const u of ghost) u.hp = 5;  // so a ghost hero surely dies
   let phoenix = 0; for (let k = 0; k < 20 * 90 && !W.over; k++) { Sim.step(W); for (const f of W.fx) if (f.k === 'text' && f.text === 'ASHEN PLUME' && W.byId[f.id] && W.byId[f.id].side === 1) phoenix = 1; }
@@ -310,7 +310,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   const [h, m] = W.units; for (const u of W.units) { u.st.stun = 1e9; u.m.regen = 0; }
   W.t = Sim.sec(CFG.suddenDeath) - 1; const h0 = h.hp, m0 = m.hp;
   for (let i = 0; i < Sim.TPS * 2 + 1; i++) Sim.step(W);
-  ok(Math.round(h0 - h.hp) === Math.round(h.maxHp * 0.03) && Math.round(m0 - m.hp) === Math.round(m.maxHp * 0.03), `sudden death: both sides burn 1% then 2% of max HP (hero -${Math.round(h0 - h.hp)}, enemy -${Math.round(m0 - m.hp)})`);
+  ok(Math.round(h0 - h.hp) === Math.round(h.maxHp * 0.01) + Math.round(h.maxHp * 0.02) && Math.round(m0 - m.hp) === Math.round(m.maxHp * 0.01) + Math.round(m.maxHp * 0.02), `sudden death: both sides burn 1% then 2% of max HP (hero -${Math.round(h0 - h.hp)}, enemy -${Math.round(m0 - m.hp)})`);
   const B2 = Sim.create({ mode: 'fight', seed: 4, noStart: true, heroes: [{ def: Run.heroDef({ relics: [] }, { key: 'vex', lvl: 1, specs: [], items: [], bonus: {} }), c: 3, r: 6 }], enemies: [{ def: Sim.mobScaleDef('gorewarden', 1.3), c: 3, r: 2 }] });
   const vx = B2.units[0], boss = B2.units[1];
   Sim.cc(B2, boss, 'stun', 2);
@@ -333,7 +333,12 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   ok(grew('seraph', (W, u) => Sim.armorOf(W, u)), 'Seraph: armor grows every second');
   ok(grew('bramble', (W, u) => u.maxHp), 'Bramble: max HP grows every second');
   ok(grew('nyx', (W, u) => Sim.atkOf(W, u), 25, 'easy', 1), 'Nyx: attack grows when enemies die nearby');
-  ok(grew('blaze', (W, u) => u.crit, 25, 'easy', 2), 'Blaze: crit chance grows on crits');
+  { // v61: Blaze starts at a high crit chance so a crit surely happens (the fight result moves with every balance pass)
+    const run = Run.newRun(88); Run.pickStart(run, ['blaze', 'bastion']); run.cur = Run.makeFight(run, 'medium', 3);
+    const W = Run.fightWorld(run), u = W.units.find(x => x.key === 'blaze'); u.crit = 0.6;
+    for (let i = 0; i < 10 * 20 && !W.over; i++) Sim.step(W);
+    ok(u.crit > 0.6, 'Blaze: crit chance grows on crits');
+  }
   // v52 (review #64): each boss slot has two bosses; every game draws one of each
   { const seen = [new Set(), new Set()]; for (let i = 0; i < 40; i++) { const r = Run.newRun(4000 + i); seen[0].add(Run.bossOf(r, 1)); seen[1].add(Run.bossOf(r, 2)); }
     ok(seen[0].size === 2 && seen[1].size === 2 && [...seen[0]].every(k => B.BOSS_SLOTS[0].includes(k)) && [...seen[1]].every(k => B.BOSS_SLOTS[1].includes(k)) && Run.bossOf({}, 1) === 'gorewarden' && Run.bossOf({}, 2) === 'hollowking', 'v52: each game draws one of two bosses per slot (games from before keep the old two)'); }
@@ -528,8 +533,9 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   let W = steps(mk(['gravestone'], TEAM, FOES), 20 * 60);
   const graves = W.terrain.filter(t => t.grave);
   ok(graves.length >= 2 && graves.every(t => W.tk[Hex.key(t.c, t.r)] === 'rock'), `Undertaker's Shovel: fallen enemies leave gravestones that block the way (${graves.length})`);
-  const nb = Hex.neighbors(2, 3).find(h => h.r >= 4); W = mk(['quakedrum', 'stonefoot'], [['bastion', nb.c, nb.r]], [['brute', 6, 0]]); steps(W, 160);
-  ok(W.units[0].st.stun > W.t, 'Earthshaker Drum: at 8s a hero next to a tree is stunned');
+  const nb = Hex.neighbors(2, 3).find(h => h.r >= 4), nf = Hex.neighbors(2, 3).find(h => h.r < 4 && Hex.dist(h, nb) === 1);
+  W = mk(['quakedrum', 'stonefoot'], [['bastion', nb.c, nb.r]], [['knight', nf.c, nf.r]]); steps(W, 160);
+  ok(W.units[1].st.stun > W.t && !(W.units[0].st.stun > W.t), 'Earthshaker Drum: at 8s an enemy next to a tree is stunned, your hero there is not');
   W = mk(['bramblecrown'], [['pyra', 0, 7]], [['golem', 5, 3]]); steps(W, 40);
   const golem = W.units.find(u => u.side === 1);
   ok(golem.dmgTaken > 0, 'Thorn Crown: an enemy next to a boulder loses HP every second');
@@ -565,7 +571,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   W = mk(['gravecaller'], TEAM, FOES); let risen = 0; for (let i = 0; i < 20 * 60 && !W.over; i++) { Sim.step(W); risen = Math.max(risen, W.units.filter(u => u.side === 0 && u.kind === 'summon' && !u.dead && u.expireT).length); }
   ok(risen >= 1, 'Gravecaller Lantern: fallen enemies rise on your side for a while');
   W = mk(['king'], [['pyra', 3, 7, 1], ['bastion', 3, 5, 3]], FOES); const king = W.units.find(u => u.king);
-  ok(king && king.key === 'bastion' && king.maxHp === Math.round(Math.round(HD(['king'], 'bastion', 3).hp) * 1.6), "King's Crown: the highest-level hero is crowned with +60% HP");
+  ok(king && king.key === 'bastion' && king.maxHp === Math.round(Math.round(HD(['king'], 'bastion', 3).hp) * 1.4), "King's Crown: the highest-level hero is crowned with +40% HP");
   // ---- mana
   W = mk(['echo'], TEAM, FOES); ok(W.units.filter(u => u.side === 0).every(u => u.mana === 0), 'Echo Chime: heroes start with no mana');
   let ech = 0; for (let i = 0; i < 20 * 25 && !W.over; i++) { Sim.step(W); ech += W.fx.filter(f => f.k === 'text' && f.text === 'ECHO' && f.t0 === W.t).length; } ok(ech >= 1, `Echo Chime: a first ability went off twice (${ech} echoes)`);
@@ -619,7 +625,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   r = RUN(42, ['snowball']); fightOf(r); Run.finishFight(r, fake(r)); r.phase = 'map'; fightOf(r); Run.finishFight(r, fake(r)); const sn = r.snow;
   r.phase = 'map'; fightOf(r); Run.finishFight(r, fake(r, true)); ok(sn === 2 && r.snow === 0, 'Snowball: grows with every clean win, melts when a hero falls');
   r = RUN(43, ['packrat']); r.bag = ['longsword', 'cloth', 'boots']; ok(Run.heroDef(r, r.heroes[0]).atk > Run.heroDef(RUN(43, ['packrat']), r.heroes[0]).atk * 1.08, "Pack Rat's Sack: items in the bag make everyone stronger");
-  r = RUN(44, ['vow']); const v1 = Run.heroDef(r, r.heroes[0]).atk; r.heroes[0].items = ['longsword', 'cloth']; ok(v1 > Run.heroDef(r, r.heroes[0]).atk, "Minimalist's Vow: one item or none = stronger");
+  r = RUN(44, ['vow']); const v1 = Run.heroDef(r, r.heroes[0]).atk; r.heroes[0].items = ['chainmail', 'cap', 'cloak', 'jerky', 'boots'].slice(0, Run.slots(r, r.heroes[0])); ok(v1 > Run.heroDef(r, r.heroes[0]).atk, "Minimalist's Vow: a free item slot = stronger");
   r = RUN(45, ['xmap']); r.phase = 'map'; r.opts = [{ type: 'event', id: 'recruit' }]; Run.choose(r, 0); const bag45 = r.bag.length; Run.eventAct(r, 0);
   ok(r.bag.length === bag45 + 1 && r.cur.gains.some(g => g.kind === 'item'), 'Treasure Map: every event also gives an item');
   r = RUN(46, ['phoenix']); fightOf(r); const ph = fake(r); ph.winner = 1; ph.used = { phoenix: 1 }; res = Run.finishFight(r, ph);

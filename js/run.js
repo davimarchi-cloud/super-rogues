@@ -102,12 +102,15 @@
     if (has(run, 'cabinet')) p += 0.03 * run.relics.length;
     if (has(run, 'snowball')) p += 0.04 * (run.snow || 0);
     if (has(run, 'packrat')) p += 0.03 * Math.min(10, (run.bag || []).length);
-    if (has(run, 'vow') && h.items.length <= 1) p += 0.5;
+    if (has(run, 'vow') && h.items.length < slots(run, h)) p += 0.3;   // v61 (review #73): a free slot (it was 'one item or none', free for everyone below Lv 3), +30% (was +50%)
     return p ? { atkPct: p, hpPct: p } : null;
   }
   function slots(run, h) { return C.baseSlots + Math.max(0, h.lvl - 2) + (run.relics.includes('backpack') ? 1 : 0) + (lone(run) ? 2 : 0); }
   function heroDef(run, h) {
     const b = B.HEROES[h.key], m = heroMods(run, h), L = h.lvl - 1, all = m.allPct || 0;
+    // v61 (review #73): each hero grows at its own pace per level (b.grow, 1 = +15% HP and attack and +30 AP per level),
+    // so heroes that were strong early and fell off late (or the reverse) stay in line through the whole run
+    const g = b.grow || 1;
     const ab = Object.assign({}, b.ab), fl = (b.fl || []).slice();
     for (const id of h.specs) {
       const s = specOf(h.key, id); if (!s) continue;
@@ -116,9 +119,9 @@
     }
     return {
       kind: 'hero', uid: h.uid, key: h.key, name: b.name, glyph: b.glyph, color: b.color, lvl: h.lvl,
-      hp: (b.hp + (m.hp || 0)) * (1 + 0.15 * L) * (1 + (m.hpPct || 0) + all),
-      atk: (b.atk + (m.atk || 0)) * (1 + 0.15 * L) * (1 + (m.atkPct || 0) + all),
-      ap: (100 + 30 * L + (m.ap || 0)) * (1 + all),   // review #26: AP 100 at Lv 1, +30 per level (it now scales abilities on its own)
+      hp: (b.hp + (m.hp || 0)) * (1 + 0.15 * g * L) * (1 + (m.hpPct || 0) + all),
+      atk: (b.atk + (m.atk || 0)) * (1 + 0.15 * g * L) * (1 + (m.atkPct || 0) + all),
+      ap: (100 + 30 * g * L + (m.ap || 0)) * (1 + all),   // review #26: AP 100 at Lv 1, +30 per level (it now scales abilities on its own)
       armor: (b.armor + 4 * L + (m.armor || 0)) * (1 + all),
       mr: (b.mr + 4 * L + (m.mr || 0)) * (1 + all),
       as: b.as * Math.max(0.3, 1 + (m.asPct || 0)), range: Math.max(1, b.range + (m.range || 0)), ms: b.ms + (m.ms || 0),
@@ -186,8 +189,11 @@
 
   // ------------------------------------------------------------------ fights
   function poolFor(n) { let k = 1; for (const x of Object.keys(B.POOLS).map(Number)) if (x <= n) k = x; return B.POOLS[k]; }
+  // v61: a difficulty strength, one number or one per fight number (B.DIFF.hard.mul[fightNo])
+  function diffMul(diff, fightNo) { const m = B.DIFF[diff] && B.DIFF[diff].mul; return Array.isArray(m) ? m[Math.min(fightNo, m.length - 1)] : m || 1; }
   function makeFight(run, diff, fightNo, nth, o) {
-    const fs = run.fightScale || C.fightScale, scale = fs[Math.min(fightNo, fs.length - 1)] * ((o && o.scaleMul) || 1);
+    // v61 (review #73): each difficulty has its own strength on top of the fight's scale (B.DIFF[diff].mul)
+    const fs = run.fightScale || C.fightScale, scale = fs[Math.min(fightNo, fs.length - 1)] * ((o && o.scaleMul) || 1) * diffMul(diff, fightNo);
     const enemies = [];
     if (o && o.keys) { for (const k of o.keys) enemies.push({ key: k }); for (const e of pickN(run, enemies, o.elites || 0)) e.elite = pick(run, B.ELITES).id; }
     else if (diff === 'boss') {
@@ -741,10 +747,11 @@
     const pool = run.bag.concat(...run.heroes.map(h => h.items));
     for (const h of run.heroes) h.items = [];
     const left = pool.slice(), MIN = 0.2;   // best matches go first; a free slot still takes a small plus, never an off-role item
+    const cap = h => slots(run, h) - (has(run, 'vow') ? 1 : 0);   // v61: the Minimalist's Vow pays for one free slot
     for (;;) {
       let best = null;
       for (const h of run.heroes) {
-        if (h.items.length >= slots(run, h)) continue;
+        if (h.items.length >= cap(h)) continue;
         const sc = setCounts(h.items);
         for (let i = 0; i < left.length; i++) {
           const id = left[i], it = B.ITEM[id]; if (h.items.some(x => B.ITEM[x].type === it.type)) continue;
@@ -762,6 +769,6 @@
   B.Run = { mapOf, blockedAt, gauntletMap, newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
     finishFight, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
     eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate, canEquip, setCounts, setBonuses, seqOf, bossFight,
-    eventChoices, eventTargets, canChoose, itemRefs, upgradedOf, reqHeroes, evScale, pickEvent, startChallenge, CH, bossOf, autoEquip, itemScore, heroProfile };
+    eventChoices, eventTargets, canChoose, itemRefs, upgradedOf, reqHeroes, evScale, pickEvent, startChallenge, CH, bossOf, autoEquip, itemScore, heroProfile, randomItem };
   if (typeof module !== 'undefined') module.exports = B.Run;
 })(typeof window !== 'undefined' ? window : globalThis);

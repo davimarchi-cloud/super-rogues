@@ -11,7 +11,7 @@
     xpLevels: [0, 0, 30, 85, 180, 330], // cumulative XP to reach level N (index = level); 1 XP per second alive
     maxLevel: 5, baseSlots: 1,          // item slots: 1 at Lv1-2, +1 at Lv3, Lv4, Lv5
     // by fight number (1..8). Review #22: 8 fights, bosses at 4 and 8 keep the strength they had at 3 and 6 (1.3, 2)
-    fightScale: [1, 0.9, 1.0, 1.15, 1.55, 1.6, 1.8, 2.0, 2.45],
+    fightScale: [1, 1.17, 1.37, 1.4, 1.42, 1.85, 1.98, 2.24, 2.42],   // v61 (review #73): tuned by tools/tune-pve.js (medium ~90%, bosses ~55%)
     firstFight: 0.5,  // review #22: the first fight is fought by a single hero: half the usual enemy budget
     suddenDeath: 45, fightCap: 150,     // seconds
     suddenDeathRamp: 0.01,              // review #24: sudden death burns every unit for 1%, 2%, 3%... of max HP per second
@@ -27,7 +27,7 @@
   const H = (o) => o;
   B.HEROES = {
     bastion: H({ name: 'Aegir', glyph: '🛡', role: 'Tank', color: '#4f7cff',
-      hp: 950, atk: 45, armor: 45, mr: 30, as: 0.65, range: 1, ms: 2, mana: 90, m0: 30,
+      hp: 865, atk: 40, armor: 45, mr: 30, as: 0.65, range: 1, ms: 2, mana: 99, m0: 30, grow: 0.5,
       abil: 'bulwark', abName: 'Stoneward', abDesc: 'Raises a stone ward: a shield of 33% of his max HP. Taunts enemies within 2 hexes for 2.5s.',
       ab: { shield: 0.33, radius: 2, taunt: 2.5, allyShield: 0, burst: 0, stun: 0 },
       specs: [
@@ -41,7 +41,7 @@
          { id: 'bas5b', name: 'Tremor', desc: 'Taunted enemies are also stunned for 1.2s.', ab: { stun: 1.2 } }],
       ] }),
     vex: H({ name: 'Vex', glyph: '🗡', role: 'Assassin', color: '#a05cff',
-      hp: 560, atk: 72, armor: 20, mr: 20, as: 0.95, range: 1, ms: 3, mana: 60, m0: 40, crit: 0.2,
+      hp: 565, atk: 72, armor: 20, mr: 20, as: 0.95, range: 1, ms: 3, mana: 60, m0: 40, crit: 0.2, grow: 0.5,
       abil: 'shadowstep', abName: 'Veilstrike', abDesc: 'Blinks next to the weakest enemy and strikes for 300% AD physical damage.',
       ab: { dmg: 3, twin: 0, execute: 0, untarg: 0, mark: 0 },
       specs: [
@@ -55,7 +55,7 @@
          { id: 'vex5b', name: 'Phantom', desc: '+25% dodge and +1 move speed.', mods: { dodge: 0.25, ms: 1 } }],
       ] }),
     pyra: H({ name: 'Feuer', glyph: '🔥', role: 'Mage', color: '#ff7a3d',
-      hp: 735, atk: 56, armor: 15, mr: 30, as: 0.75, range: 3, ms: 2, mana: 50, m0: 20,
+      hp: 690, atk: 52, armor: 15, mr: 30, as: 0.75, range: 3, ms: 2, mana: 53, m0: 20, grow: 1.1,
       abil: 'fireball', abName: 'Cinder Comet', abDesc: 'Hurls a comet at the densest enemy group: 95% AP magic damage in 1 hex, and a burn of 14% AP per second for 3s.',
       ab: { dmg: 0.95, radius: 1, burn: 0.14, twin: 0, stun: 0, patch: 0 },
       specs: [
@@ -69,7 +69,7 @@
          { id: 'pyr5b', name: 'Rekindle', desc: 'Once per fight, revives at 40% HP after dying.', mods: { revive: 0.4 } }],
       ] }),
     glacia: H({ name: 'Frostbane', glyph: '❄', role: 'Controller', color: '#5fd4ff',
-      hp: 810, atk: 54, armor: 20, mr: 35, as: 0.7, range: 3, ms: 2, mana: 53, m0: 30,
+      hp: 770, atk: 51, armor: 20, mr: 35, as: 0.7, range: 3, ms: 2, mana: 56, m0: 30, grow: 0.61,
       abil: 'blizzard', abName: 'Rime Squall', abDesc: 'Freezes the densest enemy group for 1.5s with 70% AP magic damage, then slows them by 40% for 2s.',
       ab: { dmg: 0.7, radius: 1, freeze: 1.5, slow: 0.4, shatter: 0, iceArmor: 0 },
       specs: [
@@ -83,7 +83,7 @@
          { id: 'gla5b', name: 'Glacial Prison', desc: 'At fight start, freezes the toughest enemy for 3s.', fl: ['prison'] }],
       ] }),
     brakk: H({ name: 'Ironhorn', glyph: '🐗', role: 'Bruiser', color: '#c4513a',
-      hp: 680, atk: 50, armor: 30, mr: 20, as: 0.8, range: 1, ms: 2.5, mana: 84, m0: 50, ls: 0.1,
+      hp: 710, atk: 53, armor: 30, mr: 20, as: 0.8, range: 1, ms: 2.5, mana: 80, m0: 50, ls: 0.1, grow: 0.89,
       abil: 'charge', abName: 'Ramming Charge', abDesc: 'Charges the farthest enemy within 4 hexes: 150% AD physical damage and a 1s stun to adjacent enemies, and gains 30% lifesteal for 4s.',
       ab: { dmg: 1.5, stun: 1, lsBuff: 0.3, frenzy: 0, sunder: 0, reach: 4 },
       specs: [
@@ -97,7 +97,7 @@
          { id: 'bra5b', name: 'Warlord', desc: 'Adjacent allies gain +20% attack.', mods: { aura: [{ r: 1, stat: 'atkPct', val: 0.2 }] } }],
       ] }),
     lumen: H({ name: 'Solace', glyph: '✚', role: 'Healer', color: '#ffe066',
-      hp: 515, atk: 28, armor: 20, mr: 30, as: 0.7, range: 3, ms: 2, mana: 82, m0: 25,
+      hp: 600, atk: 33, armor: 20, mr: 30, as: 0.7, range: 3, ms: 2, mana: 71, m0: 25, grow: 0.5,
       abil: 'radiance', abName: 'Dawnmend', abDesc: 'Heals the weakest ally for 245% AP and allies next to them for 105% AP.',
       ab: { heal: 2.45, splash: 1.05, radius: 1, shield: 0, regen: 0, smite: 0, cleanse: 0 },
       specs: [
@@ -111,7 +111,7 @@
          { id: 'lum5b', name: 'Hallowed Aura', desc: 'All allies gain +15 armor and magic resist.', mods: { aura: [{ r: 9, stat: 'armor', val: 15 }, { r: 9, stat: 'mr', val: 15 }] } }],
       ] }),
     kestrel: H({ name: 'Talon', glyph: '🏹', role: 'Ranger', color: '#7bd66b',
-      hp: 450, atk: 50, armor: 15, mr: 15, as: 0.9, range: 4, ms: 2, mana: 69, m0: 0,
+      hp: 470, atk: 52, armor: 15, mr: 15, as: 0.9, range: 4, ms: 2, mana: 66, m0: 0, grow: 1.09,
       abil: 'volley', abName: 'Volley', abDesc: 'Passive (Focus): each attack gives +3% attack speed (stacks 15x). Active: fires 5 arrows at random enemies, 100% AD physical damage each.',
       ab: { count: 5, dmg: 1, all: 0, pierce: 0, focus: 0.03, focusCap: 15 },
       specs: [
@@ -125,7 +125,7 @@
          { id: 'kes5b', name: 'Piercing Shots', desc: 'Ignore 50% armor, +50% crit damage.', mods: { armorPen: 0.5, critDmg: 0.5 } }],
       ] }),
     morrow: H({ name: 'Graveborn', glyph: '💀', role: 'Summoner', color: '#9aa3b5',
-      hp: 475, atk: 30, armor: 20, mr: 30, as: 0.7, range: 3, ms: 2, mana: 85, m0: 40,
+      hp: 410, atk: 26, armor: 20, mr: 30, as: 0.7, range: 3, ms: 2, mana: 99, m0: 40, grow: 1.65,
       abil: 'raise', abName: 'Bone Call', abDesc: 'Raises 2 skeleton warriors next to Graveborn, each with 300% AP as HP and 30% AP as attack.',
       ab: { count: 2, hpMul: 1, archers: 0, explode: 0, colossus: 0 },
       specs: [
@@ -139,7 +139,7 @@
          { id: 'mor5b', name: 'Deathless Shape', desc: '+50 AP and attacks splash 30%.', mods: { ap: 50, splash: 0.3 } }],
       ] }),
     tempest: H({ name: 'Tempest', glyph: '⚡', role: 'Mage', color: '#b9a8ff',
-      hp: 660, atk: 52, armor: 15, mr: 30, as: 0.8, range: 3, ms: 2, mana: 54, m0: 30,
+      hp: 620, atk: 49, armor: 15, mr: 30, as: 0.8, range: 3, ms: 2, mana: 57, m0: 30, grow: 1.8,
       abil: 'chain', abName: 'Arc Cascade', abDesc: 'Lightning bounces between 4 enemies: 90% AP magic damage each (10% less per bounce), stunning each for 0.4s.',
       ab: { bounces: 4, dmg: 0.9, stun: 0.4, falloff: 0.1, twice: 0 },
       specs: [
@@ -153,7 +153,7 @@
          { id: 'tem5b', name: 'Twin Cascade', desc: 'Arc Cascade is cast twice.', ab: { twice: 1 } }],
       ] }),
     grimhook: H({ name: 'Hookjaw', glyph: '⚓', role: 'Controller', color: '#2fb3a0',
-      hp: 925, atk: 62, armor: 35, mr: 30, as: 0.75, range: 1, ms: 2, mana: 64, m0: 30,
+      hp: 915, atk: 62, armor: 35, mr: 30, as: 0.75, range: 1, ms: 2, mana: 65, m0: 30, grow: 0.74,
       abil: 'hook', abName: 'Hook', abDesc: 'Hooks the farthest enemy within 5 hexes and drags it next to Hookjaw: 120% AD physical damage and a 1.5s stun.',
       ab: { reach: 5, dmg: 1.2, stun: 1.5, count: 1, vuln: 0, whirl: 0, pullAll: 0 },
       specs: [
@@ -167,7 +167,7 @@
          { id: 'gri5b', name: 'Pull of the Deep', desc: 'Also drags every enemy within 3 hexes one step closer and stuns them 1s.', ab: { pullAll: 1 } }],
       ] }),
     mirage: H({ name: 'Mirage', glyph: '🎭', role: 'Trickster', color: '#ff6fb5',
-      hp: 445, atk: 45, armor: 18, mr: 25, as: 0.9, range: 2, ms: 3, mana: 73, m0: 20, dodge: 0.15,
+      hp: 385, atk: 38, armor: 18, mr: 25, as: 0.9, range: 2, ms: 3, mana: 85, m0: 20, dodge: 0.15, grow: 1.69,
       abil: 'mirror', abName: 'Twinned Veil', abDesc: 'Creates 2 decoy clones with 40% of her HP, attack and armor, and blinks to the safest hex.',
       ab: { count: 2, stat: 0.4, explode: 0, backstab: 0, silence: 0 },
       specs: [
@@ -181,7 +181,7 @@
          { id: 'mir5b', name: 'Phase Shift', desc: 'Once per fight, lethal damage instead leaves Mirage untargetable for 2s and heals 30%.', fl: ['phaseshift'] }],
       ] }),
     rook: H({ name: 'Rivet', glyph: '⚙', role: 'Engineer', color: '#d9a441',
-      hp: 590, atk: 40, armor: 25, mr: 20, as: 0.8, range: 2, ms: 2, mana: 74, m0: 50,
+      hp: 565, atk: 38, armor: 25, mr: 20, as: 0.8, range: 2, ms: 2, mana: 78, m0: 50, grow: 1.66,
       abil: 'turret', abName: 'Clockwork Turret', abDesc: 'Builds a turret (range 3, 80% of his AD as attack) next to Rivet. Max 2; at max, repairs them instead.',
       ab: { max: 2, hpMul: 1, asMul: 1, burn: 0, stun: 0, mortar: 0 },
       specs: [
@@ -196,7 +196,7 @@
       ] }),
     // ---- v5 (review #2): heroes whose power grows during the fight (passive scaling, from the start or on upgrade)
     thorne: H({ name: 'Ravager', glyph: '🪓', role: 'Berserker', color: '#d4483b',
-      hp: 875, atk: 58, armor: 25, mr: 20, as: 0.8, range: 1, ms: 2.5, mana: 62, m0: 20,
+      hp: 845, atk: 56, armor: 25, mr: 20, as: 0.8, range: 1, ms: 2.5, mana: 64, m0: 20, grow: 1.04,
       mods: { stackAtk: 2, stackAtkCap: 25 },
       abil: 'whirl', abName: 'Crimson Spin', abDesc: 'Passive (Fury): +2 AD per hit (stacks 25x). Active: spins, hitting every adjacent enemy for 180% AD physical damage and healing 15% of the damage.',
       ab: { dmg: 1.8, heal: 0.15, radius: 1 },
@@ -211,7 +211,7 @@
          { id: 'thr5b', name: 'Titan Swing', desc: 'The spin deals double damage.', ab: { dmg: 1.8 } }],
       ] }),
     seraph: H({ name: 'Radiant', glyph: '😇', role: 'Paladin', color: '#f0d27a',
-      hp: 860, atk: 44, armor: 35, mr: 30, as: 0.7, range: 1, ms: 2, mana: 80, m0: 30,
+      hp: 820, atk: 41, armor: 35, mr: 30, as: 0.7, range: 1, ms: 2, mana: 85, m0: 30, grow: 0.5,
       mods: { rampArmor: 2, rampArmorCap: 40 },
       abil: 'consecrate', abName: 'Hallowed Ground', abDesc: 'Passive: +2 armor and MR every second (up to +40). Active: hallows the ground around her for 4s: enemies on it take 30% AP magic damage per second, allies on it heal 3% of their max HP per second.',
       ab: { radius: 1, dur: 4, dps: 0.3, heal: 0.03, shield: 0 },
@@ -226,7 +226,7 @@
          { id: 'ser5b', name: 'Ascension', desc: 'Her armor and MR keep growing up to +80.', mods: { rampArmorCap: 40 } }],
       ] }),
     nyx: H({ name: 'Nyx', glyph: '🌑', role: 'Hexblade', color: '#35c6d6',
-      hp: 760, atk: 74, armor: 20, mr: 25, as: 0.9, range: 1, ms: 3, mana: 47, m0: 20,
+      hp: 685, atk: 67, armor: 20, mr: 25, as: 0.9, range: 1, ms: 3, mana: 52, m0: 20, grow: 1.27,
       mods: { killAtk: 8, killAtkCap: 80 },
       abil: 'eclipse', abName: 'Umbral Edge', abDesc: 'Passive: +8 AD whenever an enemy dies within 3 hexes (up to +80). Active: her next 3 attacks deal an extra 100% AD as magic damage and heal her for 20% of it.',
       ab: { hits: 3, bonus: 1, heal: 0.2 },
@@ -241,7 +241,7 @@
          { id: 'nyx5b', name: 'Void Burst', desc: 'Umbral Edge attacks deal +200% instead.', ab: { bonus: 1 } }],
       ] }),
     bramble: H({ name: 'Bramble', glyph: '🌳', role: 'Warden', color: '#6a9a3a',
-      hp: 1210, atk: 51, armor: 35, mr: 25, as: 0.6, range: 1, ms: 1.8, mana: 74, m0: 30,
+      hp: 1255, atk: 54, armor: 35, mr: 25, as: 0.6, range: 1, ms: 1.8, mana: 71, m0: 30, grow: 0.91,
       mods: { rampHpPct: 0.01, rampHpPctCap: 0.4 },
       abil: 'entangle', abName: 'Rootsnare', abDesc: 'Passive: +1% max HP every second (up to +40%). Active: roots every enemy within 2 hexes for 2s and deals 45% AP magic damage.',
       ab: { radius: 2, root: 2, dmg: 0.45, shield: 0 },
@@ -256,7 +256,7 @@
          { id: 'brm5b', name: 'Grove Guardian', desc: 'Adjacent allies gain +15 armor.', mods: { aura: [{ r: 1, stat: 'armor', val: 15 }] } }],
       ] }),
     echo: H({ name: 'Lyric', glyph: '🎻', role: 'Bard', color: '#c77dff',
-      hp: 540, atk: 33, armor: 18, mr: 30, as: 0.75, range: 3, ms: 2, mana: 73, m0: 30,
+      hp: 640, atk: 39, armor: 18, mr: 30, as: 0.75, range: 3, ms: 2, mana: 62, m0: 30, grow: 0.5,
       fl: ['crescendo'],
       abil: 'anthem', abName: 'Rallying Refrain', abDesc: 'Passive: every 4s all allies gain +3% attack speed (Crescendo, stacks 10x). Active: allies within 2 hexes heal 90% AP and gain +25% attack for 4s.',
       ab: { radius: 2, heal: 0.9, atk: 0.25, slow: 0, stun: 0 },
@@ -271,7 +271,7 @@
          { id: 'ech5b', name: 'Showstopper', desc: 'Rallying Refrain stuns adjacent enemies for 1s.', ab: { stun: 1 } }],
       ] }),
     blaze: H({ name: 'Flint', glyph: '🔫', role: 'Gunslinger', color: '#e08a3a',
-      hp: 610, atk: 56, armor: 15, mr: 15, as: 0.95, range: 3, ms: 2.5, mana: 53, m0: 10, crit: 0.1,
+      hp: 580, atk: 53, armor: 15, mr: 15, as: 0.95, range: 3, ms: 2.5, mana: 56, m0: 10, crit: 0.1, grow: 1.8,
       mods: { critStack: 0.02, critStackCap: 0.3 },
       abil: 'fan', abName: 'Six-Shot Flurry', abDesc: 'Passive: every crit gives +2% crit chance (up to +30%). Active: fires 6 quick shots at the target, 70% AD physical damage each.',
       ab: { shots: 6, dmg: 0.7, ricochet: 0, splash: 0, pen: 0 },
@@ -287,7 +287,7 @@
       ] }),
     // ---- v12 (review #11, David: "many more unique heroes, go wild")
     hippolyta: H({ name: 'Skara', glyph: '🔱', role: 'Amazon', color: '#c98a3a',
-      hp: 510, atk: 41, armor: 22, mr: 20, as: 1.0, range: 2, ms: 2.5, mana: 73, m0: 10,
+      hp: 445, atk: 36, armor: 22, mr: 20, as: 1.0, range: 2, ms: 2.5, mana: 83, m0: 10, grow: 0.93,
       mods: { stackAs: 0.04, stackAsCap: 10, poisonOnHit: 0.012 },
       abil: 'javelin', abName: 'Skyspear Barrage', abDesc: 'Passive: +4% attack speed per hit (10x) and her spear poisons. Active: hurls javelins at 3 enemies, 150% AD physical damage each, poisoning them for 2% of their max HP per second.',
       ab: { count: 3, dmg: 1.5, poison: 0.02, root: 0 },
@@ -302,7 +302,7 @@
          { id: 'hip5b', name: 'Shieldmaiden', desc: '+25 attack and +1 range.', mods: { atk: 25, range: 1 } }],
       ] }),
     deadshot: H({ name: 'Deadeye', glyph: '🎯', role: 'Sniper', color: '#6a7a5a',
-      hp: 530, atk: 97, armor: 12, mr: 12, as: 0.45, range: 7, ms: 1.8, mana: 64, m0: 20, crit: 0.2, fl: ['sniper'],
+      hp: 535, atk: 98, armor: 12, mr: 12, as: 0.45, range: 7, ms: 1.8, mana: 63, m0: 20, crit: 0.2, fl: ['sniper'], grow: 1.8,
       abil: 'headshot', abName: 'Longwatch Round', abDesc: 'Passive: +8% damage per hex to the target. Active: aims at the weakest enemy anywhere and fires for 400% AD physical damage, executing it below 15% HP.',
       ab: { dmg: 4, shots: 1, stun: 0, camo: 0, exec: 0.15 },
       specs: [
@@ -316,7 +316,7 @@
          { id: 'dsh5b', name: 'Spotter', desc: '+10 mana per attack.', mods: { manaOnHit: 10 } }],
       ] }),
     vesper: H({ name: 'Vesper', glyph: '🧛', role: 'Vampire', color: '#8a1f3a',
-      hp: 685, atk: 51, armor: 20, mr: 30, as: 0.85, range: 1, ms: 3, mana: 65, m0: 20, ls: 0.15,
+      hp: 665, atk: 49, armor: 20, mr: 30, as: 0.85, range: 1, ms: 3, mana: 67, m0: 20, ls: 0.15, grow: 0.52,
       mods: { omni: 0.2 },
       abil: 'bloodfeast', abName: 'Crimson Draught', abDesc: 'Passive: abilities heal 20% of their damage. Active: drains every enemy within 2 hexes for 70% AD + 40% AP magic damage and heals for all of it.',
       ab: { radius: 2, dmg: 0.7, apdmg: 0.4, share: 0, bats: 0, bleed: 0 },
@@ -331,7 +331,7 @@
          { id: 'ves5b', name: 'Sanguine Lord', desc: 'Crimson Draught deals double.', ab: { dmg: 0.7, apdmg: 0.4 } }],
       ] }),
     kage: H({ name: 'Eclipse', glyph: '🥷', role: 'Ninja', color: '#3a3f55',
-      hp: 505, atk: 52, armor: 18, mr: 18, as: 1.1, range: 1, ms: 3.2, mana: 61, m0: 20, dodge: 0.2,
+      hp: 470, atk: 48, armor: 18, mr: 18, as: 1.1, range: 1, ms: 3.2, mana: 65, m0: 20, dodge: 0.2, grow: 1.21,
       abil: 'smoke', abName: 'Ashveil', abDesc: 'Blinds enemies within 1 hex for 1.5s (their attacks miss), vanishes for 1.5s and throws 4 shuriken, 90% AD physical damage each.',
       ab: { radius: 1, blind: 1.5, count: 4, dmg: 0.9, poison: 0, backstab: 0, heal: 0 },
       specs: [
@@ -345,7 +345,7 @@
          { id: 'kag5b', name: 'Blossom of Blades', desc: 'Shuriken deal 80% more.', ab: { dmg: 0.72 } }],
       ] }),
     rex: H({ name: 'Fang', glyph: '🐕', role: 'Hound', color: '#a0703a',
-      hp: 665, atk: 44, armor: 25, mr: 20, as: 1.2, range: 1, ms: 3.8, mana: 63, m0: 20, mods: { regen: 0.01 },
+      hp: 625, atk: 41, armor: 25, mr: 20, as: 1.2, range: 1, ms: 3.8, mana: 66, m0: 20, mods: { regen: 0.01 }, grow: 0.6,
       abil: 'howl', abName: 'Howl & Pounce', abDesc: 'Passive: regenerates 1% HP per second. Active: allies within 3 hexes gain +20% attack and attack speed for 4s; Fang pounces on the nearest enemy and bites for 150% AD physical damage plus a bleed of 2% max HP per second for 3s.',
       ab: { radius: 3, buff: 0.2, dmg: 1.5, bleed: 0.02, stun: 0, taunt: 0, reach: 0, cleave: 0 },
       specs: [
@@ -359,7 +359,7 @@
          { id: 'rex5b', name: 'Cerberus', desc: 'The bite hits every adjacent enemy.', ab: { cleave: 1 } }],
       ] }),
     vey: H({ name: 'Mesmer', glyph: '🌀', role: 'Hypnotist', color: '#7a4ac8',
-      hp: 655, atk: 44, armor: 15, mr: 35, as: 0.75, range: 3, ms: 2, mana: 63, m0: 30,
+      hp: 655, atk: 44, armor: 15, mr: 35, as: 0.75, range: 3, ms: 2, mana: 64, m0: 30, grow: 1.41,
       abil: 'hypnosis', abName: 'Dreamspiral', abDesc: 'Hypnotizes the densest enemy group: for 2.5s they attack their own allies, and they take 30% AP magic damage.',
       ab: { radius: 1, dur: 2.5, dmg: 0.3, amp: 0, shield: 0, dot: 0 },
       specs: [
@@ -373,7 +373,7 @@
          { id: 'vey5b', name: 'Nightmare', desc: 'Hypnotized enemies lose 5% max HP per second.', ab: { dot: 0.05 } }],
       ] }),
     pip: H({ name: 'Jinx', glyph: '🤡', role: 'Clown', color: '#e0406a',
-      hp: 745, atk: 53, armor: 22, mr: 22, as: 0.9, range: 2, ms: 2.5, mana: 48, m0: 25, dodge: 0.1,
+      hp: 660, atk: 47, armor: 22, mr: 22, as: 0.9, range: 2, ms: 2.5, mana: 55, m0: 25, dodge: 0.1, grow: 1.52,
       abil: 'trick', abName: 'Grab Bag', abDesc: 'Pulls a random trick: a pie (150% AD physical damage, stuns 2s), balloons (every ally heals 85% AP), juggling knives (5 knives, 100% AD each), a confetti bomb (40% AD + 20% AP magic damage, slows 50%) or a squirting flower (blinds 3s).',
       ab: { pie: 2, heal: 0.85, knives: 5, silence: 0, encore: 0 },
       specs: [
@@ -387,7 +387,7 @@
          { id: 'pip5b', name: 'Sinister Grin', desc: '+20 attack and +20% crit chance.', mods: { atk: 20, crit: 0.2 } }],
       ] }),
     barley: H({ name: 'Rumble', glyph: '🍺', role: 'Brawler', color: '#b8792a',
-      hp: 740, atk: 43, armor: 28, mr: 22, as: 0.8, range: 1, ms: 2, mana: 78, m0: 30, dodge: 0.2,
+      hp: 705, atk: 41, armor: 28, mr: 22, as: 0.8, range: 1, ms: 2, mana: 82, m0: 30, dodge: 0.2, grow: 0.86,
       abil: 'keg', abName: 'Barrel Breaker', abDesc: 'Passive: drunken stagger gives 20% dodge. Active: smashes a barrel on adjacent enemies for 150% AD physical damage, stunning 1s and slowing, then takes a swig healing 15% of his max HP.',
       ab: { radius: 1, dmg: 1.5, stun: 1, heal: 0.15, burn: 0 },
       specs: [
@@ -401,7 +401,7 @@
          { id: 'bar5b', name: 'Last Call', desc: 'Barrel Breaker deals double.', ab: { dmg: 1.5 } }],
       ] }),
     azgul: H({ name: 'Inferno', glyph: '😈', role: 'Demon', color: '#c8321e',
-      hp: 720, atk: 58, armor: 25, mr: 25, as: 0.8, range: 1, ms: 2.5, mana: 70, m0: 30, mods: { rageDmg: 1 },
+      hp: 675, atk: 55, armor: 25, mr: 25, as: 0.8, range: 1, ms: 2.5, mana: 75, m0: 30, mods: { rageDmg: 1 }, grow: 0.88,
       abil: 'hellfire', abName: 'Brimstone Nova', abDesc: 'Passive: +1% damage for every 1% HP missing. Active: sacrifices 10% of his current HP to blast every enemy within 2 hexes for 120% AD + 70% AP magic damage, and burns them for 40% AD per second for 3s.',
       ab: { radius: 2, dmg: 1.2, apdmg: 0.7, burn: 0.4, cost: 0.1, imps: 0 },
       specs: [
@@ -415,7 +415,7 @@
          { id: 'azg5b', name: 'Undying Flame', desc: 'Once per fight, lethal damage leaves him at 1 HP and invulnerable for 2s.', fl: ['undying'] }],
       ] }),
     grok: H({ name: 'Boulder', glyph: '🪨', role: 'Caveman', color: '#8a6a4a',
-      hp: 965, atk: 60, armor: 30, mr: 15, as: 0.7, range: 1, ms: 2, mana: 70, m0: 30, mods: { ccResist: 0.5 },
+      hp: 945, atk: 59, armor: 30, mr: 15, as: 0.7, range: 1, ms: 2, mana: 72, m0: 30, mods: { ccResist: 0.5 }, grow: 1.42,
       abil: 'boulder', abName: 'Boulder Toss', abDesc: 'Passive: thick skull halves crowd control on him. Active: hurls a boulder at the farthest enemy within 5 hexes: 200% AD physical damage and a 1.5s stun, and 100% AD to enemies next to it.',
       ab: { dmg: 2, stun: 1.5, radius: 1, frenzy: 0 },
       specs: [
@@ -429,7 +429,7 @@
          { id: 'grk5b', name: 'Mammoth Rider', desc: '+40% max HP and +1 move speed.', mods: { hpPct: 0.4, ms: 1 } }],
       ] }),
     imhotep: H({ name: 'Ankh', glyph: '🧟', role: 'Mummy', color: '#c8b88a',
-      hp: 990, atk: 55, armor: 30, mr: 30, as: 0.7, range: 1, ms: 1.8, mana: 62, m0: 30, mods: { revive: 0.3 },
+      hp: 935, atk: 52, armor: 30, mr: 30, as: 0.7, range: 1, ms: 1.8, mana: 65, m0: 30, mods: { revive: 0.3 }, grow: 0.5,
       abil: 'wrap', abName: 'Linen of Ages', abDesc: 'Passive: once per fight, rises again at 30% HP. Active: bandages the 2 nearest enemies: rooted 2s, healing halved, and they decay for 3% of their max HP per second.',
       ab: { count: 2, root: 2, decay: 0.03, shield: 0, vuln: 0 },
       specs: [
@@ -443,7 +443,7 @@
          { id: 'imh5b', name: 'Curse of the Tomb', desc: 'Wrapped enemies take 25% more damage.', ab: { vuln: 0.25 } }],
       ] }),
     leonidas: H({ name: 'Phalanx', glyph: '🏛', role: 'Hoplite', color: '#b8322a',
-      hp: 880, atk: 50, armor: 40, mr: 25, as: 0.75, range: 2, ms: 2, mana: 80, m0: 30, mods: { aura: [{ r: 1, stat: 'armor', val: 10 }] },
+      hp: 880, atk: 49, armor: 40, mr: 25, as: 0.75, range: 2, ms: 2, mana: 80, m0: 30, mods: { aura: [{ r: 1, stat: 'armor', val: 10 }] }, grow: 1.8,
       abil: 'phalanx', abName: 'Phalanx', abDesc: 'Passive: adjacent allies gain +10 armor. Active: raises his shield (allies within 1 hex take 30% less damage for 4s), then thrusts his spear through the 2 nearest enemies for 180% AD physical damage.',
       ab: { radius: 1, dr: 0.3, dmg: 1.8, hits: 2, stun: 0, taunt: 0 },
       specs: [
@@ -457,7 +457,7 @@
          { id: 'leo5b', name: 'Hero of the Pass', desc: 'The thrust hits every enemy within 2 hexes.', ab: { hits: 9 } }],
       ] }),
     harlequin: H({ name: 'Rapture', glyph: '🃏', role: 'Blade Dancer', color: '#d23a8a',
-      hp: 695, atk: 69, armor: 18, mr: 20, as: 1.05, range: 1, ms: 3, mana: 48, m0: 20, crit: 0.15, mods: { critStack: 0.015, critStackCap: 0.15 },
+      hp: 630, atk: 63, armor: 18, mr: 20, as: 1.05, range: 1, ms: 3, mana: 52, m0: 20, crit: 0.15, mods: { critStack: 0.015, critStackCap: 0.15 }, grow: 1.8,
       abil: 'waltz', abName: 'Steel Minuet', abDesc: 'Passive: each crit gives +1.5% crit (up to +15%). Active: dances through up to 3 enemies, striking each for 120% AD physical damage.',
       ab: { hits: 3, dmg: 1.2, silence: 0, untarg: 0 },
       specs: [
@@ -471,7 +471,7 @@
          { id: 'har5b', name: 'Laughing Blade', desc: '+60% crit damage.', mods: { critDmg: 0.6 } }],
       ] }),
     sprocket: H({ name: 'Vial', glyph: '⚗', role: 'Alchemist', color: '#5ab88a',
-      hp: 540, atk: 38, armor: 18, mr: 25, as: 0.8, range: 3, ms: 2, mana: 65, m0: 20,
+      hp: 595, atk: 43, armor: 18, mr: 25, as: 0.8, range: 3, ms: 2, mana: 59, m0: 20, grow: 1.06,
       abil: 'flask', abName: 'Unstable Flasks', abDesc: 'Throws 3 random flasks: acid (65% AP magic damage, -20 armor), healing (120% AP to the weakest ally), frost (stun 1s) or poison (3% of max HP per second).',
       ab: { count: 3, radius: 0, heal: 1.2, acid: 0.65, mana: 0 },
       specs: [
@@ -485,7 +485,7 @@
          { id: 'spr5b', name: 'Chain Reaction', desc: 'Throws 3 more flasks.', ab: { count: 3 } }],
       ] }),
     zephyr: H({ name: 'Kaze', glyph: '🌪', role: 'Wind Monk', color: '#7ac8c8',
-      hp: 770, atk: 62, armor: 22, mr: 28, as: 1.0, range: 1, ms: 3, mana: 48, m0: 20, dodge: 0.1,
+      hp: 740, atk: 59, armor: 22, mr: 28, as: 1.0, range: 1, ms: 3, mana: 51, m0: 20, dodge: 0.1, grow: 1.58,
       abil: 'galekick', abName: 'Squall Kick', abDesc: 'Kicks the target 2 hexes back for 170% AD physical damage. Anyone it crashes into takes 100% AD and is stunned for 1s.',
       ab: { dmg: 1.7, push: 2, stun: 0, splash: 0, targets: 1, tailwind: 0 },
       specs: [
@@ -500,7 +500,7 @@
       ] }),
     // v30 (review #28, PC boy): three heroes unlocked by the account level (B.UNLOCKS)
     buzzwell: H({ name: 'Stinger', glyph: '🐝', role: 'Beekeeper', color: '#ffc21a',
-      hp: 560, atk: 36, armor: 18, mr: 28, as: 0.8, range: 3, ms: 2, mana: 75, m0: 25,
+      hp: 640, atk: 41, armor: 18, mr: 28, as: 0.8, range: 3, ms: 2, mana: 66, m0: 25, grow: 0.5,
       abil: 'hive', abName: 'Honey Hive', abDesc: 'Drops a honey hive on the densest enemy group: for 4s the bees sting everyone within 1 hex for 30% AP magic damage per second, and the weakest ally eats honey, healing 120% AP.',
       ab: { radius: 1, dur: 4, dps: 0.3, honey: 1.2, slow: 0, twin: 0 },
       specs: [
@@ -514,7 +514,7 @@
          { id: 'buz5b', name: "Queen's Guard", desc: 'Allies within 2 hexes gain +20 armor and MR.', mods: { aura: [{ r: 2, stat: 'armor', val: 20 }, { r: 2, stat: 'mr', val: 20 }] } }],
       ] }),
     coralie: H({ name: 'Maelstrom', glyph: '🌊', role: 'Tidecaller', color: '#2fb8d8',
-      hp: 800, atk: 52, armor: 22, mr: 32, as: 0.75, range: 3, ms: 2, mana: 45, m0: 25,
+      hp: 870, atk: 56, armor: 22, mr: 32, as: 0.75, range: 3, ms: 2, mana: 41, m0: 25, grow: 0.58,
       abil: 'wave', abName: 'Tidal Wave', abDesc: 'A wave crashes over the densest enemy group: 75% AP magic damage within 1 hex, pushes them 1 hex back and slows them 30% for 2s.',
       ab: { radius: 1, dmg: 0.75, push: 1, slow: 0.3, stun: 0, foam: 0, echo: 0 },
       specs: [
@@ -528,7 +528,7 @@
          { id: 'cor5b', name: 'Whirlpool', desc: 'The wave also stuns for 1s.', ab: { stun: 1 } }],
       ] }),
     stellan: H({ name: 'Astral', glyph: '⭐', role: 'Stargazer', color: '#8a7aff',
-      hp: 660, atk: 54, armor: 24, mr: 26, as: 0.85, range: 3, ms: 2, mana: 65, m0: 25,
+      hp: 640, atk: 52, armor: 24, mr: 26, as: 0.85, range: 3, ms: 2, mana: 67, m0: 25, grow: 1.34,
       abil: 'starfall', abName: 'Falling Star', abDesc: 'Calls a star onto the densest enemy group; 0.8s later it crashes: 120% AD + 60% AP magic damage in 1 hex and a 1.2s stun.',
       ab: { radius: 1, dmg: 1.2, apdmg: 0.6, stun: 1.2, delay: 0.8, shards: 0, blessing: 0, veil: 0 },
       specs: [
@@ -545,7 +545,7 @@
     // friend or foe: if friend heal, if foe, deal damage. Option to have more than 1 ray. Gains mana as more damage or
     // healing is dealt; ultimate is supercharging the beams"
     prism: H({ name: 'Prism', glyph: '🔆', role: 'Channeler', color: '#5fe0ff', fl: ['beam'],
-      hp: 640, atk: 35, armor: 18, mr: 35, as: 1, range: 3, ms: 2, mana: 80, m0: 0,
+      hp: 895, atk: 49, armor: 18, mr: 35, as: 1, range: 3, ms: 2, mana: 57, m0: 0, grow: 0.5,
       abil: 'overcharge', abName: 'Overcharge', abDesc: 'Passive (Beam): no attacks. A beam locks onto the nearest unit in range: it heals a hurt ally for 20% AP per second or burns an enemy for 32% AP per second, and fills mana as it works. Active: for 4s the beams deal and heal double and split into one more beam.',
       ab: { dmg: 0.32, heal: 0.2, rays: 1, dur: 4, mult: 2, extra: 1, gain: 1, shield: 0 },
       specs: [
@@ -562,7 +562,7 @@
     // them): melees or archers. Cannot move, but can be killed like others. No auto attack. When soldiers attack he
     // charges mana. Ultimate is putting all his units in a frenzy"
     citadel: H({ name: 'Citadel', glyph: '🏰', role: 'Fortress', color: '#c9a26a', fl: ['tower'],
-      hp: 1050, atk: 40, armor: 40, mr: 30, as: 0.5, range: 2, ms: 0, mana: 75, m0: 0,
+      hp: 1060, atk: 40, armor: 40, mr: 30, as: 0.5, range: 2, ms: 0, mana: 74, m0: 0, grow: 0.62,
       abil: 'garrison', abName: 'Call to Arms', abDesc: 'Passive (Garrison): cannot move or attack. Every 7s it sends out a soldier, by turns a footman (165% AP as HP, 18% AP as attack) or an archer (100% AP as HP, 16% AP as attack, range 3), up to 3 at once. Its soldiers\' hits fill its mana. Active: every soldier goes into a frenzy for 5s (+50% attack speed, +25% attack) and heals 30%, and one more soldier marches out.',
       ab: { every: 7, max: 3, frenzy: 5, fhp: 1.65, fatk: 0.18, ahp: 1.0, aatk: 0.16, vet: 0, shields: 0, champion: 0, last: 0 },
       specs: [
@@ -584,13 +584,13 @@
     // common
     I('longsword', 'Tempered Blade', 'common', { atk: 15 }, '+15 attack'),
     I('chainmail', 'Ringlink Hauberk', 'common', { armor: 20 }, '+20 armor'),
-    I('belt', 'Ogrehide Girdle', 'common', { hp: 200 }, '+200 HP'),
+    I('belt', 'Ogrehide Girdle', 'common', { hp: 170 }, '+170 HP'),
     I('recurve', 'Hornbow', 'common', { asPct: 0.2 }, '+20% attack speed'),
-    I('rod', 'Runed Wand', 'common', { ap: 20 }, '+20 AP'),
-    I('cloak', 'Spellward Cloak', 'common', { mr: 20 }, '+20 magic resist'),
+    I('rod', 'Runed Wand', 'common', { ap: 25 }, '+25 AP'),
+    I('cloak', 'Spellward Cloak', 'common', { mr: 25, hp: 60 }, '+25 magic resist, +60 HP'),
     I('tear', 'Wellspring Charm', 'common', { manaStart: 20 }, '+20 starting mana'),
-    I('boots', 'Quickstep Boots', 'common', { ms: 1 }, '+1 move speed'),
-    I('gloves', "Brawler's Wraps", 'common', { crit: 0.1, dodge: 0.05 }, '+10% crit, +5% dodge'),
+    I('boots', 'Quickstep Boots', 'common', { ms: 1, dodge: 0.08 }, '+1 move speed, +8% dodge'),
+    I('gloves', "Brawler's Wraps", 'common', { crit: 0.12, dodge: 0.08 }, '+12% crit, +8% dodge'),
     I('fang', 'Leech Tooth', 'common', { ls: 0.1 }, '+10% lifesteal'),
     I('buckler', 'Studded Buckler', 'common', { shieldStart: 150 }, 'Starts fights with a 150 shield'),
     I('cap', "Scout's Cap", 'common', { hp: 100, armor: 10 }, '+100 HP, +10 armor'),
@@ -598,70 +598,70 @@
     I('coin', "Gambler's Token", 'common', { gold: 1 }, '+1 gold after each won fight'),
     I('charm', 'Inkwell Charm', 'common', { xpPct: 0.3 }, '+30% XP'),
     I('amber', 'Resin Ring', 'common', { hp: 60, armor: 6, mr: 6 }, '+60 HP, +6 armor and magic resist'),
-    I('dagger', 'Stiletto', 'common', { atk: 10, crit: 0.05 }, '+10 attack, +5% crit'),
+    I('dagger', 'Stiletto', 'common', { atk: 12, crit: 0.08 }, '+12 attack, +8% crit'),
     I('moss', 'Mendmoss Pouch', 'common', { regen: 0.01 }, 'Regenerate 1% max HP per second'),
-    I('sling', "Shepherd's Sling", 'common', { range: 1, atk: -5 }, '+1 range, -5 attack'),
-    I('focus', "Seer's Prism", 'common', { manaRegen: 2 }, '+2 mana per second'),
+    I('sling', "Shepherd's Sling", 'common', { range: 1, atk: 5 }, '+1 range, +5 attack'),
+    I('focus', "Seer's Prism", 'common', { manaRegen: 1.5 }, '+1.5 mana per second'),
     // rare
-    I('bloodthirster', 'Sanguine Saber', 'rare', { atk: 20, ls: 0.2 }, '+20 attack, +20% lifesteal'),
+    I('bloodthirster', 'Sanguine Saber', 'rare', { atk: 15, ls: 0.15 }, '+15 attack, +15% lifesteal'),
     I('thornmail', 'Bramblemail', 'rare', { armor: 30, thorns: 0.2 }, '+30 armor, reflects 20% melee damage'),
-    I('warmog', 'Trollheart Cuirass', 'rare', { hp: 400, regen: 0.015 }, '+400 HP, 1.5% regen per second'),
+    I('warmog', 'Trollheart Cuirass', 'rare', { hp: 200, regen: 0.008 }, '+200 HP, 0.8% regen per second'),
     I('crossbow', 'Repeating Arbalest', 'rare', { asPct: 0.35 }, '+35% attack speed'),
-    I('deathcap', 'Stargazer Hat', 'rare', { ap: 40 }, '+40 AP'),
-    I('visage', 'Soulmend Mask', 'rare', { mr: 30, healPower: 0.25 }, '+30 magic resist, +25% healing received'),
+    I('deathcap', 'Stargazer Hat', 'rare', { ap: 50 }, '+50 AP'),
+    I('visage', 'Soulmend Mask', 'rare', { mr: 30, hp: 150, healPower: 0.25 }, '+30 magic resist, +150 HP, +25% healing received'),
     I('bluecrystal', 'Azure Geode', 'rare', { manaRegen: 4 }, '+4 mana per second'),
-    I('infinity', 'Fatebreaker', 'rare', { crit: 0.25, critDmg: 0.5 }, '+25% crit, +50% crit damage'),
+    I('infinity', 'Fatebreaker', 'rare', { crit: 0.3, critDmg: 0.6 }, '+30% crit, +60% crit damage'),
     I('guardplate', 'Wardplate', 'rare', { shieldStart: 400 }, 'Starts fights with a 400 shield'),
     I('frozenhammer', 'Rimefrost Maul', 'rare', { atk: 15, slowOnHit: 0.3 }, '+15 attack, attacks slow 30%'),
     I('emberblade', 'Kindled Falchion', 'rare', { atk: 10, burnOnHit: 0.25 }, '+10 attack, attacks burn'),
-    I('venomvial', 'Adder Vial', 'rare', { poisonOnHit: 0.02 }, 'Attacks poison 2% max HP/s'),
-    I('quicksilver', 'Unbound Sash', 'rare', { cleanseOnce: 1, mr: 15 }, 'Ignores the first crowd control, +15 MR'),
+    I('venomvial', 'Adder Vial', 'rare', { poisonOnHit: 0.013 }, 'Attacks poison 1.3% max HP/s'),
+    I('quicksilver', 'Unbound Sash', 'rare', { cleanseOnce: 1, mr: 20, hp: 150 }, 'Ignores the first crowd control, +20 MR, +150 HP'),
     I('phantomdancer', 'Ghoststep Slippers', 'rare', { dodge: 0.2, asPct: 0.15 }, '+20% dodge, +15% attack speed'),
     I('giantslayer', 'Hillbreaker', 'rare', { giantSlayer: 0.3 }, '+30% damage vs enemies with more max HP'),
-    I('executioner', "Headsman's Axe", 'rare', { execute: 0.5, atk: 5 }, '+50% damage vs enemies below 30% HP'),
+    I('executioner', "Headsman's Axe", 'rare', { execute: 0.5, atk: 15 }, '+15 attack, +50% damage vs enemies below 30% HP'),
     I('shojin', 'Tidecaller Spear', 'rare', { manaOnHit: 6, atk: 8 }, '+6 mana per attack, +8 attack'),
     I('gunblade', 'Sparkcast Blade', 'rare', { omni: 0.2, ap: 20 }, 'Abilities heal 20% of damage dealt, +20 AP'),
     I('sunfire', 'Emberweave Mantle', 'rare', { hp: 200, sunfire: 0.012 }, '+200 HP, burns adjacent enemies'),
-    I('scope', 'Farseer Lens', 'rare', { range: 1, crit: 0.05 }, '+1 range, +5% crit'),
-    I('banner', 'Warband Pennant', 'rare', { aura: [{ r: 1, stat: 'atkPct', val: 0.15 }] }, 'Adjacent allies +15% attack'),
-    I('totem', 'Ironbark Totem', 'rare', { aura: [{ r: 2, stat: 'armor', val: 12 }, { r: 2, stat: 'mr', val: 12 }] }, 'Allies within 2 hexes +12 armor and MR'),
+    I('scope', 'Farseer Lens', 'rare', { range: 1, crit: 0.1, atk: 8 }, '+1 range, +10% crit, +8 attack'),
+    I('banner', 'Warband Pennant', 'rare', { aura: [{ r: 2, stat: 'atkPct', val: 0.2 }] }, 'Allies within 2 hexes +20% attack'),
+    I('totem', 'Ironbark Totem', 'rare', { aura: [{ r: 2, stat: 'armor', val: 20 }, { r: 2, stat: 'mr', val: 20 }] }, 'Allies within 2 hexes +20 armor and MR'),
     I('needle', 'Viper Needle', 'rare', { atk: 15, antiHeal: 1 }, '+15 attack, attacks halve enemy healing'),
     I('tabi', 'Ironshod Boots', 'rare', { ms: 1, armor: 20 }, '+1 move speed, +20 armor'),
     // epic
     I('guardian', 'Second Dawn Locket', 'epic', { revive: 0.4, armor: 10 }, 'Revives once at 40% HP'),
-    I('titan', 'Mountain Grips', 'epic', { titan: 1, hp: 100 }, 'Gains +3 attack and +3 armor per hit (max 20 stacks)'),
-    I('rabadon', 'Towering Cowl', 'epic', { ap: 80 }, '+80 AP'),
+    I('titan', 'Mountain Grips', 'epic', { titan: 1, hp: 100 }, 'Gains +3 attack and +3 armor per hit (max 15 stacks)'),
+    I('rabadon', 'Towering Cowl', 'epic', { ap: 100 }, '+100 AP'),
     I('crown', "Conqueror's Circlet", 'epic', { allPct: 0.2 }, '+20% HP, attack, AP, armor and MR'),
-    I('stormbringer', 'Thunderspine', 'epic', { chainEvery: 3, chainTargets: 3, chainDmg: 0.6, asPct: 0.1 }, 'Every 3rd attack chains to 3 enemies'),
+    I('stormbringer', 'Thunderspine', 'epic', { chainEvery: 3, chainTargets: 3, chainDmg: 0.6, asPct: 0.2 }, '+20% attack speed, every 3rd attack chains to 3 enemies'),
     I('morello', 'Grimoire of Blight', 'epic', { ap: 25, abilityBurn: 0.03 }, 'Abilities burn 3% max HP/s, +25 AP'),
-    I('redemption', "Mercy's Chime", 'epic', { hp: 200, onDeathHeal: 0.35 }, 'On death, heals allies within 2 hexes for 35%'),
-    I('zeke', "Herald's Horn", 'epic', { aura: [{ r: 1, stat: 'asPct', val: 0.3 }] }, 'Adjacent allies +30% attack speed'),
-    I('botrk', 'Sorrowsteel', 'epic', { curHpOnHit: 0.05, ls: 0.1 }, 'Attacks deal 5% current HP, +10% lifesteal'),
+    I('redemption', "Mercy's Chime", 'epic', { hp: 300, onDeathHeal: 0.35 }, '+300 HP; on death, heals allies within 2 hexes for 35%'),
+    I('zeke', "Herald's Horn", 'epic', { aura: [{ r: 1, stat: 'asPct', val: 0.4 }] }, 'Adjacent allies +40% attack speed'),
+    I('botrk', 'Sorrowsteel', 'epic', { atk: 10, curHpOnHit: 0.06, ls: 0.15 }, '+10 attack, attacks deal 6% current HP, +15% lifesteal'),
     I('stoneplate', 'Basalt Bulwark', 'epic', { armor: 50, mr: 50, asPct: -0.1 }, '+50 armor and MR, -10% attack speed'),
-    I('striders', 'Cloudstriders', 'epic', { ms: 2, firstMoveAtk: 0.6 }, '+2 move speed, attack after moving deals +60%'),
-    I('archangel', 'Staff of Ascent', 'epic', { ap: 25, apPerSec: 3 }, '+25 AP, +3 AP every second in combat'),
-    I('lastwhisper', 'Final Hush', 'epic', { armorPen: 0.4, atk: 10 }, 'Ignore 40% armor, +10 attack'),
+    I('striders', 'Cloudstriders', 'epic', { ms: 2, atk: 20, firstMoveAtk: 0.6 }, '+2 move speed, +20 attack, attack after moving deals +60%'),
+    I('archangel', 'Staff of Ascent', 'epic', { ap: 30, apPerSec: 4 }, '+30 AP, +4 AP every second in combat'),
+    I('lastwhisper', 'Final Hush', 'epic', { armorPen: 0.4, atk: 25 }, 'Ignore 40% armor, +25 attack'),
     I('dragonclaw', 'Wyrmscale Gloves', 'epic', { mr: 60, regen: 0.015 }, '+60 MR, 1.5% regen per second'),
     // ---- v5 (review #2): 20 more, several that grow during the fight
     I('knuckles', 'Iron Knuckles', 'common', { atk: 6, stackAtk: 1, stackAtkCap: 15 }, '+6 attack, +1 attack per hit (15x)'),
     I('warpaint', 'Clan Warpaint', 'common', { rampAtk: 1, rampAtkCap: 20 }, '+1 attack every second in combat (up to +20)'),
     I('bandana', "Rogue's Bandana", 'common', { asPct: 0.15, dodge: 0.05 }, '+15% attack speed, +5% dodge'),
     I('oakshield', 'Heartwood Shield', 'common', { armor: 15, hp: 100 }, '+15 armor, +100 HP'),
-    I('candle', 'Vigil Candle', 'common', { ap: 12, manaStart: 10 }, '+12 AP, +10 starting mana'),
+    I('candle', 'Vigil Candle', 'common', { ap: 15, manaStart: 10 }, '+15 AP, +10 starting mana'),
     I('jerky', 'Trail Rations', 'common', { hp: 120, regen: 0.005 }, '+120 HP, 0.5% regen per second'),
-    I('whistle', "Houndmaster's Whistle", 'common', { ms: 1, asPct: 0.08 }, '+1 move speed, +8% attack speed'),
+    I('whistle', "Houndmaster's Whistle", 'common', { ms: 1, asPct: 0.12 }, '+1 move speed, +12% attack speed'),
     I('berserkeraxe', "Wildman's Axe", 'rare', { stackAs: 0.03, stackAsCap: 15 }, '+3% attack speed per hit (15x)'),
     I('stoneheart', 'Granite Heart', 'rare', { rampArmor: 2, rampArmorCap: 30 }, '+2 armor and MR every second (up to +30)'),
-    I('soulbinder', 'Spirit Tether', 'rare', { killAtk: 5, killAtkCap: 40 }, '+5 attack when an enemy dies within 3 hexes (up to +40)'),
+    I('soulbinder', 'Spirit Tether', 'rare', { atk: 8, killAtk: 8, killAtkCap: 48 }, '+8 attack, +8 more when an enemy dies within 3 hexes (up to +48)'),
     I('frenzyblade', 'Rushing Blade', 'rare', { atk: 10, stackAs: 0.04, stackAsCap: 12 }, '+10 attack, +4% attack speed per hit (12x)'),
     I('manaweave', 'Starloom Robe', 'rare', { mr: 20, manaRegen: 3 }, '+20 MR, +3 mana per second'),
     I('lightningrod', 'Copper Conductor', 'rare', { asPct: 0.2, chainEvery: 4, chainTargets: 2, chainDmg: 0.5 }, '+20% attack speed, every 4th attack chains'),
-    I('lifeline', 'Heartstring Amulet', 'rare', { hp: 250, shieldStartPct: 0.25 }, '+250 HP, starts fights with a 25% shield'),
-    I('crackedlens', 'Cracked Monocle', 'rare', { crit: 0.2, critStack: 0.02, critStackCap: 0.2 }, '+20% crit, each crit +2% crit (up to +20%)'),
+    I('lifeline', 'Heartstring Amulet', 'rare', { hp: 150, shieldStartPct: 0.2 }, '+150 HP, starts fights with a 20% shield'),
+    I('crackedlens', 'Cracked Monocle', 'rare', { crit: 0.25, critStack: 0.02, critStackCap: 0.2 }, '+25% crit, each crit +2% crit (up to +20%)'),
     I('colossus', 'Behemoth Heart', 'epic', { rampHpPct: 0.015, rampHpPctCap: 0.6 }, '+1.5% max HP every second (up to +60%)'),
-    I('eclipsecrown', 'Duskfall Diadem', 'epic', { ap: 40, apPerAtk: 2 }, '+40 AP, +2 AP per attack'),
-    I('reaper', 'Harvest Scythe', 'epic', { atk: 15, reap: 0.12 }, '+15 attack, hits execute enemies below 12% HP'),
-    I('mirrorshield', 'Glasswall Shield', 'epic', { mr: 30, thorns: 0.35 }, '+30 MR, reflects 35% of melee damage'),
+    I('eclipsecrown', 'Duskfall Diadem', 'epic', { ap: 60, apPerAtk: 3 }, '+60 AP, +3 AP per attack'),
+    I('reaper', 'Harvest Scythe', 'epic', { atk: 25, reap: 0.12 }, '+25 attack, hits execute enemies below 12% HP'),
+    I('mirrorshield', 'Glasswall Shield', 'epic', { armor: 30, mr: 30, thorns: 0.35 }, '+30 armor and MR, reflects 35% of melee damage'),
     I('hourglass', 'Stilled Hourglass', 'epic', { ap: 20, armor: 20, stasis: 1 }, 'Once per fight at 40% HP: invulnerable for 2s'),
   ];
 
@@ -701,10 +701,10 @@
     N('gloves', 'g_leather', 'Hide Gloves', 'common', { asPct: 0.15 }, '+15% attack speed'),
     N('gloves', 'g_gauntlets', 'Plated Gauntlets', 'uncommon', { armor: 15, atk: 8 }, '+15 armor, +8 attack'),
     N('gloves', 'g_silk', "Weaver's Gloves", 'uncommon', { ap: 15, manaOnHit: 3 }, '+15 AP, +3 mana per attack'),
-    N('gloves', 'g_assassin', 'Cutpurse Grips', 'rare', { crit: 0.15, critDmg: 0.3 }, '+15% crit, +30% crit damage'),
-    N('gloves', 'g_venom', 'Asp Claws', 'rare', { asPct: 0.15, poisonOnHit: 0.015 }, '+15% attack speed, attacks poison 1.5% max HP/s'),
+    N('gloves', 'g_assassin', 'Cutpurse Grips', 'rare', { crit: 0.2, critDmg: 0.4 }, '+20% crit, +40% crit damage'),
+    N('gloves', 'g_venom', 'Asp Claws', 'rare', { asPct: 0.12, poisonOnHit: 0.008 }, '+12% attack speed, attacks poison 0.8% max HP/s'),
     N('boots', 'b_padded', 'Wool-Lined Boots', 'common', { hp: 150 }, '+150 HP'),
-    N('boots', 'b_treads', "Runner's Treads", 'uncommon', { ms: 1, mr: 15 }, '+1 move speed, +15 MR'),
+    N('boots', 'b_treads', "Runner's Treads", 'uncommon', { ms: 1, mr: 15, hp: 80 }, '+1 move speed, +15 MR, +80 HP'),
     N('boots', 'b_greaves', 'Wargreaves', 'rare', { ms: 1, asPct: 0.25 }, '+1 move speed, +25% attack speed'),
     N('boots', 'b_shadow', 'Hushsteps', 'rare', { dodge: 0.15, firstMoveAtk: 0.3 }, '+15% dodge, attack after moving deals +30%'),
     N('helmet', 'h_iron', 'Iron Sallet', 'common', { armor: 12, mr: 12 }, '+12 armor and MR'),
@@ -713,7 +713,7 @@
     N('armor', 'a_plate', 'Banneret Plate', 'uncommon', { armor: 22, hp: 80 }, '+22 armor, +80 HP'),
     // legendary: one per slot
     N('weapon', 'obsidianblade', 'Duskforged Greatsword', 'legendary', { atk: 30, splash: 0.35, armorPen: 0.2 }, '+30 attack, attacks splash 35% to adjacent enemies, ignore 20% armor'),
-    N('offhand', 'aegis', 'Shield of First Light', 'legendary', { shieldStartPct: 0.3, aura: [{ r: 1, stat: 'armor', val: 20 }, { r: 1, stat: 'mr', val: 20 }] }, 'Starts fights with a 30% shield, adjacent allies +20 armor and MR'),
+    N('offhand', 'aegis', 'Shield of First Light', 'legendary', { shieldStartPct: 0.4, aura: [{ r: 1, stat: 'armor', val: 25 }, { r: 1, stat: 'mr', val: 25 }] }, 'Starts fights with a 40% shield, adjacent allies +25 armor and MR'),
     N('helmet', 'magicrown', 'Crown of the Conclave', 'legendary', { ap: 60, manaStart: 30, manaRegen: 2 }, '+60 AP, +30 starting mana, +2 mana per second'),
     N('armor', 'dragonscale', 'Wyrmhide Mail', 'legendary', { hp: 350, armor: 30, mr: 30, dmgReduce: 0.1 }, '+350 HP, +30 armor and MR, takes 10% less damage'),
     N('gloves', 'furygauntlets', 'Gauntlets of Wrath', 'legendary', { asPct: 0.25, rageDmg: 0.5 }, '+25% attack speed, up to +50% damage as HP drops'),
@@ -756,7 +756,7 @@
     storm: { name: 'Thunderborn', bonus: { 2: { mods: { asPct: 0.2 }, desc: '+20% attack speed' }, 3: { mods: { chainEvery: 3, chainTargets: 3, chainDmg: 0.5 }, desc: 'Every 3rd attack chains to 3 enemies' } } },
     arcanist: { name: 'Starweaver', bonus: { 2: { mods: { ap: 30 }, desc: '+30 AP' }, 3: { mods: { manaMaxPct: -0.25, abilityBurn: 0.02 }, desc: 'Abilities need 25% less mana and burn 2% max HP/s' } } },
     bloodmoon: { name: 'Scarlet Pact', bonus: { 2: { mods: { ls: 0.12 }, desc: '+12% lifesteal' }, 3: { mods: { rageDmg: 0.6, omni: 0.1 }, desc: 'Up to +60% damage as HP drops, abilities heal 10% of damage' } } },
-    ranger: { name: 'Wildwarden', bonus: { 2: { mods: { range: 1 }, desc: '+1 range' }, 3: { mods: { multishot: 0.5 }, desc: 'Attacks also hit a 2nd enemy for 50%' } } },
+    ranger: { name: 'Wildwarden', bonus: { 2: { mods: { range: 1, asPct: 0.15 }, desc: '+1 range, +15% attack speed' }, 3: { mods: { multishot: 0.5 }, desc: 'Attacks also hit a 2nd enemy for 50%' } } },
   };
   for (const sid in B.SETS) { B.SETS[sid].id = sid; B.SETS[sid].pieces = B.ITEMS.filter(i => i.set === sid).map(i => i.id); }
   B.ITEM = {}; for (const it of B.ITEMS) B.ITEM[it.id] = it;
@@ -821,26 +821,26 @@
     R('font', 'Moonwell Basin', 'Heroes start fights with +30 mana.', { mods: { manaStart: 30 } }),
     R('bloodstone', 'Heartblood Garnet', 'All heroes +8% lifesteal.', { mods: { ls: 0.08 } }),
     R('tooth', 'Ogre Molar', 'All heroes +150 HP.', { mods: { hp: 150 } }),
-    R('wits', 'Whetted Mind', 'All heroes +20 AP.', { mods: { ap: 20 } }),
-    R('clover', 'Lucky Sprig', 'All heroes +10% crit chance.', { mods: { crit: 0.1 } }),
+    R('wits', 'Whetted Mind', 'All heroes +35 AP.', { mods: { ap: 35 } }),
+    R('clover', 'Lucky Sprig', 'All heroes +15% crit chance.', { mods: { crit: 0.15 } }),
     R('backpack', "Wayfarer's Satchel", 'Every hero gets +1 item slot.', { mods: { itemSlots: 1 } }),
     R('crest', 'Crest of Many', 'Team size limit +1 (4 heroes).', { fl: 'crest' }),
     R('vengeance', 'Wrathful Shade', 'When a hero dies, the others gain +20% attack.', { fl: 'vengeance' }),
     R('frostsigil', 'Rime Glyph', 'Enemies start every fight slowed by 40% for 4s.', { fl: 'frostsigil' }),
     R('thunder', 'Stormpost Totem', 'Every 4s lightning strikes a random enemy.', { fl: 'thunder' }),
-    R('spring', 'Mending Spring', 'Heroes regenerate 1% max HP per second.', { mods: { regen: 0.01 } }),
+    R('spring', 'Mending Spring', 'Heroes regenerate 0.5% max HP per second, and all healing on them is 30% stronger.', { mods: { regen: 0.005, healPower: 0.3 } }),
     R('firststrike', 'Drawn Steel', 'Heroes start fights with a shield of 20% max HP.', { mods: { shieldStartPct: 0.2 } }),
     R('purse', 'Fat Purse', 'Gain 10 gold now, and +1 gold per 10 held after each fight.', { fl: 'purse' }),
     R('tome', 'Mossbound Tome', 'All current heroes gain 45 XP now.', { fl: 'tome' }),
-    R('wind', 'Tail Gust', 'All heroes +1 move speed.', { mods: { ms: 1 } }),
+    R('wind', 'Tail Gust', 'All heroes +1 move speed and +10% attack speed, and an attack right after moving deals +40%.', { mods: { ms: 1, asPct: 0.1, firstMoveAtk: 0.4 } }),
     R('mark', 'Quarry Brand', '+25% damage to elites and bosses.', { mods: { eliteDmg: 0.25 } }),
     // ---- v5 (review #2)
     R('ember', 'Smoldering Coal', "Heroes' attacks burn for 10% AD per second.", { mods: { burnOnHit: 0.1 } }),
     R('warhorn', 'Charging Horn', 'Heroes start fights with +30% attack speed for 5s.', { fl: 'warhorn' }),
-    R('ironwill', 'Unbending Oath', 'Each hero ignores the first crowd control of every fight.', { mods: { cleanseOnce: 1 } }),
+    R('ironwill', 'Unbending Oath', 'Each hero ignores the first crowd control of every fight and has +80 HP.', { mods: { cleanseOnce: 1, hp: 80 } }),
     R('seed', 'Sprouting Acorn', 'Heroes gain +1% attack every second in combat (up to +30%).', { mods: { rampAtkPct: 0.01, rampAtkPctCap: 0.3 } }),
     R('bounty', 'Wanted Poster', '+1 gold per enemy killed in a won fight (up to +6).', { fl: 'bounty' }),
-    R('bloodpact', 'Crimson Contract', 'Heroes +20% attack, -10% max HP.', { mods: { atkPct: 0.2, hpPct: -0.1 } }),
+    R('bloodpact', 'Crimson Contract', 'Heroes +25% attack, -5% max HP.', { mods: { atkPct: 0.25, hpPct: -0.05 } }),
     R('lastbreath', 'Dying Gasp', 'A hero that dies explodes for 300% AD damage in 1 hex.', { fl: 'lastbreath' }),
     R('whetset', 'Grindwheel', 'All heroes +8 attack.', { mods: { atk: 8 } }),
     R('battery', 'Mana Coil', 'Abilities need 15% less mana.', { mods: { manaMaxPct: -0.15 } }),
@@ -850,7 +850,7 @@
     R('beehive', 'Tiny Beehive', 'All heroes +10 AP, and their attacks poison for 0.5% max HP per second.', { mods: { ap: 10, poisonOnHit: 0.005 } }),
     R('seashell', 'Singing Seashell', 'All heroes +15 magic resist and +8% attack speed.', { mods: { mr: 15, asPct: 0.08 } }),
     R('kite', 'Paper Kite', 'All heroes +1 move speed and +5% dodge.', { mods: { ms: 1, dodge: 0.05 } }),
-    R('compass', 'Star Compass', 'All heroes +8% crit chance and +15% crit damage.', { mods: { crit: 0.08, critDmg: 0.15 } }),
+    R('compass', 'Star Compass', 'All heroes +12% crit chance and +25% crit damage.', { mods: { crit: 0.12, critDmg: 0.25 } }),
     R('teapot', 'Warm Teapot', 'All heroes regenerate 1% HP per second.', { mods: { regen: 0.01 } }),
     R('snowglobe', 'Snow Globe', 'All heroes +10 armor and +100 HP.', { mods: { armor: 10, hp: 100 } }),
     R('marbles', 'Marble Pouch', 'All heroes start fights with +25 mana.', { mods: { manaStart: 25 } }),
@@ -872,43 +872,43 @@
     // relic needs a clear identity, interesting tradeoff"). Each one is a simple rule with a price; the rule lives in
     // sim.js (fights: flOf, so a Gauntlet ghost uses them too) or run.js (the run: shops, map, rewards, heroes).
     // -- the board and positioning
-    R('gravestone', "Undertaker's Shovel", 'Every enemy that falls leaves a gravestone on its hex: it blocks the way like a boulder for the rest of the fight.', { fl: 'gravestone' }),
-    R('quakedrum', 'Earthshaker Drum', 'Every 8s the ground shakes: every unit standing next to a tree, boulder, ridge, pond or gravestone is stunned for 1s. Yours too.', { fl: 'quakedrum' }),
+    R('gravestone', "Undertaker's Shovel", 'Every enemy that falls leaves a gravestone on its hex: it blocks the way like a boulder, and heroes next to one take 20% less damage.', { fl: 'gravestone' }),
+    R('quakedrum', 'Earthshaker Drum', 'Every 8s the ground shakes: every enemy standing next to a tree, boulder, ridge, pond or gravestone is stunned for 1s.', { fl: 'quakedrum' }),
     R('bramblecrown', 'Thorn Crown', 'Trees, boulders, ridges, ponds and gravestones grow thorns: enemies next to them lose 3% max HP per second, your heroes 1%.', { fl: 'bramblecrown' }),
     R('catapult', 'Siege Sling', 'When the fight starts, your front hero is flung next to the enemy farthest back, lands with a shield of 30% of its max HP and stuns every enemy beside it for 2s. It lands alone.', { fl: 'catapult' }),
     R('gravity', 'Gravity Stone', 'When the fight starts, every enemy is pulled together into the middle of its side. Great for blasts, but they arrive all at once.', { fl: 'gravity' }),
     R('anchor', 'Anchor Chain', 'Heroes take 25% less damage while they stand on the hex they started on, and nothing can push or pull them.', { fl: 'anchor' }),
-    R('stonefoot', 'Stonefoot Idol', 'Heroes never walk, but get +2 range. The enemies come to you.', { fl: 'stonefoot', mods: { range: 2 } }),
+    R('stonefoot', 'Stonefoot Idol', 'Heroes never walk, but get +2 range and +15% attack. The enemies come to you.', { fl: 'stonefoot', mods: { range: 2, atkPct: 0.15 } }),
     R('blinkstone', 'Blink Pebble', 'Melee heroes blink next to their target instead of walking (once every 4s). They dive in alone.', { fl: 'blinkstone' }),
-    R('trickcoin', "Swapper's Coin", 'Every 8s your most hurt hero swaps places with your healthiest one.', { fl: 'trickcoin' }),
-    R('highground', 'Watchtower Flag', 'Formation: heroes starting in your back row get +1 range and +20% damage; heroes starting in your front row deal 15% less.', { fl: 'highground', form: true }),
+    R('trickcoin', "Swapper's Coin", 'Every 8s your most hurt hero swaps places with your healthiest one and heals 15% of max HP.', { fl: 'trickcoin' }),
+    R('highground', 'Watchtower Flag', 'Formation: heroes starting in your back row get +1 range and +25% damage; heroes starting in your front row deal 5% less.', { fl: 'highground', form: true }),
     R('center', 'Spotlight Lamp', 'Formation: the hero starting closest to the middle of your side is the Star: +40% HP, attack and AP. The others get 10% less HP.', { fl: 'center', form: true }),
     // -- targeting
     R('lodestone', 'Lodestone', 'Every enemy goes for your hero with the most max HP, wherever it stands. That hero takes 10% less damage.', { fl: 'lodestone' }),
-    R('bodyguard', 'Bodyguard Oath', 'Enemies cannot target your ranged heroes while one of your melee heroes is alive. Blasts still hit them.', { fl: 'bodyguard' }),
-    R('packhorn', 'Pack Horn', 'Your heroes all hunt the same enemy (the one closest to your team) and deal 25% more damage to it.', { fl: 'packhorn' }),
-    R('jesterbell', "Jester's Bell", 'Every 8s a random unit on the board, friend or foe, is confused for 2.5s and attacks its own side. Bosses are deaf to it.', { fl: 'jesterbell' }),
-    R('mirrorshield', 'Mirror Shard', 'The first ability that hits each hero in a fight bounces back to whoever cast it. Heroes take 10% more damage from attacks.', { fl: 'mirrorshield' }),
+    R('bodyguard', 'Bodyguard Oath', 'Enemies cannot target your ranged heroes while one of your melee heroes is alive (blasts still hit them), and your melee heroes get +20 armor and MR.', { fl: 'bodyguard' }),
+    R('packhorn', 'Pack Horn', 'Your heroes all hunt the same enemy (the one closest to your team) and deal 35% more damage to it.', { fl: 'packhorn' }),
+    R('jesterbell', "Jester's Bell", 'Every 8s a random unit is confused for 2.5s and attacks its own side: mostly an enemy, sometimes one of yours. Bosses are deaf to it.', { fl: 'jesterbell' }),
+    R('mirrorshield', 'Mirror Shard', 'The first ability that hits each hero in a fight bounces back to whoever cast it.', { fl: 'mirrorshield' }),
     // -- falling and rising
     R('phoenix', 'Phoenix Egg', 'If your whole team falls, everyone rises at 50% HP. Then the egg hatches and is gone for the rest of the game.', { fl: 'phoenix' }),
-    R('souljar', 'Soul Jar', 'Every 4 enemies that fall fill the jar: a fallen hero rises at 50% HP (if nobody fell, every hero heals 30%).', { fl: 'souljar' }),
-    R('gravecaller', 'Gravecaller Lantern', 'Each enemy that falls (not bosses) rises on your side for 6s at half strength. Heroes have 15% less max HP.', { fl: 'gravecaller', mods: { hpPct: -0.15 } }),
+    R('souljar', 'Soul Jar', 'Every 5 enemies that fall fill the jar: a fallen hero rises at 50% HP (if nobody fell, every hero heals 30%).', { fl: 'souljar' }),
+    R('gravecaller', 'Gravecaller Lantern', 'Each enemy that falls (not bosses) rises on your side for 6s at half strength. Heroes have 5% less max HP.', { fl: 'gravecaller', mods: { hpPct: -0.05 } }),
     R('lastone', 'Last Stand Banner', 'When only one of your heroes is left, it heals to full and gets +100% attack and +50% attack speed.', { fl: 'lastone' }),
     R('pyre', 'Chain Pyre', 'Enemies that fall explode for 15% of their max HP into everything next to them (your heroes take a tenth of it). Crowds chain-react.', { fl: 'pyre' }),
     R('contagion', 'Plague Flask', 'When a burning or poisoned enemy falls, its burn and poison jump to every enemy within 2 hexes.', { fl: 'contagion' }),
-    R('king', "King's Crown", 'Your highest-level hero is crowned: +60% HP and attack. When the King falls, the others panic (stunned for 2s).', { fl: 'king' }),
+    R('king', "King's Crown", 'Your highest-level hero is crowned: +40% HP and attack. When the King falls, the others panic (stunned for 2s).', { fl: 'king' }),
     // -- mana and abilities
     R('echo', 'Echo Chime', "Each hero's first ability in a fight goes off twice. Heroes start fights with no mana.", { fl: 'echo' }),
     R('fullmana', 'Overflow Cup', 'Heroes start fights with full mana, but every ability needs 10% more mana.', { fl: 'fullmana', mods: { manaMaxPct: 0.1 } }),
     R('hush', 'Hush Bell', 'Enemies cannot use abilities for the first 10s of a fight; your heroes cannot for the first 2s.', { fl: 'hush' }),
     R('leyline', 'Ley Line Chalk', 'When a hero uses its ability, your other heroes in the same row gain 30 mana.', { fl: 'leyline' }),
     // -- stats turned upside down
-    R('scales', 'Scales of Balance', "When the fight starts, all your heroes' max HP evens out to the team's average.", { fl: 'scales' }),
+    R('scales', 'Scales of Balance', "When the fight starts, all your heroes' max HP evens out to the team's average, plus 10%.", { fl: 'scales' }),
     R('glass', 'Glass Crown', 'Heroes deal double damage, but have a third less max HP.', { fl: 'glass', mods: { hpPct: -0.35 } }),
-    R('giant', "Giant's Brew", 'Heroes grow huge: +60% max HP and attack, but 40% slower attacks, -1 move speed and no dodge.', { fl: 'giant', mods: { hpPct: 0.6, atkPct: 0.6, asPct: -0.4, ms: -1 } }),
+    R('giant', "Giant's Brew", 'Heroes grow huge: +50% max HP and attack, but 40% slower attacks, -1 move speed and no dodge.', { fl: 'giant', mods: { hpPct: 0.5, atkPct: 0.5, asPct: -0.4, ms: -1 } }),
     R('berserk', 'Berserker Chain', 'Heroes attack faster the more HP they lose (up to twice as fast), but heals can never lift them above half HP.', { fl: 'berserk' }),
-    R('bond', 'Brotherhood Chain', 'Damage to any hero is shared equally by all your heroes still standing.', { fl: 'bond' }),
-    R('loaded', 'Two-Faced Coin', 'Luck rolls twice for you: crits, dodges and gambles all take the better roll. Heroes have 10% less attack.', { fl: 'loaded', mods: { atkPct: -0.1 } }),
+    R('bond', 'Brotherhood Chain', 'Damage to any hero is shared equally by all your heroes still standing, and is 10% lower.', { fl: 'bond' }),
+    R('loaded', 'Two-Faced Coin', 'Heroes +5% crit chance, and luck rolls twice for you: crits, dodges and gambles all take the better roll.', { fl: 'loaded', mods: { crit: 0.05 } }),
     R('timecrystal', 'Time Crystal', 'Every 12s time stops for the enemies (frozen for 1.5s). Sudden death starts 10s sooner.', { fl: 'timecrystal' }),
     R('harmony', 'Harmony Chord', 'If all your heroes fight up close, or all fight from afar, they get +25% attack and attack speed.', { fl: 'harmony' }),
     // -- the run: shops, the map, rewards, heroes and items
@@ -926,7 +926,7 @@
     R('double', 'Double or Nothing', 'Win a fight with nobody falling: double gold. If anyone falls: no gold at all.', { fl: 'double' }),
     R('snowball', 'Snowball', 'Each fight won with nobody falling gives every hero +4% HP and attack for the rest of the game. One fallen hero melts it all.', { fl: 'snowball' }),
     R('packrat', "Pack Rat's Sack", 'Every item in your bag (not worn) gives all heroes +3% HP and attack, up to 10 items.', { fl: 'packrat' }),
-    R('vow', "Minimalist's Vow", 'Heroes wearing one item or none get +50% HP and attack.', { fl: 'vow' }),
+    R('vow', "Minimalist's Vow", 'Heroes with a free item slot get +30% HP and attack (Auto-equip leaves one free).', { fl: 'vow' }),
   ];
   // what each formation relic gives one hero (n = allies next to it, for the Shieldwall), shown while deploying
   B.FORMATION = {
@@ -937,6 +937,7 @@
   // v58 (review #70, David: "Simplify the relic descriptions"): a short line for every relic (what it does, in a few words)
   // for shops, the start and the map; the full rule is one tap away (r.desc)
   const SHORT = {
+    wind: 'Faster heroes that hit hard on the move.', ironwill: 'Ignore the first crowd control, +80 HP.', spring: 'Slow regen, and healing works better.',   // v61
     beehive: 'Heroes +10 AP; attacks poison.',
     shieldwall: 'Heroes side by side get tougher.',
     lonewolf: 'Heroes standing alone attack faster.',
@@ -944,8 +945,8 @@
     rearguard: 'Back-row heroes hit 20% harder.',
     battleline: 'All in one row: everyone attacks faster.',
     cover: 'Heroes next to terrain dodge and block more.',
-    gravestone: 'Fallen enemies leave walls behind.',
-    quakedrum: 'Every 8s, all next to terrain are stunned.',
+    gravestone: 'Fallen enemies leave walls that shelter you.',
+    quakedrum: 'Every 8s, foes next to terrain are stunned.',
     bramblecrown: 'Terrain hurts the enemies next to it.',
     catapult: 'Fling your front hero into their back line.',
     gravity: 'Enemies start bunched together.',
@@ -958,10 +959,10 @@
     lodestone: 'Enemies all chase your biggest hero.',
     bodyguard: 'Ranged heroes are safe behind melee ones.',
     packhorn: 'Your team hunts one enemy at a time.',
-    jesterbell: 'Someone random gets confused every 8s.',
+    jesterbell: 'Every 8s someone, mostly a foe, is confused.',
     mirrorshield: 'The first ability on each hero bounces back.',
     phoenix: 'Your wiped team rises once.',
-    souljar: 'Every 4 kills bring a fallen hero back.',
+    souljar: 'Every 5 kills bring a fallen hero back.',
     gravecaller: 'Fallen enemies fight for you a while.',
     lastone: 'Your last hero heals and goes berserk.',
     pyre: 'Fallen enemies explode on their friends.',
@@ -1025,9 +1026,9 @@
     // v52 (review #64, David: "Add an additional possibility for each of the bosses (not chosen, is chosen at random at
     // start of each run) and balance it"): slot 1 is the Gorewarden or the Mirewitch, slot 2 the Ashen Sovereign or the
     // Iron Colossus (run.bosses, drawn in Run.newRun). Their strength is tuned with tools/boss-odds.js
-    mirewitch: { key: 'mirewitch', name: 'Mirewitch Morra', glyph: '🧪', boss: 1, slot: 1, hp: 1350, atk: 42, armor: 25, mr: 50, as: 0.7, range: 3, ms: 1.8, mana: 50, abil: 'bog',
+    mirewitch: { key: 'mirewitch', name: 'Mirewitch Morra', glyph: '🧪', boss: 1, slot: 1, hp: 1390, atk: 43, armor: 25, mr: 50, as: 0.7, range: 3, ms: 1.8, mana: 50, abil: 'bog',
       desc: 'Hurls poison bog that stays on the ground. Turns your strongest hero into a frog every 9s. Sinks into the swamp at half health and calls serpents.', escort: ['grunt', 'spitter', 'archer'] },
-    colossus: { key: 'colossus', name: 'The Iron Colossus', glyph: '🗿', boss: 2, slot: 2, hp: 3500, atk: 64, armor: 60, mr: 35, as: 0.55, range: 1, ms: 1.5, mana: 70, abil: 'quake',
+    colossus: { key: 'colossus', name: 'The Iron Colossus', glyph: '🗿', boss: 2, slot: 2, hp: 3600, atk: 65, armor: 60, mr: 35, as: 0.55, range: 1, ms: 1.5, mana: 70, abil: 'quake',
       desc: 'Stomps the ground and shoves heroes away (into stones, they are stunned). Vents steam every 8s and takes more damage while it does. Calls shield bearers at 60%, melts down at 30%.', escort: ['knight', 'bomber'] },
   };
   B.BOSS_SLOTS = [['gorewarden', 'mirewitch'], ['hollowking', 'colossus']];
@@ -1046,9 +1047,9 @@
     6: ['archer', 'brute', 'skulker', 'shaman', 'bomber', 'hexer', 'golem', 'summoner', 'shieldbearer', 'knight'],
   };
   B.DIFF = {
-    easy: { name: 'Easy', budget: 3.2, elites: 0 },
+    easy: { name: 'Easy', budget: 3.2, elites: 0, mul: [1, 0.62, 1.08, 1.13, 1, 1.19, 1.12, 1.08, 1] },   // v61: mul = strength per fight number (~99%)
     medium: { name: 'Medium', budget: 4.6, elites: 0 },
-    hard: { name: 'Hard', budget: 5.8, elites: 1 },
+    hard: { name: 'Hard', budget: 5.8, elites: 1, mul: [1, 0.76, 0.88, 0.9, 1, 0.98, 1, 1.02, 1] },   // v61: ~60%
     horde: { name: 'Horde', budget: 8.4, elites: 0, pool: 2 },   // v44 (review #54): the Bounty Board's horde challenge
   };
 
