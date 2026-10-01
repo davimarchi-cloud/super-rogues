@@ -129,6 +129,7 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v51 (2026-10-01), lote 49 do David (#63: "loja nunca com número ímpar de coisas; heróis na loja com descrição simples (tipo joga tortas nos inimigos) e um botão de detalhes").** Lojas sempre pares: heróis 4, itens 6 (8 com o Faded Chart, 4 com o Heirloom Anvil), relíquias 4. O `stockFor` tira a última se ainda sair ímpar, e o Shuffled Deck tira 2 por troca até sobrar 2. Cada herói ganhou uma frase curta (`HEROES[k].tag` em data.js), usada na loja e no 1º passo do início. O botão "More"/"Details" (`hero-peek` → `heroPeekHTML`) abre a ficha: a arte, a frase, a habilidade inteira com os números, como escala e os poderes de cada nível.
 - **v50 (2026-10-01), lote 48 do David (#62: "50 relíquias realmente inventivas: momentos memoráveis, mudar posição e montagem do time, interagir com o tabuleiro, mudar o alvo e a IA, sinergias, economia, rota, lojas, recompensas, escolha de herói, itens e risco; cada uma com identidade e troca").** Pausado na noite de 30/09 a pedido do dono ("volte quando o de 5 h resetar") e retomado por agendamento. 100 relíquias agora (50 novas, todas com `fl`). **Combate** (`sim.js`, `flOf`, então o fantasma do Gauntlet usa também):
   - `relicStart`: Scales of Balance, King's Crown, Harmony Chord, Echo Chime, Overflow Cup, Gravity Stone, Siege Sling, Anchor Chain.
   - Formação: Watchtower Flag e Spotlight Lamp (`formation`).

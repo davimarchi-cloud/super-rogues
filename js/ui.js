@@ -434,7 +434,7 @@
         return `<button class="hbanner ${on ? 'on' : ''} ${k === f ? 'focus' : ''}" data-act="start-pick" data-arg="${k}" style="--cloth:${d.color}">
           <span class="rod"></span><img src="${por(k, 120, true)}" alt=""><b>${esc(d.name)}</b><i>${d.role}</i>${on ? '<span class="chk">✓</span>' : ''}</button>`; }).join('')}</div>
       ${h ? `<div class="card detail"><div class="hrow">${img(f, 48)}<b>${esc(h.name)}</b><span class="role">${h.role} · ${h.range <= 1 ? I('sword') + ' fights up close' : I('bow') + ' attacks from afar'}</span></div>
-        <div class="abil">${abilHTML(h, true)}</div></div>` : '<p class="ssub tap">Tap a hero to see what it does</p>'}
+        <p class="htag">${esc(h.tag || h.abName)}</p><button class="hdet" data-act="hero-peek" data-arg="${f}">${I('info')} Details</button></div>` : '<p class="ssub tap">Tap a hero to see what it does</p>'}
       ${(run.locked || []).length ? `<p class="center"><span class="lockpill" title="More heroes, items and relics unlock as your account levels up">🔒 ${run.locked.length} more unlock as you level up</span></p>` : ''}
       <div class="bar"><button class="primary big" data-act="start-next" ${n === CFG.startHeroes ? '' : 'disabled'}>${n === CFG.startHeroes ? (relics.length ? 'Next ▶' : 'Start the game!') : 'Tap a hero'}</button></div></section>`;
   }
@@ -789,7 +789,7 @@
   function stockCard(s, i) {
     const dis = s.sold || run.gold < s.price || (s.kind === 'hero' && run.heroes.length >= Run.teamMax(run));
     let body = '';
-    if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><div class="small">${abilHTML(h, true)}</div><div class="rangeline">${h.range <= 1 ? I('sword') + ' Fights up close' : I('bow') + ' Attacks from afar'}</div>`; }
+    if (s.kind === 'hero') { const h = HEROES[s.id]; body = `<div class="srow">${img(s.id, 48, 'por big')}<div><div class="ctitle">${esc(h.name)}</div><div class="tier">${h.role}</div></div></div><p class="htag">${esc(h.tag || h.abName)}</p><div class="hfoot"><span class="rangeline">${h.range <= 1 ? I('sword') + ' Up close' : I('bow') + ' From afar'}</span><button class="hdet" data-act="hero-peek" data-arg="${s.id}" aria-label="Details">${I('info')} More</button></div>`; }
     else if (s.kind === 'item') { const it = ITEM[s.id]; body = `<div class="srow">${ico('item', s.id, 52, 'ico big')}<div><div class="ctitle" style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</div>${itemTag(it)}</div></div><div class="small">${fmt(it.desc)}</div>${setInfo(it)}`; }
     else { const r = RELIC[s.id]; body = `<div class="srow">${ico('relic', s.id, 52, 'ico big')}<div><div class="ctitle relic">${esc(r.name)}</div><div class="tier t-relic">relic</div></div></div><div class="small">${fmt(r.desc)}</div>`; }
     // review #44: a stripe in the rarity colour (hero colour for heroes, gold for relics) makes the rarity readable at a glance
@@ -1073,6 +1073,16 @@
   }
 
   // review #19 (David: "include ability to read hero ability in item screen"): the hero card on top of the team sheet
+  // v51 (review #63): a hero's Details from the shop or the start: the picture, what it does in plain words, the whole
+  // ability with its numbers, its stats, and every level's two powers
+  function heroPeekHTML(key) {
+    const d = HEROES[key]; if (!d) return '';
+    const def = Run.heroDef({ relics: [], heroes: [], bag: [] }, { key, lvl: 1, specs: [], items: [], bonus: {}, uid: 0 });
+    return `<div class="shead"><b>${esc(d.name)}</b><button data-act="close" aria-label="Close">✕</button></div>
+      <div class="peek"><img class="peekart" src="${por(key, 110, true)}" alt=""><div class="peekt"><span class="role">${esc(d.role)} · ${d.range <= 1 ? I('sword') + ' fights up close' : I('bow') + ' attacks from afar'}</span><p class="htag big">${esc(d.tag || '')}</p></div></div>
+      <div class="abil peekab">${abilHTML(d)}</div>${scalingHTML(def)}
+      <h3 class="peekh">Powers it can learn</h3><div class="peekpow">${d.specs.map((pr, k) => `<div class="pp"><span class="sp-lv">Lv ${k + 2}</span><div>${pr.map(sp => `<p><b class="spec">${esc(sp.name)}</b> ${fmt(plainAb(sp.desc))}</p>`).join('')}</div></div>`).join('')}</div>`;
+  }
   function heroCardHTML(h) {
     const d = HEROES[h.key], def = Run.heroDef(run, h), specs = h.specs.map(id => Run.specOf(h.key, id)).filter(Boolean);
     return `<div class="hdetail"><div class="row">${img(h.key, 44)}<div class="grow"><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span> <span class="dim small">${esc(d.role)}</span>
@@ -1448,6 +1458,7 @@
     'give-up': () => { openModal(`<div class="shead"><b>Give up?</b><button data-act="close" aria-label="Close">✕</button></div><div class="giveupask">${I('flag', 'big')}<p>Your team goes home and this game ends. It does not count as a loss.</p><div class="bar"><button data-act="close">Keep playing</button><button class="danger" data-act="give-up-yes">${I('flag')} Give up</button></div></div>`); },
     'give-up-yes': () => { run = null; store.del(SAVE); closeModal(); ui.lastGold = null; ui.goldHold = null; screen = 'title'; render(); },
     'form-info': t => toast(t),
+    'hero-peek': k => { if (HEROES[k]) { openModal(heroPeekHTML(k)); ui.modal = 'peek'; } },
     path: () => { if (run) { openModal(pathHTML()); ui.modal = 'path'; } },
     'result-more': () => { ui.rmore = !ui.rmore; render(); },
     leave: () => { Run.leave(run); save(); render(); window.scrollTo(0, 0); },

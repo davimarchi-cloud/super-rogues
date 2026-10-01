@@ -83,7 +83,7 @@ ok(await ev(`!!document.querySelector('.start .ssteps li.on') && !!document.quer
 const fmtOut = await ev(`__bal.fmt('<b>x</b> deals 20% magic damage and stuns for 1.5s')`);
 ok(/&lt;b&gt;/.test(fmtOut) && /class="num">20%/.test(fmtOut) && /kw-ap/.test(fmtOut) && /kw-cc/.test(fmtOut) && /class="dur">1.5s/.test(fmtOut), 'review #10: descriptions colour terms, bold numbers, italic durations, and stay escaped');
 await click('[data-act=start-pick]');
-ok(await ev(`!!document.querySelector('.detail .abil') && !document.querySelector('.detail .stat') && !document.querySelector('[data-act=start-next]').disabled`), 'v45 step 1: the picked hero shows its ability (no stat table) and Next turns on');
+ok(await ev(`!!document.querySelector('.detail .htag') && !!document.querySelector('.detail [data-act=hero-peek]') && !document.querySelector('.detail .stat') && !document.querySelector('[data-act=start-next]').disabled`), 'v45 step 1: the picked hero shows its ability (no stat table) and Next turns on');
 await shot('02a-start-hero'); await noHScroll('start hero'); await noVScroll('start hero');
 await click('[data-act=start-next]'); await sleep(100);
 ok(await ev(`document.querySelectorAll('[data-act=start-relic]').length === 3 && document.querySelector('[data-act=start-go]').disabled && document.querySelectorAll('.srelic .srd').length === 3 && document.querySelectorAll('.ssteps li.done').length === 1`), 'review #22 + v45 step 2: 3 relics with what they do written on them; you need a relic to begin');
@@ -493,6 +493,14 @@ await shot('27-three-paths'); await noHScroll('three paths'); await noVScroll('t
 await ev(`(() => { const r = __bal.run; r.phase = 'map'; r.opts = [{ type: 'shop', kind: 'itemShop' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(200);
 ok(await ev(`[...document.querySelectorAll('.buyb')].filter(b => /Free!/.test(b.textContent)).length === 1`), "v50: the Merchant's Ledger shows one free offer");
 await shot('28-ledger-shop');
+// v51 (review #63): the hero shop: 4 heroes, each with a short blurb and a Details button that opens the whole sheet
+await ev(`(() => { const r = __bal.run; r.relics = r.relics.filter(id => id !== 'ledger'); r.phase = 'map'; r.opts = [{ type: 'shop', kind: 'heroShop' }]; B.Run.choose(r, 0); __bal.render(); })()`); await sleep(900);
+ok(await ev(`document.querySelectorAll('.card.stock.k-hero').length === 4 && [...document.querySelectorAll('.card.stock.k-hero')].every(c => c.querySelector('.htag') && c.querySelector('[data-act=hero-peek]') && !/% A[DP]/.test(c.textContent))`), "v51: the hero shop: 4 heroes, a plain blurb each and a Details button");
+await shot('29-hero-shop'); await noHScroll('hero shop v51'); await noVScroll('hero shop v51');
+await click('.card.stock.k-hero [data-act=hero-peek]'); await sleep(200);
+ok(await ev(`!!document.querySelector('#modal .peek .peekart') && document.querySelectorAll('#modal .peekpow .pp').length === 4 && /AP|AD|%/.test(document.querySelector('#modal .peekab').textContent)`), "v51: Details shows the hero, its whole ability with the numbers, and every level's powers");
+await shot('30-hero-details'); await noHScroll('hero details');
+await click('#modal [data-act=close]'); await sleep(100);
 ok(errors.length === 0, 'no JS errors / CSP violations' + (errors.length ? ': ' + errors.slice(0, 5).join(' || ') : ''));
 console.log(`telas: ${oks} ok, ${fails} fail (screens in ${OUT})`);
 try { ws.close(); } catch (_) {}

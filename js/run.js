@@ -411,6 +411,7 @@
   function randomItem(run, tier) { const t = tier || wpick(run, tierWeights(run)); return pick(run, itemsOf(run).filter(i => i.tier === t)).id; }
   function stockFor(run, kind) {
     const st = stockBase(run, kind), up = has(run, 'xmap') ? 1 : 0;
+    if (st.length > 1 && st.length % 2) st.pop();   // v51 (review #63, David: "Shops never should have uneven number of things")
     if (up) for (const s of st) s.price += up;
     if (has(run, 'ledger') && st.length) { const free = Math.floor(rnd(run) * st.length); st.forEach((s, i) => { s.price = i === free ? 0 : s.price + 2; if (i === free) s.free = true; }); }   // v50
     return st;
@@ -418,18 +419,18 @@
   function stockBase(run, kind) {
     if (kind === 'heroShop') {
       const have = new Set(run.heroes.map(h => h.key));
-      return pickN(run, heroKeysOf(run).filter(k => !have.has(k)), 3).map(k => ({ kind: 'hero', id: k, price: Math.max(1, C.heroCost - seal(run)) }));
+      return pickN(run, heroKeysOf(run).filter(k => !have.has(k)), 4).map(k => ({ kind: 'hero', id: k, price: Math.max(1, C.heroCost - seal(run)) }));
     }
-    if (kind === 'itemShop') return Array.from({ length: (run.relics.includes('treasure') ? 7 : 5) - (has(run, 'anvil') ? 2 : 0) }, () => { const id = randomItem(run); return { kind: 'item', id, price: Math.max(1, C.itemCost[B.ITEM[id].tier] - seal(run)) }; });
-    return pickN(run, relicsOf(run).filter(r => !run.relics.includes(r.id)).map(r => r.id), 3).map(id => ({ kind: 'relic', id, price: Math.max(1, C.relicCost - seal(run)) + (has(run, 'cabinet') ? 3 : 0) }));
+    if (kind === 'itemShop') return Array.from({ length: (run.relics.includes('treasure') ? 8 : 6) - (has(run, 'anvil') ? 2 : 0) }, () => { const id = randomItem(run); return { kind: 'item', id, price: Math.max(1, C.itemCost[B.ITEM[id].tier] - seal(run)) }; });
+    return pickN(run, relicsOf(run).filter(r => !run.relics.includes(r.id)).map(r => r.id), 4).map(id => ({ kind: 'relic', id, price: Math.max(1, C.relicCost - seal(run)) + (has(run, 'cabinet') ? 3 : 0) }));
   }
   function makeShop(run, kind) { return { type: 'shop', kind, stock: stockFor(run, kind), rerolls: 0 }; }
   function rerollCost(run) { return has(run, 'deck') || (run.relics.includes('dice') && run.cur.rerolls === 0) ? 0 : C.reroll; }
   function reroll(run) {
     const c = rerollCost(run); if (run.gold < c) return false;
-    if (has(run, 'deck') && run.cur.stock.length <= 1) return false;   // v50: the Shuffled Deck has run out of cards
+    if (has(run, 'deck') && run.cur.stock.length <= 2) return false;   // v50: the Shuffled Deck has run out of cards
     const n = run.cur.stock.length; run.gold -= c; run.cur.rerolls++; run.cur.stock = stockFor(run, run.cur.kind);
-    if (has(run, 'deck')) run.cur.stock = run.cur.stock.slice(0, Math.max(1, n - 1));
+    if (has(run, 'deck')) run.cur.stock = run.cur.stock.slice(0, Math.max(2, n - 2));   // v51: two at a time, so it stays even
     return true;
   }
   function buy(run, i) {

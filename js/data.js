@@ -727,6 +727,48 @@
   for (const sid in B.SETS) { B.SETS[sid].id = sid; B.SETS[sid].pieces = B.ITEMS.filter(i => i.set === sid).map(i => i.id); }
   B.ITEM = {}; for (const it of B.ITEMS) B.ITEM[it.id] = it;
 
+  // v51 (review #63, David: "Heroes in shop simplify description (like throws pies at enemies)"): what each hero does, in a
+  // few plain words, for the shop and the start; the full ability and its numbers are one tap away (Details)
+  const TAGS = {
+    bastion: 'Shields up and pulls enemies onto himself',
+    vex: 'Teleports to the weakest enemy and stabs it',
+    pyra: 'Throws fireballs at groups of enemies',
+    glacia: 'Freezes groups of enemies solid',
+    brakk: 'Charges in and knocks enemies out',
+    lumen: 'Heals whoever is hurt the most',
+    kestrel: 'Rains arrows on random enemies',
+    morrow: 'Raises skeletons to fight for him',
+    tempest: 'Bounces lightning through 4 enemies',
+    grimhook: 'Hooks far enemies and drags them close',
+    mirage: 'Makes copies of herself to fool enemies',
+    rook: 'Builds turrets that shoot for him',
+    thorne: 'Spins like a tornado and heals from it',
+    seraph: 'Holy ground: hurts enemies, heals friends',
+    nyx: 'Grows stronger every time an enemy falls',
+    bramble: 'Roots nearby enemies to the ground',
+    echo: 'Plays music that heals and speeds up the team',
+    blaze: 'Fires six quick shots in a row',
+    hippolyta: 'Throws poison spears at 3 enemies',
+    deadshot: 'Snipes the weakest enemy from anywhere',
+    vesper: 'Drains enemies to heal herself',
+    kage: 'Blinds enemies, vanishes and throws stars',
+    rex: 'Howls to pump up the team, then pounces',
+    vey: 'Hypnotizes enemies into fighting each other',
+    pip: 'Throws pies, knives and confetti at enemies',
+    barley: 'Smashes barrels on enemies, then takes a swig',
+    azgul: 'Blows up everything around him, at a cost',
+    grok: 'Throws a giant boulder at far enemies',
+    imhotep: 'Wraps enemies in bandages and rises again once',
+    leonidas: 'Shields his friends and spears 2 enemies',
+    harlequin: 'Dances through enemies, slicing each one',
+    sprocket: 'Throws random potions: acid, heal, frost, poison',
+    zephyr: 'Kicks enemies flying into each other',
+    buzzwell: 'Drops a beehive on enemies, honey for friends',
+    coralie: 'Crashes a wave that pushes enemies back',
+    stellan: 'Drops a falling star on groups of enemies',
+  };
+  for (const k in TAGS) if (B.HEROES[k]) B.HEROES[k].tag = TAGS[k];
+
   // ---------------------------------------------------------------- relics (100) — team-wide
   const R = (id, name, desc, o) => Object.assign({ id, name, desc }, o);
   B.RELICS = [
@@ -832,7 +874,7 @@
     R('harmony', 'Harmony Chord', 'If all your heroes fight up close, or all fight from afar, they get +25% attack and attack speed.', { fl: 'harmony' }),
     // -- the run: shops, the map, rewards, heroes and items
     R('ledger', "Merchant's Ledger", 'One offer in every shop is free, but everything else costs 2 more.', { fl: 'ledger' }),
-    R('deck', 'Shuffled Deck', 'Shop rerolls are free, but every reroll takes one offer away.', { fl: 'deck' }),
+    R('deck', 'Shuffled Deck', 'Shop rerolls are free, but every reroll takes two offers away.', { fl: 'deck' }),
     R('quill', "Pathfinder's Quill", 'Every step of the map offers 3 choices instead of 2. Fights pay 2 less gold.', { fl: 'quill' }),
     R('huntmap', "Bounty Hunter's Map", 'One path is always a Hard fight. Hard fights pay double gold; Easy fights pay nothing.', { fl: 'huntmap' }),
     R('anvil', 'Heirloom Anvil', 'After each won fight, a random worn item goes up one rarity. Item shops sell 2 fewer items.', { fl: 'anvil' }),
