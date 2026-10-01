@@ -629,7 +629,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
     const r = Run.newRun(900 + i); Run.pickStart(r, ['bastion'], null); for (const id of rel) Run.gainRelic(r, id); r.phase = 'map'; r.opts = [{ type: 'shop', kind }]; Run.choose(r, 0); sizes.add(kind + (rel.length ? '+' + rel.join('+') : '') + ':' + r.cur.stock.length);
   }
   ok([...sizes].every(x => +x.split(':')[1] % 2 === 0) && sizes.has('heroShop:4') && sizes.has('itemShop:6') && sizes.has('relicShop:4') && sizes.has('itemShop+treasure:8') && sizes.has('itemShop+anvil:4'), 'v51: every shop has an even number of offers (' + [...sizes].join(' ') + ')');
-  ok(Object.values(HEROES).every(h => typeof h.tag === 'string' && h.tag.length >= 10 && h.tag.length <= 50), 'v51: every hero has a short plain blurb for the shop');
+  ok(Object.values(HEROES).every(h => typeof h.tag === 'string' && h.tag.length >= 10 && h.tag.length <= 38), 'v51: every hero has a short plain blurb for the shop');
 }
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);
