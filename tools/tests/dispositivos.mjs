@@ -53,6 +53,11 @@ for (const d of DEVICES) {
     for (const kind of ['heroShop', 'itemShop', 'relicShop']) { await force(`r.phase = 'map'; r.opts = [{ type: 'shop', kind: '${kind}' }]; B.Run.choose(r, 0)`); await sleep(500); await noVScroll(d.name + ' ' + kind); await shot('dev-' + d.name + '-' + kind); }
     for (const id of ['smith', 'altar', 'merchant', 'bounty']) { await force(`r.phase = 'map'; r.opts = [{ type: 'event', id: '${id}' }]; B.Run.choose(r, 0)`); await sleep(300); await noVScroll(d.name + ' event ' + id); }
     await force(`r.phase = 'map'; r.cur = null; r.step -= 1; B.Run.advance(r)`); await sleep(300);
+    // v54: the Gear screen with three heroes and a full bag
+    await force(`while (r.heroes.length < 3) B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k))); r.heroes.forEach(h => { h.lvl = 5; h.items = []; }); r.bag = ['longsword', 'h_iron', 'boots', 'warmog', 'g_leather', 'tear', 'fang', 'warpaint', 'coin', 'longsword', 'boots']`); await sleep(200);
+    await ev(`document.querySelector('#top [data-act=team]').click()`); await sleep(300); await noVScroll(d.name + ' gear'); await shot('dev-' + d.name + '-gear');
+    await ev(`document.querySelector('#modal [data-act=gear-auto]').click()`); await sleep(300); await noVScroll(d.name + ' gear, all worn');
+    await ev(`document.querySelector('#modal [data-act=close]').click()`); await sleep(150);
   }
   await ev(`document.querySelector('[data-act=choose]').click()`); await sleep(400);
   await noHScroll(d.name + ' deploy');

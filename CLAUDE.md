@@ -130,6 +130,18 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v54 (2026-10-01), lote 52 do David (#66: "equipar itens ainda é difícil e pouco intuitivo, muitos espacinhos; um inventário mais legal que um garoto de 14 anos entenda: arrastar e soltar, fácil, satisfatório, dopamina, fantasia de poder").** A ficha de time virou a tela **Gear** (`gearHTML`/`openGear`; a `teamHTML` antiga saiu):
+  - Abas com os heróis (n/slots). Um herói por vez, grande: a arte (toque = ficha do herói, `hero-info`), HP/ataque/AP e encaixes grandes, tantos quantos ele pode usar; os próximos aparecem trancados com o nível que os abre (Lv 3/4/5).
+  - A mochila mostra peças grandes, a melhor primeiro, em páginas de 10.
+  - **Arrastar e soltar** com ponteiro (dedo ou mouse; `gearDown/Move/Up`, `data-drag`/`data-drop`, fantasma `.gghost`, alvos brilhando):
+    - item da mochila no herói ou na aba de outro herói = veste; mesmo tipo troca, e se estiver cheio troca o encaixe onde caiu ou o pior;
+    - item vestido de volta na mochila = tira; item vestido em outro herói = passa para ele.
+  - Tocar mostra o que o item faz e um botão grande ("Put on X" / "Swap for Y" / "Take off", mais "Sell").
+  - **Auto-equip** (`gearAuto`) veste o time com o melhor (raridade; AP para conjuradores e ataque para os outros).
+  - Cada equipar dá retorno: o encaixe salta com confete, o efeito do item sobe do herói e os números de HP/ataque/AP contam.
+  - Um clique logo depois de soltar é ignorado (`ui.gNoClick`, 250 ms, zerado a cada novo toque).
+  - Testes: o arrastar no telas.mjs usa toque de verdade (`Input.dispatchTouchEvent`); a tela com 3 heróis e 11 itens cabe no celular pequeno (dispositivos).
+  - O `run-all` agora espera até 900 s por passo (a matriz de chefes às vezes passava dos 400 s com o PC ocupado).
 - **v53 (2026-10-01), lote 51 do David (#65: "texto nunca pode ser cortado; Gauntlet mais épico, era só uma lista e me fazia rolar; descrição do herói inimigo vazava; NUNCA, JAMAIS me faça rolar a tela").**
   - **Regra: nada de "..." nem texto preso em poucas linhas.** Os `line-clamp` e `text-overflow: ellipsis` foram desligados (camada v53 no fim do style.css). O texto quebra linha ou vai para trás de um toque. As etiquetas (`.tier`/`.itag`) quebram só entre palavras.
   - **Ficha de time:** o conjunto mostra só "◆ nome n/3 ✓" (o bônus em palavras está na ficha do herói), e o caminho de poderes mostra "★ N powers".

@@ -1993,3 +1993,58 @@ body.desk .banners.three > :last-child { display: flex; text-align: center; padd
   .evchoices { gap: 6px; } .evch .ico, .evch .por { width: 34px; height: 34px; }
   .bar.sticky { padding-top: 4px; padding-bottom: 4px; }
 }
+
+/* v54 (review #66): the Gear screen. Big hero, big sockets, big item tiles, drag and drop, one button that does it all */
+.sheet.gearsheet { display: flex; flex-direction: column; gap: 8px; }
+.gtabs { display: flex; gap: 6px; }
+.gtab { flex: 1; min-width: 0; display: grid; justify-items: center; gap: 1px; padding: 6px 4px 5px; border-radius: 16px; background: #ffffff14 !important; border: 2px solid #ffffff26 !important;
+  box-shadow: none !important; color: #fff; position: relative; min-height: 0; }
+.gtab .por { width: 40px; height: 40px; border-radius: 12px; } .gtab b { font: 600 13px/1.1 var(--fun); }
+.gtab i { position: absolute; top: 4px; right: 6px; font: 700 11px var(--fun); font-style: normal; color: #ffffffb0; }
+.gtab.on { background: linear-gradient(180deg, #ffe46b, #ffc21a) !important; color: #5a3000; border-color: #fff !important; box-shadow: 0 3px 0 #c47f00 !important; }
+.gtab.on i { color: #7a4a00; }
+.gstage { display: flex; gap: 12px; align-items: stretch; padding: 10px; border-radius: 20px; background: radial-gradient(ellipse at 30% 40%, #6b7bff55, transparent 70%), #1b227055; border: 2px solid #ffffff1f; }
+.gart { position: relative; flex: none; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; min-height: 0; }
+.gart img { display: block; width: 104px; height: 135px; border-radius: 16px; box-shadow: 0 0 0 3px #fff, 0 0 26px #9fd8ff66, 0 8px 18px #0d114688; }
+.gart .glv { position: absolute; left: 6px; bottom: 6px; padding: 1px 8px; border-radius: 999px; background: #1a1f6bcc; color: #ffe46b; font: 700 12px var(--fun); }
+.gart .gi { position: absolute; right: 6px; top: 6px; width: 22px; height: 22px; color: #fff; filter: drop-shadow(0 1px 2px #000); }
+.gside { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.gstats { display: flex; gap: 6px; }
+.gstats span { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 3px 4px; border-radius: 10px; background: #0d114666; font: 700 13px var(--fun); }
+.gstats svg.ui { width: 15px; height: 15px; } .gstats [data-st=hp] svg { color: #7dffb0; } .gstats [data-st=atk] svg { color: #ffb08a; } .gstats [data-st=ap] svg { color: #c9a2ff; }
+.gsockets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.gsockets.n5, .gsockets.n6 { grid-template-columns: repeat(3, 1fr); }
+.gsock { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 64px; padding: 5px 3px; border-radius: 14px; font: 600 11.5px/1.1 var(--fun); text-align: center; color: #fff; }
+.gsock .ico { width: 40px; height: 40px; }
+.gsock.full { background: #0d114699 !important; border: 2px solid var(--tier) !important; box-shadow: 0 0 14px color-mix(in srgb, var(--tier) 45%, transparent) !important; }
+.gsock.empty { border: 2px dashed #ffffff66; background: #ffffff0d; color: #ffffffb0; } .gsock.empty svg.ui { width: 22px; height: 22px; opacity: .7; }
+.gsock.locked { border: 2px solid #ffffff1a; background: #0d114640; color: #ffffff70; } .gsock.locked svg.ui { width: 18px; height: 18px; }
+.gsock.on, .gitem.on { outline: 3px solid #ffe46b; outline-offset: 1px; }
+.gsets { display: flex; flex-wrap: wrap; gap: 4px; } .gset { font: 600 11.5px var(--fun); padding: 1px 8px; border-radius: 999px; background: #ffffff1a; } .gset.on { background: #7dffb033; color: #b6ffd0; }
+.gdet { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; padding: 8px 10px; border-radius: 16px; background: #0d114666; border: 2px solid color-mix(in srgb, var(--tier) 70%, transparent); }
+.gdet .ico { width: 40px; height: 40px; } .gdt { display: grid; gap: 1px; min-width: 0; } .gdt b { font: 700 15px/1.15 var(--fun); } .gdt .small { font-size: 12.5px; }
+.gdb { grid-column: 1 / -1; display: flex; gap: 6px; } .gdb button { flex: 1; min-height: 42px; } .gdb button.primary { flex: 2; }
+.ghint { margin: 0; padding: 8px; text-align: center; font: 600 14px var(--fun); color: #ffffffd0; } .ghint svg.ui { width: 18px; height: 18px; vertical-align: -3px; }
+.gbag { padding: 6px 8px 8px; border-radius: 16px; background: #ffffff0d; border: 2px dashed #ffffff26; }
+.gbh { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; font: 600 13px var(--fun); } .gbh > span:first-of-type { padding: 0 7px; border-radius: 999px; background: #ffffff26; }
+.gpg { min-height: 28px; width: 32px; padding: 0 !important; } .gpg svg.ui { width: 16px; height: 16px; }
+.gbgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.gitem { display: grid; justify-items: center; gap: 2px; padding: 5px 2px 4px; min-height: 0; border-radius: 12px; background: #0d114680 !important; border: 2px solid var(--tier) !important; box-shadow: 0 2px 0 #0d1146 !important;
+  font: 600 10.5px/1.1 var(--fun); color: #fff; touch-action: none; }
+.gitem .ico { width: 40px; height: 40px; } .gitem.nofit { opacity: .55; }
+.gsock.full, .gitem { touch-action: none; cursor: grab; }
+.gbar { margin: 0; } .gbar button { min-height: 48px; }
+/* dragging */
+.gghost { position: fixed; z-index: 9999; pointer-events: none; translate: -50% -60%; scale: 1.25; filter: drop-shadow(0 8px 14px #0008); }
+.gghost img { width: 56px; height: 56px; border-radius: 12px; }
+body.gdragging, body.gdragging * { cursor: grabbing !important; user-select: none; }
+.lifted { opacity: .35; }
+body.gdragging .gstage, body.gdragging .gtab, body.gdragging .gbag { transition: box-shadow .12s ease, scale .12s ease; }
+body.gdragging .gstage { box-shadow: 0 0 0 3px #ffe46b88; }
+.dropover.gstage, .dropover.gtab, .dropover.gsock { box-shadow: 0 0 0 4px #ffe46b, 0 0 30px #ffd23f !important; scale: 1.03; }
+.dropover.gbag { border-color: #ffe46b; background: #ffe46b1a; }
+@media (max-height: 700px) and (max-width: 500px) {
+  .sheet.gearsheet { gap: 5px; } .gtab .por { width: 34px; height: 34px; } .gart img { width: 88px; height: 114px; }
+  .gsock { min-height: 54px; } .gsock .ico, .gitem .ico { width: 34px; height: 34px; } .gstage { padding: 8px; gap: 9px; }
+}
+body.desk .sheet.gearsheet { max-width: 640px; }

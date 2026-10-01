@@ -13,7 +13,7 @@
   let run = store.get(SAVE, null);
   let screen = 'title';
   let battle = null, view = null, preview = null;
-  const ui = { startPick: [], selBag: -1, selUid: 0, info: null, result: null, speed: store.get('balance.speed', 1), drag: null, modal: null };
+  const ui = { startPick: [], gsel: null, selUid: 0, info: null, result: null, speed: store.get('balance.speed', 1), drag: null, modal: null };
   const save = () => { if (run) store.set(SAVE, run); };
   // player identity for Elo (reviews #3 #4): a random id kept in this browser
   function pid() {
@@ -1045,50 +1045,140 @@
   function closeModal() { if (ui.modal === 'artlab' && B.ArtLab) B.ArtLab.closed(); const m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.modal = null; ui.confirmBuy = null; clearInterval(ui.sugTimer); }
   function toast(msg) { toast.t = performance.now(); const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), Math.max(2200, String(msg).length * 45)); }
 
-  // Team sheet (review #2): items on the LEFT, heroes on the RIGHT. Tap an item, then tap a hero to equip it.
-  // Itemization v16: the bag is an inventory grid of rarity-framed icons (best first) and the selected item's card sits
-  // on top; each hero is a paper doll with one slot per item type around the portrait, stats beside it (tap a worn item
-  // to take it off; equipping a type the hero already wears swaps the two).
-  function teamHTML() {
-    const selId = ui.selBag >= 0 ? run.bag[ui.selBag] : null, sel = selId ? ITEM[selId] : null;
+  // v54 (review #66, David: "Equipping items ... is still difficult and unintuitive. Theres so many tiny slots. Cant you
+  // think of a cooler inventory system that a 14yo kid will understand? Intuitive drag drop, easy, satisfying, any child
+  // could do it, dopamine power fantasy"): the Gear screen. One hero at a time, big: its art, its main stats and a few big
+  // gear sockets (as many as it can wear; the next ones show the level that opens them). The bag below holds big item
+  // tiles. Drag an item onto the hero (or onto another hero's tab) to put it on, drag it back to the bag to take it off,
+  // or tap it and use the big button. Auto-equip dresses the whole team with the best gear in one tap. Every equip pops:
+  // the socket bounces, the item's effect flies onto the hero and the stat it raised counts up.
+  const GEAR_PAGE = 10;
+  const shortName = n => n.length > 14 ? n.split(' ').slice(-1)[0] : n;
+  const gearHero = () => run.heroes.find(h => h.uid === ui.gHero) || run.heroes[0];
+  const SLOT_LV = [3, 4, 5];   // each of these levels opens one more item slot (run.js slots)
+  const futureSlots = h => SLOT_LV.filter(l => l > h.lvl);
+  const maxSlots = h => Run.slots(run, h) + futureSlots(h).length;
+  const gearStats = h => { const d = Run.heroDef(run, h); return { hp: Math.round(d.hp), atk: Math.round(d.atk), ap: Math.round(d.ap) }; };
+  function gearHTML() {
+    if (ui.heroInfo && run.heroes.some(h => h.uid === ui.heroInfo)) return `<div class="shead"><b>${I('user')} Hero</b><button data-act="close" aria-label="Close">✕</button></div>${heroCardHTML(run.heroes.find(h => h.uid === ui.heroInfo))}`;
+    const h = gearHero(); if (!h) return '';
+    ui.gHero = h.uid;
+    const d = HEROES[h.key], sl = Run.slots(run, h), st = gearStats(h), sel = ui.gsel;
+    const tabs = run.heroes.map(x => `<button class="gtab ${x.uid === h.uid ? 'on' : ''}" data-act="gear-hero" data-arg="${x.uid}" data-drop="hero:${x.uid}">${img(x.key, 44, 'por')}<b>${esc(HEROES[x.key].name)}</b><i>${x.items.length}/${Run.slots(run, x)}</i></button>`).join('');
+    // sockets: worn items, empty ones, then the ones a level opens
+    const socks = [];
+    for (let i = 0; i < maxSlots(h); i++) {
+      const id = h.items[i];
+      if (id) { const it = ITEM[id], on = sel && sel.k === 'w' && sel.uid === h.uid && sel.i === i;
+        socks.push(`<button class="gsock full ${on ? 'on' : ''}" style="--tier:${TIER_COLOR[it.tier]}" data-act="gear-pick" data-arg="w:${h.uid}:${i}" data-drag="w:${h.uid}:${i}" data-drop="sock:${h.uid}:${i}">${ico('item', id, 48)}<span>${esc(shortName(it.name))}</span></button>`); }
+      else if (i < sl) socks.push(`<span class="gsock empty" data-drop="hero:${h.uid}">${I('bag')}<span>Free</span></span>`);
+      else socks.push(`<span class="gsock locked">${I('lock')}<span>Lv ${futureSlots(h)[i - sl]}</span></span>`);
+    }
+    const sc = Run.setCounts(h.items), sets = Object.keys(sc).map(sid => `<span class="gset ${sc[sid] >= 2 ? 'on' : ''}">◆ ${esc(B.SETS[sid].name)} ${sc[sid]}/3${sc[sid] >= 2 ? ' ✓' : ''}</span>`).join('');
+    // the bag, best first, a page at a time
     const order = run.bag.map((id, i) => i).sort((a, b) => RANK(run.bag[b]) - RANK(run.bag[a]) || DOLL.indexOf(ITEM[run.bag[a]].type) - DOLL.indexOf(ITEM[run.bag[b]].type));
-    const items = order.map(i => { const id = run.bag[i], it = ITEM[id]; return `<button class="eqitem tile ${ui.selBag === i ? 'on' : ''}" style="--tier:${TIER_COLOR[it.tier]}" data-act="bag" data-arg="${i}" title="${esc(it.name)}" aria-label="${esc(it.name + ', ' + B.RARITY[it.tier].name + ' ' + B.TYPE[it.type].name)}">${ico('item', id, 44)}</button>`; }).join('');
-    const heroes = run.heroes.map(h => {
-      const d = HEROES[h.key], def = Run.heroDef(run, h), sl = Run.slots(run, h);
-      const next = h.lvl < CFG.maxLevel ? CFG.xpLevels[h.lvl + 1] : null, prev = CFG.xpLevels[h.lvl] || 0;
-      const specs = h.specs.map(id => Run.specOf(h.key, id)).filter(Boolean);
-      const worn = {}; h.items.forEach((id, i) => { worn[ITEM[id].type] = i; });
-      const can = !!sel && Run.canEquip(run, h, selId), swap = can && worn[sel.type] != null;
-      const cell = t => {
-        const i = worn[t], fit = sel && sel.type === t && can ? ' fit' : '';
-        if (i == null) return `<span class="dslot d-${t} empty${fit}" title="${B.TYPE[t].name}"><img src="${B.Icons.slot(t, 34)}" alt="${B.TYPE[t].name}"></span>`;
-        const id = h.items[i], it = ITEM[id], pic = `<img src="${B.Icons.item(id, 34)}" alt="${esc(it.name)}">`;
-        // while an item is selected the whole card is the tap target (equip / swap), so worn items are not buttons
-        return sel ? `<span class="dslot d-${t}${fit}" style="--rc:${TIER_COLOR[it.tier]}" title="${esc(it.name)}">${pic}</span>`
-          : `<button class="dslot d-${t}" style="--rc:${TIER_COLOR[it.tier]}" data-act="unequip" data-arg="${h.uid}:${i}" title="${esc(it.name + ': ' + it.desc + ' (tap to take off)')}">${pic}</button>`;
-      };
-      const sc = Run.setCounts(h.items);
-      const sets = Object.keys(sc).map(sid => { const S = B.SETS[sid], n = sc[sid]; return `<div class="setline ${n >= 2 ? 'on' : ''}">◆ <b>${esc(S.name)}</b> ${n}/3${n >= 2 ? ' ✓' : ''}</div>`; }).join('');   // v53: the bonuses in words are on the hero card (tap the portrait)
-      return `<div class="eqhero ${can ? 'target' : ''} ${sel && !can ? 'full' : ''}" ${sel ? `data-act="equip" data-arg="${h.uid}"` : ''}>
-        <div class="hrow"><b>${esc(d.name)}</b> <span class="lv">Lv ${h.lvl}</span>
-          <div class="xpbar" title="XP"><i style="width:${next ? Math.round(100 * (h.xp - prev) / (next - prev)) : 100}%"></i></div>
-          ${can ? `<span class="tap">${swap ? 'tap to swap' : 'tap to equip'}</span>` : sel ? '<span class="tap dim">no free slot</span>' : ''}</div>
-        <div class="hbody"><div class="doll">${DOLL.map(cell).join('')}<button class="dpor" data-act="hero-info" data-arg="${h.uid}" aria-label="${esc(d.name)}: ability">${img(h.key, 52)}</button></div>
-        <div class="eqrole"><b>${esc(d.role)}</b><span>${d.range <= 1 ? I('sword') + ' Fights up close' : I('bow') + ' Attacks from afar'}</span><span class="dim">Tap the portrait for stats</span></div></div>${sets}
-        <button class="small abline" data-act="hero-info" data-arg="${h.uid}"><span class="ib">ⓘ</span> <b>${esc(d.abName)}</b>${specs.length ? ` · <span class="spec">★ ${specs.length} power${specs.length > 1 ? 's' : ''}</span>` : ''}</button>
-      </div>`;
-    }).join('');
-    return `<div class="shead"><b>Team & items</b><button data-act="close">✕</button></div>
-      ${!sel && ui.heroInfo && run.heroes.some(h => h.uid === ui.heroInfo) ? heroCardHTML(run.heroes.find(h => h.uid === ui.heroInfo)) : ''}
-      ${sel ? `<div class="idetail" style="--tier:${TIER_COLOR[sel.tier]}">${ico('item', selId, 44)}<div class="t"><div><b style="color:${TIER_COLOR[sel.tier]}">${esc(sel.name)}</b> ${itemTag(sel)}</div><div class="small">${fmt(sel.desc)}</div>${setInfo(sel)}</div>
-        <button class="chip" data-act="sell">Sell ${Run.sellValue(sel.id)}g</button></div>`
-        : run.bag.length ? '<p class="hint">Tap an item, then a hero.</p>' : ''}
-      <div class="equip">
-        <div class="eqcol bagcol"><h3>Bag</h3><div class="baggrid">${items || '<p class="dim small">Empty</p>'}</div></div>
-        <div class="eqcol"><h3>Heroes (${run.heroes.length}/${Run.teamMax(run)})</h3>${heroes}</div>
+    const pages = Math.max(1, Math.ceil(order.length / GEAR_PAGE)), pg = Math.min(ui.gPage || 0, pages - 1);
+    const tiles = order.slice(pg * GEAR_PAGE, (pg + 1) * GEAR_PAGE).map(i => { const id = run.bag[i], it = ITEM[id], on = sel && sel.k === 'b' && sel.i === i, fits = Run.canEquip(run, h, id);
+      return `<button class="gitem ${on ? 'on' : ''} ${fits ? '' : 'nofit'}" style="--tier:${TIER_COLOR[it.tier]}" data-act="gear-pick" data-arg="b:${i}" data-drag="b:${i}" aria-label="${esc(it.name)}">${ico('item', id, 46)}<span>${esc(shortName(it.name))}</span></button>`; }).join('');
+    // what the selected item does, and the one big button
+    let det = '';
+    if (sel && sel.k === 'b' && run.bag[sel.i]) {
+      const id = run.bag[sel.i], it = ITEM[id], same = h.items.findIndex(x => ITEM[x].type === it.type), full = same < 0 && h.items.length >= sl;
+      const worst = full ? h.items.reduce((w, x, j) => RANK(x) < RANK(h.items[w]) ? j : w, 0) : -1;
+      const label = same >= 0 ? `Swap for ${esc(shortName(ITEM[h.items[same]].name))}` : full ? `Swap for ${esc(shortName(ITEM[h.items[worst]].name))}` : `Put on ${esc(d.name)}`;
+      det = `<div class="gdet" style="--tier:${TIER_COLOR[it.tier]}">${ico('item', id, 40)}<div class="gdt"><b style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</b> ${itemTag(it)}<span class="small">${fmt(it.desc)}</span></div>
+        <div class="gdb"><button class="primary" data-act="gear-equip">${I('up')} ${label}</button><button data-act="sell">Sell ${Run.sellValue(id)}g</button></div></div>`;
+    } else if (sel && sel.k === 'w' && h.items[sel.i]) {
+      const id = h.items[sel.i], it = ITEM[id];
+      det = `<div class="gdet" style="--tier:${TIER_COLOR[it.tier]}">${ico('item', id, 40)}<div class="gdt"><b style="color:${TIER_COLOR[it.tier]}">${esc(it.name)}</b> ${itemTag(it)}<span class="small">${fmt(it.desc)}</span></div>
+        <div class="gdb"><button data-act="gear-off">${I('back')} Take off</button></div></div>`;
+    } else det = `<p class="ghint">${run.bag.length ? `${I('bag')} Drag gear onto a hero, or tap it` : 'Your bag is empty. Item Shops and events fill it.'}</p>`;
+    return `<div class="shead"><b>${I('bag')} Gear up</b><button data-act="close" aria-label="Close">✕</button></div>
+      <div class="gtabs">${tabs}</div>
+      <div class="gstage" data-drop="hero:${h.uid}">
+        <button class="gart" data-act="hero-info" data-arg="${h.uid}" aria-label="${esc(d.name)}: see the hero"><img src="${por(h.key, 104, true)}" alt=""><span class="glv">Lv ${h.lvl}</span>${I('info', 'gi')}</button>
+        <div class="gside"><div class="gstats"><span data-st="hp">${I('heart')}<b>${st.hp}</b></span><span data-st="atk">${I('sword')}<b>${st.atk}</b></span><span data-st="ap">${I('bolt')}<b>${st.ap}</b></span></div>
+          <div class="gsockets n${Math.min(maxSlots(h), 6)}">${socks.join('')}</div>${sets ? `<div class="gsets">${sets}</div>` : ''}</div>
       </div>
-      <div class="relicline"><b>Relics</b>${run.relics.length ? run.relics.map(id => `<button class="relicbtn" data-act="relic-info" data-arg="${id}" title="${esc(RELIC[id].name + ': ' + RELIC[id].desc)}" aria-label="${esc(RELIC[id].name)}">${ico('relic', id, 30)}</button>`).join('') : '<span class="dim small">none yet</span>'}</div>`;
+      ${det}
+      <div class="gbag" data-drop="bag"><div class="gbh"><b>Bag</b><span>${run.bag.length}</span>${pages > 1 ? `<span class="grow"></span><button class="gpg" data-act="gear-page" data-arg="-1" ${pg ? '' : 'disabled'} aria-label="Previous">${I('back')}</button><span>${pg + 1}/${pages}</span><button class="gpg" data-act="gear-page" data-arg="1" ${pg < pages - 1 ? '' : 'disabled'} aria-label="Next">${I('arrow')}</button>` : ''}</div>
+        <div class="gbgrid">${tiles || `<p class="dim small">Empty</p>`}</div></div>
+      <div class="bar gbar"><button data-act="gear-auto" ${run.bag.length ? '' : 'disabled'}>${I('bolt')} Auto-equip</button><button class="primary" data-act="close">Done</button></div>`;
   }
+  function openGear() { openModal(gearHTML()); ui.modal = 'gear'; const sh = $('#modal .sheet'); if (sh) sh.classList.add('gearsheet'); }
+  // put a bag item on hero uid: same type = swap; full = replaces the socket j (or the weakest one); returns the socket it went into
+  function gearPut(bagIdx, uid, j) {
+    const h = run.heroes.find(x => x.uid === uid), id = run.bag[bagIdx]; if (!h || !id) return -1;
+    const same = h.items.findIndex(x => ITEM[x].type === ITEM[id].type);
+    if (same < 0 && h.items.length >= Run.slots(run, h)) {
+      const out = j != null && h.items[j] ? j : h.items.reduce((w, x, k) => RANK(x) < RANK(h.items[w]) ? k : w, 0);
+      Run.unequip(run, uid, out);   // goes to the end of the bag: the dragged index stays valid
+    }
+    const err = Run.equip(run, bagIdx, uid); if (err) { toast(err); return -1; }
+    return h.items.indexOf(id);
+  }
+  // the pop after an equip: the socket bounces, the effect flies onto the hero, the stats that rose count up
+  function gearFx(uid, sock, id, before) {
+    sfx('buy'); const h = run.heroes.find(x => x.uid === uid); if (!h || !B.Juice) return;
+    const after = gearStats(h), s = $(`#modal .gsock[data-arg="w:${uid}:${sock}"]`), art = $('#modal .gart');
+    if (s) { B.Juice.bump(s, 'pop'); B.Juice.confettiAt(s, 16, { speed: 220 }); }
+    if (art && id && ITEM[id]) B.Juice.floater(art, ITEM[id].desc.split(',')[0], 'up');
+    for (const k of ['hp', 'atk', 'ap']) if (after[k] !== before[k]) { const el = $(`#modal .gstats [data-st=${k}] b`); if (el) { B.Juice.countUp(el, before[k], after[k], 500); B.Juice.bump(el.parentElement); } }
+  }
+  function gearDo(fn, uid) { const h = run.heroes.find(x => x.uid === uid), before = h ? gearStats(h) : null; const r = fn(); ui.gsel = null; ui.gHero = uid; save(); openGear(); refreshBehind(); if (r && r.sock >= 0 && before) gearFx(uid, r.sock, r.id, before); }
+  function gearAuto() {
+    const want = h => (B.HEROES[h.key].range > 1 || /Mage|Healer|Controller|Summoner|Bard/.test(B.HEROES[h.key].role)) ? 'ap' : 'atk';
+    let n = 0;
+    for (let pass = 0; pass < 3; pass++) for (const h of run.heroes) {
+      const bag = run.bag.map((id, i) => ({ id, i })).sort((a, b) => RANK(b.id) - RANK(a.id) || ((ITEM[b.id].mods || {})[want(h)] ? 1 : 0) - ((ITEM[a.id].mods || {})[want(h)] ? 1 : 0));
+      for (const { id } of bag) {
+        const i = run.bag.indexOf(id), same = h.items.findIndex(x => ITEM[x].type === ITEM[id].type);
+        if (same >= 0 ? RANK(id) > RANK(h.items[same]) : h.items.length < Run.slots(run, h)) { if (!Run.equip(run, i, h.uid)) { n++; break; } }
+      }
+    }
+    return n;
+  }
+  // drag and drop with the pointer (mouse and touch): a ghost follows the finger, drop targets glow
+  const gdrag = { on: false };
+  function gearDown(e) {
+    ui.gNoClick = 0;   // a new touch: an old drop no longer eats taps
+    const src = e.target.closest('#modal [data-drag]'); if (!src || e.button > 0) return;
+    Object.assign(gdrag, { src, x: e.clientX, y: e.clientY, on: false, id: e.pointerId, ghost: null });
+  }
+  function gearMove(e) {
+    if (!gdrag.src || e.pointerId !== gdrag.id) return;
+    if (!gdrag.on) {
+      if (Math.hypot(e.clientX - gdrag.x, e.clientY - gdrag.y) < 8) return;
+      gdrag.on = true; const im = gdrag.src.querySelector('img'); const g = gdrag.ghost = document.createElement('div'); g.className = 'gghost';
+      if (im) g.appendChild(im.cloneNode()); document.body.appendChild(g); document.body.classList.add('gdragging'); gdrag.src.classList.add('lifted'); sfx('pick');
+    }
+    e.preventDefault();
+    gdrag.ghost.style.left = e.clientX + 'px'; gdrag.ghost.style.top = e.clientY + 'px';
+    const t = document.elementFromPoint(e.clientX, e.clientY), drop = t && t.closest('[data-drop]');
+    for (const x of document.querySelectorAll('#modal .dropover')) if (x !== drop) x.classList.remove('dropover');
+    if (drop) drop.classList.add('dropover');
+  }
+  function gearUp(e) {
+    if (!gdrag.src || e.pointerId !== gdrag.id) return;
+    const was = gdrag.on, src = gdrag.src.dataset.drag; gdrag.src.classList.remove('lifted');
+    if (gdrag.ghost) gdrag.ghost.remove(); document.body.classList.remove('gdragging'); gdrag.src = null; gdrag.on = false;
+    for (const x of document.querySelectorAll('#modal .dropover')) x.classList.remove('dropover');
+    if (!was) return;
+    ui.gNoClick = performance.now();
+    const t = document.elementFromPoint(e.clientX, e.clientY), drop = t && t.closest('[data-drop]'); if (!drop) return;
+    const [dk, da, db] = drop.dataset.drop.split(':'), [sk, sa, sb] = src.split(':');
+    if (dk === 'bag' && sk === 'w') gearDo(() => { Run.unequip(run, +sa, +sb); sfx('back'); }, +sa);
+    else if ((dk === 'hero' || dk === 'sock') && sk === 'b') { const id = run.bag[+sa]; gearDo(() => ({ sock: gearPut(+sa, +da, dk === 'sock' ? +db : null), id }), +da); }
+    else if ((dk === 'hero' || dk === 'sock') && sk === 'w' && +da !== +sa) {
+      const from = run.heroes.find(x => x.uid === +sa), id = from && from.items[+sb];
+      if (id) gearDo(() => { Run.unequip(run, +sa, +sb); return { sock: gearPut(run.bag.length - 1, +da, dk === 'sock' ? +db : null), id }; }, +da);
+    }
+  }
+  document.addEventListener('pointerdown', gearDown);
+  document.addEventListener('pointermove', gearMove, { passive: false });
+  document.addEventListener('pointerup', gearUp); document.addEventListener('pointercancel', gearUp);
+  // a drag ends with a click on what was under the finger: that click is not a tap
+  document.addEventListener('click', e => { if (ui.gNoClick && performance.now() - ui.gNoClick < 250 && e.target.closest('#modal')) { e.stopPropagation(); e.preventDefault(); ui.gNoClick = 0; } }, true);
 
   // review #19 (David: "include ability to read hero ability in item screen"): the hero card on top of the team sheet
   // v51 (review #63): a hero's Details from the shop or the start: the picture, what it does in plain words, the whole
@@ -1494,13 +1584,16 @@
     },
     'event-target': arg => { const i = run.cur.pick; run.cur.pick = null; if (i == null) return; Run.eventAct(run, i, arg); save(); render(); },
     'event-back': () => { run.cur.pick = null; render(); },
-    team: () => { if (!run || battle) return; openModal(teamHTML()); },
-    bag: i => { ui.selBag = ui.selBag === +i ? -1 : +i; ui.heroInfo = 0; openModal(teamHTML()); },
-    'hero-info': uid => { ui.heroInfo = +uid && ui.heroInfo !== +uid ? +uid : 0; ui.selBag = -1; openModal(teamHTML()); },
-    equip: uid => { if (ui.selBag < 0) { toast('Select an item in the bag first'); return; } const err = Run.equip(run, ui.selBag, +uid); if (err) toast(err); else ui.selBag = -1; save(); openModal(teamHTML()); refreshBehind(); },
-    unequip: a => { const [uid, i] = a.split(':').map(Number); Run.unequip(run, uid, i); save(); openModal(teamHTML()); refreshBehind(); },
-    sell: () => { if (ui.selBag < 0) return; Run.sell(run, ui.selBag); ui.selBag = -1; save(); openModal(teamHTML()); header(); },
-    close: () => { closeModal(); ui.selBag = -1; if (!battle) render(); },
+    team: () => { if (!run || battle) return; ui.gsel = null; ui.heroInfo = 0; ui.gPage = 0; openGear(); },
+    'hero-info': uid => { ui.heroInfo = +uid && ui.heroInfo !== +uid ? +uid : 0; ui.gsel = null; openGear(); },
+    'gear-hero': uid => { ui.gHero = +uid; ui.gsel = null; openGear(); },
+    'gear-pick': a => { const [k, x, y] = a.split(':'), sl = k === 'b' ? { k, i: +x } : { k, uid: +x, i: +y }; ui.gsel = ui.gsel && JSON.stringify(ui.gsel) === JSON.stringify(sl) ? null : sl; if (k === 'w') ui.gHero = +x; openGear(); },
+    'gear-equip': () => { const g = ui.gsel; if (!g || g.k !== 'b') return; const h = gearHero(), id = run.bag[g.i]; gearDo(() => ({ sock: gearPut(g.i, h.uid, null), id }), h.uid); },
+    'gear-off': () => { const g = ui.gsel; if (!g || g.k !== 'w') return; gearDo(() => { Run.unequip(run, g.uid, g.i); }, g.uid); },
+    'gear-auto': () => { const n = gearAuto(); ui.gsel = null; save(); openGear(); refreshBehind(); if (n) { sfx('unlock'); const st = $('#modal .gstage'); if (st && B.Juice) { B.Juice.confettiAt(st, 50); B.Juice.bump(st, 'pop'); } toast(`${I('bolt')} ${n} item${n > 1 ? 's' : ''} put on`.replace(/<[^>]+>/g, '').trim()); } else toast('Your team already wears its best gear'); },
+    'gear-page': d => { ui.gPage = Math.max(0, (ui.gPage || 0) + +d); openGear(); },
+    sell: () => { const g = ui.gsel; if (!g || g.k !== 'b') return; Run.sell(run, g.i); ui.gsel = null; sfx('coin'); save(); openGear(); header(); },
+    close: () => { closeModal(); ui.gsel = null; ui.heroInfo = 0; if (!battle) render(); },
     suggest: () => openSuggest(),
     'art-lab': arg => { if (ui.modal) closeModal(); B.ArtLab.open(labKit, arg); },
     'draft-del': i => { const d = drafts(); d.splice(+i, 1); store.set('balance.drafts', d); renderDrafts(); },
@@ -1531,7 +1624,7 @@
   function refreshBehind() { header(); if (run && run.phase === 'deploy' && screen !== 'battle') { preview = worldFor(true); drawPreview(); } }
 
   // v42: every tap has a sound; these actions have their own (null = the action plays it, it depends on the outcome)
-  const ACT_SFX = { buy: null, reroll: null, sound: null, fight: 'go', 'start-go': 'go', 'to-duel': 'go', choose: 'pick', 'start-pick': 'pick', 'start-relic': 'pick', 'start-next': 'pick', 'start-back': 'back',
+  const ACT_SFX = { 'gear-equip': null, 'gear-auto': null, sell: null, buy: null, reroll: null, sound: null, fight: 'go', 'start-go': 'go', 'to-duel': 'go', choose: 'pick', 'start-pick': 'pick', 'start-relic': 'pick', 'start-next': 'pick', 'start-back': 'back',
     spec: 'unlock', event: 'pick', 'event-target': 'pick', equip: 'pick', bag: 'pick', unequip: 'back', close: 'back', 'event-back': 'back', sell: 'coin', 'result-ok': 'pick' };
   document.addEventListener('click', e => {
     if (e.target.closest('#notice')) return;

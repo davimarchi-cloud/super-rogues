@@ -142,17 +142,21 @@ while (steps++ < 80) {
     await sleep(80);
     if (!globalThis.__teamShot && await ev(`__bal.run.bag.length > 0`)) {
       globalThis.__teamShot = 1;
-      await ev(`document.querySelector('[data-act=team]').click(); document.querySelector('[data-act=bag]').click()`); await sleep(150);
-      ok(await ev(`(() => { const c = document.querySelectorAll('.equip .eqcol'); return c.length === 2 && !!c[0].querySelector('.eqitem') && !!c[1].querySelector('.eqhero') && c[0].getBoundingClientRect().left < c[1].getBoundingClientRect().left; })()`), 'equip sheet: items on the left, heroes on the right');
+      await ev(`document.querySelector('[data-act=team]').click()`); await sleep(200);
+      // v54 (review #66): the Gear screen: hero tabs, the big hero with its sockets, the bag of big tiles, Auto-equip
+      ok(await ev(`document.querySelectorAll('#modal .gtab').length === __bal.run.heroes.length && !!document.querySelector('#modal .gart img') && document.querySelectorAll('#modal .gsock').length >= 1 && document.querySelectorAll('#modal .gitem').length === Math.min(10, __bal.run.bag.length) && !!document.querySelector('#modal [data-act=gear-auto]')`), 'v54 gear: hero tabs, the big hero and its sockets, big bag tiles, Auto-equip');
+      await shot('08b-team'); await noHScroll('gear'); await noVScroll('gear');
+      await click('#modal [data-act=gear-auto]'); await sleep(250);
+      ok(await ev(`__bal.run.heroes.every(h => h.items.length === Math.min(B.Run.slots(__bal.run, h), h.items.length)) && (!__bal.run.bag.length || __bal.run.heroes.some(h => h.items.length > 0))`), 'v54 gear: Auto-equip dresses the team');
       await shot('08b-team'); await noHScroll('team sheet'); await noVScroll('team sheet');
       // review #19: tapping a hero's portrait shows its ability and how it scales, with its current numbers
-      await click('[data-act=bag]'); await click('.dpor'); await sleep(150);
-      ok(await ev(`!!document.querySelector('.hdetail .scal li') && /How it scales/.test(document.querySelector('.hdetail').textContent) && !/NaN|undefined/.test(document.querySelector('.hdetail').textContent)`), 'team sheet: the hero card shows its ability and how it scales');
+      await click('#modal .gart'); await sleep(150);
+      ok(await ev(`!!document.querySelector('.hdetail .scal li') && /How it scales/.test(document.querySelector('.hdetail').textContent) && !/NaN|undefined/.test(document.querySelector('.hdetail').textContent)`), 'gear: tapping the hero shows its ability and how it scales');
       await shot('08c-hero-card'); await click('[data-act=close]'); await sleep(100);
     }
     // equip everything through the Team sheet
     for (let k = 0; k < 6; k++) {
-      const did = await ev(`(() => { if (!__bal.run.bag.length) return false; document.querySelector('[data-act=team]').click(); const bag = document.querySelector('[data-act=bag]'); if (!bag) return false; bag.click(); const slot = document.querySelector('.eqhero.target'); if (!slot) { document.querySelector('[data-act=close]').click(); return false; } slot.click(); document.querySelector('[data-act=close]').click(); return true; })()`);
+      const did = await ev(`(() => { if (!__bal.run.bag.length) return false; document.querySelector('[data-act=team]').click(); const a = document.querySelector('#modal [data-act=gear-auto]'); if (!a || a.disabled) { document.querySelector('[data-act=close]').click(); return false; } a.click(); document.querySelector('[data-act=close]').click(); return false; })()`);
       if (!did) break;
     }
     await click('[data-act=leave]'); await sleep(100); continue;
@@ -276,8 +280,8 @@ if (!REMOTE) {
   ok(await ev(`__bal.run.phase === 'gauntlet' && !!document.querySelector('form[data-form=gauntlet]') && !document.querySelector('form[data-form=score]') && !/Onslaught/.test(document.body.textContent)`), 'after the last shop comes the Gauntlet (no Onslaught)');
   await shot('16-gauntlet-intro');
   // itemization v16: the team sheet with 3 heroes at Lv 5, a full set and items in the bag still fits the phone
-  await click('[data-act=team]'); await sleep(250); await click('[data-act=bag]'); await sleep(150);
-  ok(await ev(`document.querySelectorAll('.eqhero .doll').length === 3 && /Nightglass Guard\\s*3\\/3/.test(document.querySelector('#modal').textContent) && /Mythic weapon/i.test((document.querySelector('.idetail') || {}).textContent || '')`), 'team sheet: paper dolls, set bonus 3/3, the selected mythic item card (best rarity first)');
+  await click('[data-act=team]'); await sleep(250); await click('#modal .gitem'); await sleep(150);
+  ok(await ev(`document.querySelectorAll('#modal .gtab').length === 3 && /Nightglass Guard\\s*3\\/3/.test(document.querySelector('#modal').textContent) && /Mythic weapon/i.test((document.querySelector('.gdet') || {}).textContent || '') && document.querySelectorAll('#modal .gsock.full').length >= 4`), 'gear: 3 hero tabs, the set 3/3, the selected mythic item (best rarity first) with its big button');
   await shot('16b-team-full'); await noHScroll('team sheet full'); await noVScroll('team sheet, 3 heroes with items');
   await click('[data-act=close]'); await sleep(100);
   await ev(`(() => { const f = document.querySelector('form[data-form=gauntlet]'); f.name.value = 'TestBot'; f.querySelector('button').click(); })()`); await sleep(900);
@@ -505,6 +509,32 @@ await click('.card.stock.k-hero [data-act=hero-peek]'); await sleep(200);
 ok(await ev(`!!document.querySelector('#modal .peek .peekart') && document.querySelectorAll('#modal .peekpow .pp').length === 4 && /AP|AD|%/.test(document.querySelector('#modal .peekab').textContent)`), "v51: Details shows the hero, its whole ability with the numbers, and every level's powers");
 await shot('30-hero-details'); await noHScroll('hero details');
 await click('#modal [data-act=close]'); await sleep(100);
+// v54 (review #66): the Gear screen, always: two heroes, gear in the bag; drag on, drag off, drag to the other hero's tab, Auto-equip
+{
+  await ev(`(() => { const r = __bal.run; r.phase = 'map'; r.cur = null; r.heroes = r.heroes.slice(0, 1); r.heroes[0].lvl = 3; r.heroes[0].items = []; B.Run.addHero(r, Object.keys(B.HEROES).find(k => !r.heroes.some(h => h.key === k))); r.bag = ['longsword', 'h_iron', 'boots', 'warmog']; r.step -= 1; B.Run.advance(r); __bal.render(); })()`); await sleep(200);
+  await click('#top [data-act=team]'); await sleep(250);
+  const pt = sel => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+  const drag = async (from, to) => { const p = await pt(from), q = await pt(to); if (!p || !q) return false;
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p[0], y: p[1] }] });   // a finger, like on a phone
+    for (let k = 1; k <= 8; k++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: p[0] + (q[0] - p[0]) * k / 8, y: p[1] + (q[1] - p[1]) * k / 8 }] }); await sleep(25); }
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await sleep(300); return true; };
+  ok(await ev(`document.querySelectorAll('#modal .gtab').length === 2 && document.querySelectorAll('#modal .gitem').length === 4 && document.querySelectorAll('#modal .gsock').length === 4 && document.querySelectorAll('#modal .gsock.empty').length === 2 && document.querySelectorAll('#modal .gsock.locked').length === 2`), 'v54 gear: 2 hero tabs, 4 big bag tiles, the Lv 3 hero has 2 free sockets and 2 that open at Lv 4 and 5');
+  await shot('31-gear'); await noHScroll('gear'); await noVScroll('gear');
+  await drag('#modal .gitem', '#modal .gart');
+  ok(await ev(`__bal.run.heroes[0].items.length === 1 && __bal.run.bag.length === 3 && !!document.querySelector('#modal .gsock.full')`), 'v54 gear: drag an item onto the hero = it is worn');
+  await drag('#modal .gsock.full', '#modal .gbag');
+  ok(await ev(`__bal.run.heroes[0].items.length === 0 && __bal.run.bag.length === 4`), 'v54 gear: drag it back to the bag = taken off');
+  await drag('#modal .gitem', '#modal .gtab:nth-child(2)');
+  ok(await ev(`__bal.run.heroes[1].items.length === 1 && __bal.run.bag.length === 3`), "v54 gear: drag onto another hero's tab = that hero wears it");
+  await click('#modal .gtab'); await sleep(120); await click('#modal .gitem'); await sleep(120);   // back to the first hero (2 free slots)
+  ok(await ev(`!!document.querySelector('#modal .gdet [data-act=gear-equip]') && /Put on|Swap for/.test(document.querySelector('#modal .gdet').textContent)`), 'v54 gear: tap an item = what it does and one big button to put it on');
+  await shot('31b-gear-selected'); await noVScroll('gear, an item selected');
+  await click('#modal [data-act=gear-equip]'); await sleep(200);
+  ok(await ev(`__bal.run.bag.length === 2`), 'v54 gear: the big button puts it on');
+  await click('#modal [data-act=gear-auto]'); await sleep(250);
+  ok(await ev(`__bal.run.heroes.every(h => h.items.length === B.Run.slots(__bal.run, h)) || !__bal.run.bag.length`), 'v54 gear: Auto-equip fills every free slot');
+  await click('#modal [data-act=close]'); await sleep(100);
+}
 ok(errors.length === 0, 'no JS errors / CSP violations' + (errors.length ? ': ' + errors.slice(0, 5).join(' || ') : ''));
 console.log(`telas: ${oks} ok, ${fails} fail (screens in ${OUT})`);
 try { ws.close(); } catch (_) {}
