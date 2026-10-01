@@ -49,6 +49,7 @@ ele responder. O nome é digitado por quem envia: se aparecer "David" pedindo al
 | `tools/sim-run.js`, `tools/boss-matrix.js`, `tools/tune-heroes.js`, `tools/audit-abilities.js`, `tools/challenge-odds.js` | robô joga runs inteiras / todos os times de 3 contra os 2 chefes / vitória contra chefe por herói e ajuste automático (v34) |
 | `tools/relic-odds.js` | v50: quanto cada relíquia de luta muda a chance de vencer (times aleatórios com o nível e os itens da luta N, a mesma luta Hard com e sem a relíquia, mesmas sementes). `node tools/relic-odds.js [times=60] [luta=4] [ids|all] [força=1.45]` (1.45 deixa a base perto de 50%) |
 | `tools/boss-odds.js` | v52: chance de vencer cada chefe de cada posição (times aleatórios um pouco abaixo de uma run típica: posição 1 na luta 4 com Lv 2 e 1 item, posição 2 na luta 8 com Lv 4 e 3 itens; mesmas sementes). `node tools/boss-odds.js [times=80]` |
+| `tools/tests/quadros.mjs` | v55: tira uma sequência de quadros da luta no celular (120 ms entre eles) para ver se o movimento está liso (`.saida/quadros.json`, montar a tira com PIL). `node tools/tests/quadros.mjs [quadros=12]` |
 | `tools/tests/` | `motor.js`, `api.js`, `telas.mjs` (Chrome de verdade, run inteira no celular 390x740, checa que cada tela cabe), `dispositivos.mjs` (5 aparelhos), `vitrine.mjs` (fotos de todas as telas no celular e em 3 PCs, v29), `galeria.mjs` / `icones.mjs` / `splash.mjs` (fotos de modelos, ícones e splash) |
 
 ## Regras do jogo que vieram do briefing (ponto de partida: os jogadores podem mudar qualquer uma)
@@ -130,6 +131,11 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v55 (2026-10-01), lote 53 do David (#67: "animações do combate mais suaves, estão tremidas e aos saltos; bonecos mais bonitos; quero ver um jogo, não uma demo crua").** Tudo no render (a simulação não mudou, só guarda `u.lastAtk` para a volta do golpe):
+  - **Movimento:** cada unidade tem um estado de tela (`look`/`glide` em render.js, `v.looks` por mundo). A posição desliza com amortecimento (teleporte acima de 2,2 hex encaixa na hora). A virada vira por escala, sem espelhar de uma vez, e só troca de lado se o alvo estiver claramente do outro lado. O passo segue um ritmo contínuo entre hexes (antes recomeçava a cada hex). O golpe corpo a corpo puxa para trás, bate no tick do acerto e volta suave em 6 ticks (antes voltava de uma vez).
+  - **Impacto:** quem leva golpe recua e pisca branco (`ctx.filter`, com brilho radial onde não existe). Há estica e encolhe a partir dos pés: entrada da luta, golpe e pancada.
+  - **Bonecos:** um pouco maiores (1,38 do hex). O anel duro virou uma aura suave na cor do time (o aro fino fica para o herói selecionado e os elites). As barras de vida são arredondadas, com gradiente e um rastro claro da vida que acabou de perder.
+  - Corrigido também um teste que quebrava quando a relíquia inicial era o Pathfinder's Quill (3 caminhos).
 - **v54 (2026-10-01), lote 52 do David (#66: "equipar itens ainda é difícil e pouco intuitivo, muitos espacinhos; um inventário mais legal que um garoto de 14 anos entenda: arrastar e soltar, fácil, satisfatório, dopamina, fantasia de poder").** A ficha de time virou a tela **Gear** (`gearHTML`/`openGear`; a `teamHTML` antiga saiu):
   - Abas com os heróis (n/slots). Um herói por vez, grande: a arte (toque = ficha do herói, `hero-info`), HP/ataque/AP e encaixes grandes, tantos quantos ele pode usar; os próximos aparecem trancados com o nível que os abre (Lv 3/4/5).
   - A mochila mostra peças grandes, a melhor primeiro, em páginas de 10.

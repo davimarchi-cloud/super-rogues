@@ -97,7 +97,7 @@ await click('[data-act=start-relic]');
 await shot('02-start'); await noHScroll('start'); await noVScroll('start');
 ok(await click('[data-act=start-go]'), 'start the game');
 await sleep(200);
-ok(await ev(`document.querySelectorAll('[data-act=choose]').length`) === 2, 'first map step shows 2 options');
+ok(await ev(`document.querySelectorAll('[data-act=choose]').length === (__bal.run.relics.includes('quill') ? 3 : 2)`), "first map step shows 2 options (3 with the Pathfinder's Quill)");
 await shot('03-map'); await noHScroll('map'); await noVScroll('map');
 // v47 (review #58): the journey sits behind the Day chip; the map itself has no 17-icon strip
 ok(await ev(`!document.querySelector('#screen .track') && !!document.querySelector('#top button.prog[data-act=path]')`), 'v47: no journey strip on the map; the Day chip is a button');

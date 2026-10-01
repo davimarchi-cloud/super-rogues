@@ -43,19 +43,37 @@
     return bd <= v.size * v.size * 1.1 ? best : null;
   }
   // flat position (with attack lunge) of a unit at fractional tick T
+  // v55 (review #67, David: "Smooth the animations of combat. They are very rickety and jumpy"): the lunge winds up a
+  // little, strikes on the hit tick and eases back over a few ticks instead of snapping home
+  const REC = 6;   // recovery ticks after a melee hit
   function flatPos(v, W, u, T) {
-    const p = B.Sim.posAt(u, T, v.size), a = u.anim;
-    if (a && a.k === 'atk' && T >= a.t0 && T <= a.t1 && !a.ranged) {
+    const p = B.Sim.posAt(u, T, v.size), a = u.anim || u.lastAtk;
+    if (a && a.k === 'atk' && !a.ranged && T >= a.t0 && T <= a.t1 + REC) {
       const t = W.byId[a.tid];
       if (t) {
         const q = B.Sim.posAt(t, T, v.size), dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy) || 1;
-        const k = (T - a.t0) / Math.max(1, a.t1 - a.t0), e = k < 0.75 ? k / 0.75 * 0.35 : 0.35 + (k - 0.75) / 0.25 * 0.65;
-        p.x += dx / d * v.size * 0.4 * e; p.y += dy / d * v.size * 0.4 * e;
+        const k = (T - a.t0) / Math.max(1, a.t1 - a.t0);
+        const e = T > a.t1 ? Math.pow(1 - (T - a.t1) / REC, 2) : k < 0.55 ? -0.12 * Math.sin(k / 0.55 * Math.PI) : Math.pow((k - 0.55) / 0.45, 1.6);
+        p.x += dx / d * v.size * 0.42 * e; p.y += dy / d * v.size * 0.42 * e;
       }
     }
     return p;
   }
-  const unitPos = (v, W, u, T) => proj(v, flatPos(v, W, u, T));
+  // v55: what the screen shows follows the sim softly: the body glides (a teleport still snaps), it turns around instead
+  // of flipping, its legs keep one rhythm across hexes, it flinches when hit, and its health bar leaves a fading trail
+  function look(v, W, u) {
+    if (v.lookW !== W) { v.looks = new Map(); v.lookW = W; }
+    let d = v.looks.get(u.id); if (!d) v.looks.set(u.id, d = { x: null, y: null, face: null, faceT: null, ph: 0, lastT: null, hp: u.hp, trail: u.hp, hitAt: -1, now: 0 });
+    return d;
+  }
+  const unitPos = (v, W, u, T) => { const d = v.looks && v.lookW === W && v.looks.get(u.id); return d && d.x != null ? { x: d.x, y: d.y } : proj(v, flatPos(v, W, u, T)); };
+  function glide(v, W, u, T, dt, deploy) {
+    const d = look(v, W, u), base = proj(v, B.Sim.posAt(u, T, v.size)), full = proj(v, flatPos(v, W, u, T));
+    if (d.bx == null || deploy || Math.hypot(base.x - d.bx, base.y - d.by) > v.size * 2.2) { d.bx = base.x; d.by = base.y; }
+    else { const k = 1 - Math.exp(-dt * 24); d.bx += (base.x - d.bx) * k; d.by += (base.y - d.by) * k; }
+    d.x = d.bx + (full.x - base.x); d.y = d.by + (full.y - base.y);
+    return { x: d.x, y: d.y };
+  }
 
   // ------------------------------------------------------------------ board
   // v27 (owner + review #25): the King Tier's Royal board skin (B.Render.skin = 'royal'): violet and gold stone
@@ -141,48 +159,78 @@
 
   // ------------------------------------------------------------------ units
   // review #47: a hero with a death animation stays on the board while it plays
+  const FILTER = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype;   // v55: the white hit flash
   const deadTicks = u => B.Art && B.Art.deathTicks ? B.Art.deathTicks(u.key) : 12;
-  function poseOf(W, u, T) {
+  function poseOf(W, u, T, d, dt) {
     const s = W.t, pose = { t: T / 20 + u.id * 0.37, face: 1 };
-    // facing: toward the target, else toward the enemy side
+    // facing: toward the target, else toward the enemy side (v55: only when it is clearly to one side, and it turns)
     const tgt = W.byId[u.tgt];
-    if (tgt && !tgt.dead) { const a = B.Sim.posAt(u, T, 10), b = B.Sim.posAt(tgt, T, 10); if (Math.abs(b.x - a.x) > 1) pose.face = b.x > a.x ? 1 : -1; else pose.face = u.side === 0 ? 1 : -1; }
-    else if (u.m1t > u.m0t && T < u.m1t) pose.face = u.c >= u.fc ? 1 : -1;
-    else pose.face = u.side === 0 ? 1 : -1;
-    if (u.m1t > u.m0t && T >= u.m0t && T < u.m1t && u.ms > 0) pose.walk = ((T - u.m0t) / Math.max(1, u.m1t - u.m0t)) % 1;
+    let want = d && d.faceT != null ? d.faceT : u.side === 0 ? 1 : -1;
+    if (tgt && !tgt.dead) { const a = B.Sim.posAt(u, T, 10), b = B.Sim.posAt(tgt, T, 10); if (Math.abs(b.x - a.x) > 3) want = b.x > a.x ? 1 : -1; }
+    else if (u.m1t > u.m0t && T < u.m1t && u.c !== u.fc) want = u.c > u.fc ? 1 : -1;
+    else if (!tgt) want = u.side === 0 ? 1 : -1;
+    pose.face = want;
+    if (d) {
+      d.faceT = want; if (d.face == null) d.face = want;
+      d.face += (want - d.face) * (1 - Math.exp(-(dt || 0.016) * 16));
+      pose.face = Math.abs(d.face) < 0.12 ? (d.face < 0 ? -0.12 : 0.12) : d.face;
+    }
+    const moving = u.ms > 0 && u.m1t > u.m0t && T >= u.m0t && T < u.m1t + 2;
+    if (d) {   // v55: one walking rhythm across hexes (it used to restart on every hex)
+      const dT = d.lastT == null ? 0 : Math.max(0, Math.min(4, T - d.lastT)); d.lastT = T;
+      if (moving) { d.ph += dT * Math.max(1.2, u.ms) / 20; pose.walk = d.ph % 1; }
+    } else if (u.m1t > u.m0t && T >= u.m0t && T < u.m1t && u.ms > 0) pose.walk = ((T - u.m0t) / Math.max(1, u.m1t - u.m0t)) % 1;
     const a = u.anim; if (a && a.k === 'atk' && T >= a.t0 && T <= a.t1) pose.atk = (T - a.t0) / Math.max(1, a.t1 - a.t0);
     const cd = B.Art && B.Art.castTicks ? B.Art.castTicks(u.key === 'clone' ? 'mirage' : u.key) : 14;   // review #45: long art animations
     if (T - u.castT >= 0 && T - u.castT < cd) pose.cast = (T - u.castT) / cd;
     if (u.dead) pose.dead = Math.max(0, Math.min(1, (T - u.deathT) / deadTicks(u)));   // v42: T, so the last death plays on in the slow motion after the fight
     void s; return pose;
   }
-  function drawUnit(v, W, u, p, T, o) {
-    const { ctx, size } = v, s = W.t;
-    const S = size * 1.3 * u.size;
+  function drawUnit(v, W, u, p, T, o, dt) {
+    const { ctx, size } = v, s = W.t, d = o.deploy ? null : look(v, W, u);
+    const S = size * 1.38 * u.size;
+    // v55: a hit makes the body flinch away and flash white for a moment
+    if (d) { const now = (d.now += dt || 0.016); if (u.hp < d.hp - 0.5) d.hitAt = now; d.hp = u.hp; d.trail = Math.max(u.hp, d.trail - (d.trail - u.hp) * Math.min(1, (dt || 0.016) * 3.2) - u.maxHp * 0.002); }
+    const since = d && d.hitAt >= 0 ? d.now - d.hitAt : 9, flinch = since < 0.18 ? Math.sin(since / 0.18 * Math.PI) * size * 0.08 : 0;
     let alpha = u.alpha; if (u.st.untarg > s) alpha *= 0.45;
     ctx.globalAlpha = Math.max(0, alpha);
     // selection / side ring on the ground
     const hero = u.side === 0;
     // review #44 (David: "clearer player/enemy distinction"): a filled disc in the side's colour under every unit
     const sideC = hero ? '74,163,255' : '255,92,110';
-    if (!u.dead) { ctx.fillStyle = `rgba(${sideC},0.28)`; ctx.beginPath(); ctx.ellipse(p.x, p.y, S * 0.5, S * 0.5 * K * 0.55, 0, 0, Math.PI * 2); ctx.fill(); }
-    ctx.strokeStyle = o.sel && o.sel === u.uid && hero ? '#ffffff' : u.elite ? '#ffcf5a' : `rgba(${sideC},0.95)`;
-    ctx.lineWidth = o.sel && o.sel === u.uid ? 3 : 2.2;
-    ctx.beginPath(); ctx.ellipse(p.x, p.y, S * 0.5, S * 0.5 * K * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
-    const pose = poseOf(W, u, T);
+    // v55: a soft glow in the side's colour instead of a hard ring (a thin rim stays for the selected hero and elites)
+    if (!u.dead) {
+      const rx = S * 0.55, g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rx); g.addColorStop(0, `rgba(${sideC},0.55)`); g.addColorStop(0.65, `rgba(${sideC},0.28)`); g.addColorStop(1, `rgba(${sideC},0)`);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1, K * 0.55); ctx.translate(-p.x, -p.y); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    const rim = o.sel && o.sel === u.uid && hero ? '#ffffff' : u.elite ? '#ffcf5a' : `rgba(${sideC},0.75)`;
+    ctx.strokeStyle = rim; ctx.lineWidth = o.sel && o.sel === u.uid ? 3 : u.elite ? 2.2 : 1.4;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, S * 0.46, S * 0.46 * K * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+    const pose = poseOf(W, u, T, d, dt);
     const mk = u.key === 'clone' ? 'mirage' : u.key, art = B.Art && B.Art.sprite(mk);
-    if (art) B.Art.draw(ctx, art, p.x, p.y, S, pose, u.color || (hero ? '#9df' : '#f99'));
-    else B.Models.draw(ctx, mk, p.x, p.y, S, pose, u.color || (hero ? '#9df' : '#f99'));
-    if (W.t - u.hitT < 3 && !u.dead) { ctx.globalAlpha = 0.35; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(p.x, p.y - S * 0.6, S * 0.35, S * 0.6, 0, 0, Math.PI * 2); ctx.fill(); }
+    const bx0 = p.x - (pose.face > 0 ? 1 : -1) * flinch, flash = since < 0.09 && !u.dead && FILTER;
+    // v55: squash and stretch from the feet: a pop when the fight starts, a squash on the strike and when hit
+    const intro = Math.min(1, T / 8), hitK = since < 0.16 ? Math.sin(since / 0.16 * Math.PI) : 0, strike = pose.atk != null && pose.atk > 0.75 ? Math.sin((pose.atk - 0.75) / 0.25 * Math.PI) : 0;
+    const sy = (o.deploy ? 1 : 0.6 + 0.4 * (1 - Math.pow(1 - intro, 3))) * (1 - 0.07 * hitK - 0.05 * strike), sx = 1 + 0.06 * hitK + 0.06 * strike;
+    if (flash) ctx.filter = 'brightness(1.9) saturate(0.6)';
+    ctx.save(); ctx.translate(bx0, p.y); ctx.scale(sx, sy); ctx.translate(-bx0, -p.y);
+    if (art) B.Art.draw(ctx, art, bx0, p.y, S, pose, u.color || (hero ? '#9df' : '#f99'));
+    else B.Models.draw(ctx, mk, bx0, p.y, S, pose, u.color || (hero ? '#9df' : '#f99'));
+    ctx.restore();
+    if (flash) ctx.filter = 'none';
+    else if (since < 0.09 && !u.dead) { ctx.globalAlpha = 0.25; const g = ctx.createRadialGradient(bx0, p.y - S * 0.6, 0, bx0, p.y - S * 0.6, S * 0.6); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx0, p.y - S * 0.6, S * 0.6, 0, Math.PI * 2); ctx.fill(); }
     if (u.st.frozenU > s) { ctx.globalAlpha = 0.45; ctx.fillStyle = '#9fe8ff'; ctx.beginPath(); ctx.moveTo(p.x, p.y - S * 1.45); ctx.lineTo(p.x + S * 0.42, p.y - S * 0.7); ctx.lineTo(p.x, p.y + S * 0.05); ctx.lineTo(p.x - S * 0.42, p.y - S * 0.7); ctx.closePath(); ctx.fill(); }
     if (u.shield > 0 && u.shieldU > s && !u.dead) { ctx.globalAlpha = 0.25; ctx.strokeStyle = '#e8ecff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(p.x, p.y - S * 0.62, S * 0.5, S * 0.8, 0, 0, Math.PI * 2); ctx.stroke(); }
     ctx.globalAlpha = 1;
     if (u.dead) return;
     // bars above the head
     const headTop = p.y - S * (u.boss ? 1.75 : 1.5), bw = Math.max(S * 0.95, size * 1.1), bx = p.x - bw / 2, by = headTop - 10;
-    ctx.fillStyle = hero ? '#123a86' : '#6a1426'; ctx.fillRect(bx - 1.5, by - 1.5, bw + 3, 7);   // the bar's frame in the side's colour
-    ctx.fillStyle = '#000a'; ctx.fillRect(bx, by, bw, 4);
-    ctx.fillStyle = hero ? '#5fd47a' : '#ff5c6e'; ctx.fillRect(bx, by, bw * Math.max(0, u.hp / u.maxHp), 4);
+    const rr = (x, y, w, h, r) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, Math.max(0, w), h, r); else ctx.rect(x, y, Math.max(0, w), h); };
+    ctx.fillStyle = hero ? '#123a86' : '#6a1426'; rr(bx - 1.5, by - 1.5, bw + 3, 7.5, 3); ctx.fill();   // the bar's frame in the side's colour
+    ctx.fillStyle = '#000a'; rr(bx, by, bw, 4.5, 2); ctx.fill();
+    if (d && d.trail > u.hp) { ctx.fillStyle = '#fff2b0'; rr(bx, by, bw * Math.min(1, d.trail / u.maxHp), 4.5, 2); ctx.fill(); }   // v55: the health just lost fades out
+    const hg = ctx.createLinearGradient(0, by, 0, by + 4.5); hg.addColorStop(0, hero ? '#8ff0a6' : '#ff8f9b'); hg.addColorStop(1, hero ? '#3fb85e' : '#e2404f');
+    ctx.fillStyle = hg; rr(bx, by, bw * Math.max(0, u.hp / u.maxHp), 4.5, 2); ctx.fill();
     if (u.shield > 0 && u.shieldU > s) { ctx.fillStyle = '#e8ecff'; ctx.fillRect(bx, by, Math.min(bw, bw * u.shield / u.maxHp), 2); }
     if (u.maxMana > 0) { ctx.fillStyle = '#000b'; ctx.fillRect(bx - 1, by + 5, bw + 2, 3); ctx.fillStyle = '#5fa8ff'; ctx.fillRect(bx, by + 5, bw * Math.min(1, u.mana / u.maxMana), 2); }
     if (u.lvl > 1 && hero && u.kind === 'hero') { ctx.font = "700 10px 'Fredoka', 'Nunito', system-ui, sans-serif"; ctx.fillStyle = '#ffcf5a'; ctx.textAlign = 'left'; ctx.fillText(u.lvl, bx + bw + 2, by + 5); }
@@ -231,11 +279,11 @@
     if (!o.deploy) spawnFromFx(v, W, T, S);
     // ambient embers drifting up
     if (!o.deploy && Math.random() < dt * 6 && S.parts.length < MAXP) S.parts.push({ x: Math.random() * v.w, y: v.h + 4, vx: (Math.random() - 0.5) * 10, vy: -20 - Math.random() * 25, g: 0, life: 4 + Math.random() * 3, t: 0, r: 1 + Math.random() * 1.2, col: Math.random() < 0.5 ? '#ffb347' : '#e8b84a', glow: true });
-    const us = W.units.filter(u => !u.dead || T - u.deathT < deadTicks(u)).map(u => ({ u, p: unitPos(v, W, u, T) }));
+    const us = W.units.filter(u => !u.dead || T - u.deathT < deadTicks(u)).map(u => ({ u, p: glide(v, W, u, T, dt, o.deploy) }));
     // standing terrain joins the depth sort; it turns see-through while a unit stands right behind it
     for (const x of (W.terrain || [])) if (x.k !== 'pond') us.push({ x, p: hexScreen(v, x.c, x.r), fade: x.k !== 'rock' && W.units.some(u => !u.dead && u.r === x.r - 1 && Hx.dist(u, x) === 1) });
     us.sort((a, b) => a.p.y - b.p.y);
-    for (const e of us) if (e.x) drawTerrain(v, e.x, e.fade); else drawUnit(v, W, e.u, e.p, T, o);
+    for (const e of us) if (e.x) drawTerrain(v, e.x, e.fade); else drawUnit(v, W, e.u, e.p, T, o, dt);
     for (const f of W.fx) {
       if (f.k === 'ring' || T < f.t0 || T > f.t1 + 0.99) continue;
       const k = Math.min(1, (T - f.t0) / Math.max(1, f.t1 - f.t0));

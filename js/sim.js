@@ -481,7 +481,7 @@
   function startAttack(W, u, tgt) {
     const a = asOf(W, u);
     const wt = Math.min(12, Math.max(3, Math.round(TPS * 0.45 / a)));
-    u.anim = { k: 'atk', t0: W.t, t1: W.t + wt, tid: tgt.id, ranged: u.range > 1 };
+    u.anim = u.lastAtk = { k: 'atk', t0: W.t, t1: W.t + wt, tid: tgt.id, ranged: u.range > 1 };   // v55: lastAtk = the render's recovery
     u.busy = W.t + wt; u.nextAtk = W.t + Math.max(wt + 1, Math.round(TPS / a)); u.tgt = tgt.id;
     at(W, W.t + wt, () => {
       if (u.dead || u.st.stun > W.t) return;
