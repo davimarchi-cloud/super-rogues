@@ -271,7 +271,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   // ---- v44 (review #54): rewards grow with the run, blue options, challenges, investments, transmute, rarity
   run = fresh(16, 'training'); run.fightNo = 5;
   ok(/\+18 XP to all heroes/.test(Run.eventChoices(run)[0].label) && Run.eventChoices(run)[0].act === 'xpAll:18', 'rewards grow (v45: +5% a fight): +15 XP after fight 1 is +18 after fight 5');
-  run = fresh(17, 'scout'); ok(Run.canChoose(run, Run.eventChoices(run)[3]).ok, 'a team with a ranged hero (Brigid) can take the archer choice');
+  run = fresh(17, 'scout'); ok(Run.canChoose(run, Run.eventChoices(run)[3]).ok, 'a team with a ranged hero (Solace) can take the archer choice');
   run.heroes = run.heroes.filter(h => h.key === 'brakk');
   ok(Run.canChoose(run, Run.eventChoices(run)[3]).why === 'Needs a ranged hero' && Run.eventAct(run, 3) === null, 'a melee-only team cannot: "Needs a ranged hero"');
   run = fresh(18, 'library'); ok(Run.eventTargets(run, Run.eventChoices(run)[3]).map(t => t.uid).join() === String(run.heroes.find(h => h.key === 'lumen').uid), 'a caster choice targets only the casters');
@@ -659,6 +659,12 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   r = team(['vex', 'pyra'], 1, []); r.heroes[0].items = ['rod']; r.heroes[1].items = ['longsword']; Run.autoEquip(r);
   ok(on(r, 'vex').includes('longsword') && on(r, 'pyra').includes('rod'), 'v57: it also fixes gear worn by the wrong hero');
   const s0 = JSON.stringify(r.heroes.map(h => h.items)); ok(Run.autoEquip(r) === 0 && JSON.stringify(r.heroes.map(h => h.items)) === s0, 'v57: pressing it again changes nothing');
+}
+// ---- v59 (review #71, PC boy): new hero names, one per hero, and no old name left in any hero text
+{
+  const H = Object.values(HEROES), names = H.map(h => h.name);
+  ok(new Set(names).size === names.length && names.includes('Aegir') && names.includes('Jinx') && names.includes('Feuer') && names.includes('Maelstrom'), 'v59: every hero has its own new name (Feuer keeps his)');
+  ok(!H.some(h => /(Bjornar|Pimples|Brigid|Koschei|Gizmund|Melissa|Ulfrik)/.test(h.abDesc + ' ' + h.specs.flat().map(s => s.desc).join(' '))), 'v59: no old name left in abilities and powers');
 }
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

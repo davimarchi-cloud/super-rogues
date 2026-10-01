@@ -252,7 +252,7 @@ ${sheetFoot(d, note)}`);
   const norm = t => String(t).normalize('NFD').toLowerCase().replace(/[^a-z]/g, '');   // accents come apart in NFD and drop out
   function guessHero(file) {
     const f = norm(file.replace(/\.[a-z0-9]+$/i, '')), H = B.HEROES;
-    const names = Object.keys(H).flatMap(k => [[norm(H[k].name), k], [norm(k), k]]).filter(([n]) => n.length >= 3).sort((a, b) => b[0].length - a[0].length);
+    const names = Object.keys(H).flatMap(k => [[norm(H[k].name), k], [norm(k), k], [norm(H[k].was || ''), k]]).filter(([n]) => n.length >= 3).sort((a, b) => b[0].length - a[0].length);
     const hit = names.find(([n]) => f === n) || names.find(([n]) => f.includes(n));
     return hit ? hit[1] : null;
   }

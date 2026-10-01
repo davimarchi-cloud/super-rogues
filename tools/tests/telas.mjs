@@ -337,7 +337,7 @@ if (!REMOTE) {
     ok(t && t.rows === n && t.rated >= 1 && /\d+%/.test(t.text) && extra(t.text), msg + (t ? ` (${t.rated} rated of ${t.rows})` : ''));
     await noHScroll(k + ' tab');
   };
-  await tab('hero', await ev('Object.keys(B.HEROES).length + Object.keys(B.BOSSES).length'), x => /Bjornar/.test(x) && /Gorewarden/.test(x) && /Ashen Sovereign/.test(x), 'Heroes tab: every hero and both bosses listed (review #20), the played ones with Elo, fights and win rate');
+  await tab('hero', await ev('Object.keys(B.HEROES).length + Object.keys(B.BOSSES).length'), x => /Aegir/.test(x) && /Gorewarden/.test(x) && /Ashen Sovereign/.test(x), 'Heroes tab: every hero and both bosses listed (review #20), the played ones with Elo, fights and win rate');
   await shot('20-ladder-heroes');
   await tab('item', await ev('B.ITEMS.length'), x => /no combat effect/.test(x) && /not played yet/.test(x), 'Items tab: every item (no-combat items marked)');
   await tab('relic', await ev('B.RELICS.length'), x => /no combat effect/.test(x), 'Relics tab: every relic');

@@ -131,6 +131,11 @@ versão menor e explicar na resposta.
 
 ## Histórico
 
+- **v59 (2026-10-01), lote 57 do PC boy (#71: "dar mais vida aos nomes"; ele mandou 22 nomes novos e pediu o mesmo estilo para os outros: ousados, evocativos, legais para 12 a 18 anos, nem obscuros nem bobos).**
+  - **Nomes:** Bjornar → Aegir, Sica → Vex, Feuer → Feuer, Snezhana → Frostbane, Brutus → Ironhorn, Brigid → Solace, Strela → Talon, Koschei → Graveborn, Tordis → Tempest, Krok → Hookjaw, Sarab → Mirage, Gizmund → Rivet, Ulfrik → Ravager, Licht → Radiant, Umbra → Nyx, Leshy → Bramble, Orfeo → Lyric, Pólvora → Flint, Hyppolita → Skara, Sokol → Deadeye, Carmina → Vesper, Kagero → Eclipse, Garm → Fang, Luna → Mesmer, Pimples → Jinx, Pivo → Rumble, Azgoth → Inferno, Kivi → Boulder, Khepri → Ankh, Leonteus → Phalanx, Serra → Rapture, Mercurio → Vial, Feng → Kaze, Melissa → Stinger, Nerina → Maelstrom, Astrid → Astral.
+  - **Os 14 que criei** foram conferidos para não repetir item, relíquia, poder, monstro ou conjunto: Rampage, Quiver, Echo, Trance, Pharaoh, Swarm, Riptide, Hive e Undertow foram trocados por isso. Nomes dele que também são palavras de itens ou habilidades (Boulder = Boulder Toss, Phalanx = a própria habilidade, Inferno, Vial) ficaram como ele pediu.
+  - **Onde mudou:** só o texto dentro das strings do data.js (comentários e histórico mantêm os nomes antigos); as chaves não mudaram, então fantasmas, Elo e artes continuam valendo.
+  - **Nome antigo:** fica em `h.was`, e o Art Lab ainda reconhece arquivos com ele (`guessHero`).
 - **v58 (2026-10-01), lote 56 do David (#70, 12 itens de acabamento).**
   - **Aviso de revisão:** virou uma pílula pequena que flutua sob a barra, sem empurrar a tela ("⏳ #N queued", "✅ … live: tap to reload").
   - **Relíquias:** todas ganharam uma linha curta (`r.short` em data.js) usada na loja e no início; a regra completa fica em "More" (`relic-info`).
