@@ -1103,7 +1103,7 @@
       ${det}
       <div class="gbag" data-drop="bag"><div class="gbh"><b>Bag</b><span>${run.bag.length}</span>${pages > 1 ? `<span class="grow"></span><button class="gpg" data-act="gear-page" data-arg="-1" ${pg ? '' : 'disabled'} aria-label="Previous">${I('back')}</button><span>${pg + 1}/${pages}</span><button class="gpg" data-act="gear-page" data-arg="1" ${pg < pages - 1 ? '' : 'disabled'} aria-label="Next">${I('arrow')}</button>` : ''}</div>
         <div class="gbgrid">${tiles || `<p class="dim small">Empty</p>`}</div></div>
-      <div class="bar gbar"><button data-act="gear-auto" ${run.bag.length ? '' : 'disabled'}>${I('bolt')} Auto-equip</button><button class="primary" data-act="close">Done</button></div>`;
+      <div class="bar gbar"><button class="gauto" data-act="gear-auto" ${run.bag.length || run.heroes.some(h => h.items.length) ? '' : 'disabled'}>${I('bolt')} Auto-equip</button><button class="primary" data-act="close">Done</button></div>`;
   }
   function openGear() { openModal(gearHTML()); ui.modal = 'gear'; const sh = $('#modal .sheet'); if (sh) sh.classList.add('gearsheet'); }
   // put a bag item on hero uid: same type = swap; full = replaces the socket j (or the weakest one); returns the socket it went into
@@ -1126,18 +1126,9 @@
     for (const k of ['hp', 'atk', 'ap']) if (after[k] !== before[k]) { const el = $(`#modal .gstats [data-st=${k}] b`); if (el) { B.Juice.countUp(el, before[k], after[k], 500); B.Juice.bump(el.parentElement); } }
   }
   function gearDo(fn, uid) { const h = run.heroes.find(x => x.uid === uid), before = h ? gearStats(h) : null; const r = fn(); ui.gsel = null; ui.gHero = uid; save(); openGear(); refreshBehind(); if (r && r.sock >= 0 && before) gearFx(uid, r.sock, r.id, before); }
-  function gearAuto() {
-    const want = h => (B.HEROES[h.key].range > 1 || /Mage|Healer|Controller|Summoner|Bard/.test(B.HEROES[h.key].role)) ? 'ap' : 'atk';
-    let n = 0;
-    for (let pass = 0; pass < 3; pass++) for (const h of run.heroes) {
-      const bag = run.bag.map((id, i) => ({ id, i })).sort((a, b) => RANK(b.id) - RANK(a.id) || ((ITEM[b.id].mods || {})[want(h)] ? 1 : 0) - ((ITEM[a.id].mods || {})[want(h)] ? 1 : 0));
-      for (const { id } of bag) {
-        const i = run.bag.indexOf(id), same = h.items.findIndex(x => ITEM[x].type === ITEM[id].type);
-        if (same >= 0 ? RANK(id) > RANK(h.items[same]) : h.items.length < Run.slots(run, h)) { if (!Run.equip(run, i, h.uid)) { n++; break; } }
-      }
-    }
-    return n;
-  }
+  // v57 (review #69): the decisions live in run.js (Run.autoEquip: hero profiles, item scores, best match first)
+  function gearAuto() { return Run.autoEquip(run); }
+
   // drag and drop with the pointer (mouse and touch): a ghost follows the finger, drop targets glow
   const gdrag = { on: false };
   function gearDown(e) {
@@ -1590,7 +1581,7 @@
     'gear-pick': a => { const [k, x, y] = a.split(':'), sl = k === 'b' ? { k, i: +x } : { k, uid: +x, i: +y }; ui.gsel = ui.gsel && JSON.stringify(ui.gsel) === JSON.stringify(sl) ? null : sl; if (k === 'w') ui.gHero = +x; openGear(); },
     'gear-equip': () => { const g = ui.gsel; if (!g || g.k !== 'b') return; const h = gearHero(), id = run.bag[g.i]; gearDo(() => ({ sock: gearPut(g.i, h.uid, null), id }), h.uid); },
     'gear-off': () => { const g = ui.gsel; if (!g || g.k !== 'w') return; gearDo(() => { Run.unequip(run, g.uid, g.i); }, g.uid); },
-    'gear-auto': () => { const n = gearAuto(); ui.gsel = null; save(); openGear(); refreshBehind(); if (n) { sfx('unlock'); const st = $('#modal .gstage'); if (st && B.Juice) { B.Juice.confettiAt(st, 50); B.Juice.bump(st, 'pop'); } toast(`${I('bolt')} ${n} item${n > 1 ? 's' : ''} put on`.replace(/<[^>]+>/g, '').trim()); } else toast('Your team already wears its best gear'); },
+    'gear-auto': () => { const n = gearAuto(); ui.gsel = null; save(); openGear(); refreshBehind(); if (n) { sfx('unlock'); const st = $('#modal .gstage'); if (st && B.Juice) { B.Juice.confettiAt(st, 50); B.Juice.bump(st, 'pop'); } toast(n > 1 ? n + ' heroes got better gear' : 'A hero got better gear'); } else toast('Your team already wears its best gear'); },
     'gear-page': d => { ui.gPage = Math.max(0, (ui.gPage || 0) + +d); openGear(); },
     sell: () => { const g = ui.gsel; if (!g || g.k !== 'b') return; Run.sell(run, g.i); ui.gsel = null; sfx('coin'); save(); openGear(); header(); },
     close: () => { closeModal(); ui.gsel = null; ui.heroInfo = 0; if (!battle) render(); },

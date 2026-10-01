@@ -2048,3 +2048,7 @@ body.gdragging .gstage { box-shadow: 0 0 0 3px #ffe46b88; }
   .gsock { min-height: 54px; } .gsock .ico, .gitem .ico { width: 34px; height: 34px; } .gstage { padding: 8px; gap: 9px; }
 }
 body.desk .sheet.gearsheet { max-width: 640px; }
+
+/* v57 (review #69): Auto-equip in purple */
+.gbar button.gauto { background: linear-gradient(180deg, #b48cff, #7c4dff) !important; color: #fff !important; border-color: #ffffff66 !important; box-shadow: 0 4px 0 #4a24a0, 0 0 18px #9a6bff66 !important; }
+.gbar button.gauto svg.ui { color: #ffe46b; }

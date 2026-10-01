@@ -695,9 +695,72 @@
     if (w.boost && solo) { for (const k in w.boost) solo.bonus[k] = (solo.bonus[k] || 0) + w.boost[k]; res.boost = { key: solo.key, text: modsText(w.boost) }; }
   }
 
+  // ------------------------------------------------------------------ v57 (review #69, David: "Improve the auto equip feature.
+  // The idea is good but execution terrible. Design some algorithm that makes decent decisions always. AP on an AD hero no
+  // go"): every hero gets a profile from what its ability and powers scale with (AP share, tank or not, ranged or not);
+  // every item gets a score for each hero from its stats weighted by that profile (an AP item is worth almost nothing to
+  // an AD hero); then all the gear (bag and worn) is handed out greedily, best hero-item match first, one item per type,
+  // never past a hero's slots, and an item nobody really wants stays in the bag.
+  const TANK_ROLES = ['Tank', 'Warden', 'Bruiser', 'Hoplite', 'Paladin', 'Mummy', 'Caveman', 'Brawler'];
+  const profCache = {};
+  function heroProfile(key) {
+    if (profCache[key]) return profCache[key];
+    const h = B.HEROES[key], t = h.abDesc + ' ' + h.specs.flat().map(s => s.desc).join(' ');
+    const ap = (t.match(/% (?:of (?:his|her) )?AP\b/g) || []).length, ad = (t.match(/% (?:of (?:his|her) )?AD\b/g) || []).length;
+    const apShare = ap + ad ? ap / (ap + ad) : 0.3;   // an ability that names neither leans on attacks
+    return (profCache[key] = { apShare, tank: TANK_ROLES.includes(h.role) || (h.range <= 1 && h.hp >= 850), ranged: h.range > 1 });
+  }
+  // a stat's size that counts as one point, and which side of a hero it serves
+  const NORM = { atk: 10, ap: 20, asPct: 0.1, crit: 0.1, critDmg: 0.25, hp: 150, hpPct: 0.1, armor: 15, mr: 15, ls: 0.1, dodge: 0.08, ms: 1, range: 1,
+    manaStart: 20, manaRegen: 2, manaOnHit: 3, manaMaxPct: -0.15, regen: 0.01, thorns: 0.2, shieldStart: 150, shieldStartPct: 0.15, allPct: 0.05 };
+  const ON_HIT = ['burnOnHit', 'poisonOnHit', 'slowOnHit', 'curHpOnHit', 'splash', 'multishot', 'chainEvery', 'antiHeal', 'stackAtk', 'stackAs', 'armorPen', 'firstMoveAtk', 'killAtk', 'rampAtk', 'giantSlayer', 'execute', 'reap', 'critStack'];
+  const ON_CAST = ['abilityBurn', 'omni', 'apPerSec', 'apPerAtk'];
+  const ON_DEF = ['revive', 'stasis', 'cleanseOnce', 'dmgReduce', 'rampArmor', 'rampHpPct', 'titan', 'ccResist', 'onDeathHeal', 'sunfire'];
+  function itemScore(key, id) {
+    const it = B.ITEM[id], m = it.mods || {}, P = heroProfile(key), ap = P.apShare, dm = P.tank ? 1.8 : 1, om = P.tank ? 0.7 : 1;
+    const W = { atk: (1.2 * (1 - ap) + 0.1) * om, ap: 1.2 * ap + 0.05, asPct: ((1 - ap) + 0.15) * om, crit: (0.9 * (1 - ap) + 0.05) * om, critDmg: 0.7 * (1 - ap) * om, ls: (0.7 * (1 - ap) + 0.15) * om,
+      manaStart: 0.4 + 0.6 * ap, manaRegen: 0.3 + 0.7 * ap, manaOnHit: 0.3 + 0.6 * ap, manaMaxPct: 0.4 + 0.6 * ap,
+      hp: 0.6 * dm, hpPct: 0.6 * dm, armor: 0.5 * dm, mr: 0.5 * dm, regen: 0.5 * dm, thorns: 0.2 * dm, shieldStart: 0.5 * dm, shieldStartPct: 0.5 * dm, dodge: 0.45 * dm,
+      ms: 0.25, range: P.ranged ? 0.8 : -0.3, allPct: 1.2 };
+    let s = 0;
+    for (const k in m) {
+      const v = m[k]; if (typeof v !== 'number' || /Cap$/.test(k) || k === 'chainTargets' || k === 'chainDmg') continue;
+      if (NORM[k] != null) s += (v / NORM[k]) * (W[k] || 0);
+      else if (ON_HIT.includes(k)) s += 0.9 * ((1 - ap) + 0.1) * om;
+      else if (ON_CAST.includes(k)) s += 0.9 * (ap + 0.1);
+      else if (ON_DEF.includes(k)) s += 0.8 * dm;
+      else s += 0.3;
+    }
+    if (Array.isArray(m.aura)) s += 0.6;
+    return s + 0.15 * B.RARITIES.findIndex(r => r.id === it.tier);
+  }
+  // hands out every item (bag and worn); returns how many items changed place
+  function autoEquip(run) {
+    const before = run.heroes.map(h => h.items.slice().sort().join());
+    const pool = run.bag.concat(...run.heroes.map(h => h.items));
+    for (const h of run.heroes) h.items = [];
+    const left = pool.slice(), MIN = 0.2;   // best matches go first; a free slot still takes a small plus, never an off-role item
+    for (;;) {
+      let best = null;
+      for (const h of run.heroes) {
+        if (h.items.length >= slots(run, h)) continue;
+        const sc = setCounts(h.items);
+        for (let i = 0; i < left.length; i++) {
+          const id = left[i], it = B.ITEM[id]; if (h.items.some(x => B.ITEM[x].type === it.type)) continue;
+          const v = itemScore(h.key, id) + (it.set && sc[it.set] ? 0.8 * sc[it.set] : 0);
+          if (v >= MIN && (!best || v > best.v)) best = { h, i, v };
+        }
+      }
+      if (!best) break;
+      best.h.items.push(left[best.i]); left.splice(best.i, 1);
+    }
+    run.bag = left;
+    return run.heroes.reduce((n, h, k) => n + (h.items.slice().sort().join() !== before[k] ? 1 : 0), 0);
+  }
+
   B.Run = { mapOf, blockedAt, gauntletMap, newRun, pickStart, heroDef, heroMods, slots, specOf, gainXp, chooseSpec, autoPlace, setPos, makeFight, fightWorld,
     finishFight, advance, choose, reroll, rerollCost, buy, leave, equip, unequip, sell, sellValue,
     eventAct, teamMax, addHero, gainRelic, rnd, migrate, teamSnapshot, gauntletWorld, gauntletUpdate, canEquip, setCounts, setBonuses, seqOf, bossFight,
-    eventChoices, eventTargets, canChoose, itemRefs, upgradedOf, reqHeroes, evScale, pickEvent, startChallenge, CH, bossOf };
+    eventChoices, eventTargets, canChoose, itemRefs, upgradedOf, reqHeroes, evScale, pickEvent, startChallenge, CH, bossOf, autoEquip, itemScore, heroProfile };
   if (typeof module !== 'undefined') module.exports = B.Run;
 })(typeof window !== 'undefined' ? window : globalThis);

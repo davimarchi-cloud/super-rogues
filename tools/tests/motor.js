@@ -644,5 +644,21 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
     ok(finite(W) && (tricks[key] || []).every(t => seen.has(t)), `v52: ${B.BOSSES[key].name} fights cleanly` + (tricks[key] ? ' (' + tricks[key].join(', ') + ')' : ''));
   }
 }
+// ---- v57 (review #69, David): Auto-equip makes decent decisions: AP to casters, attack to attackers, toughness to tanks
+{
+  const team = (keys, lvl, bag) => { const r = Run.newRun(321); Run.pickStart(r, [keys[0]], null); for (const k of keys.slice(1)) Run.addHero(r, k); r.heroes.forEach(h => { h.lvl = lvl; }); r.bag = bag.slice(); return r; };
+  const on = (r, key) => r.heroes.find(h => h.key === key).items;
+  ok(Run.heroProfile('pyra').apShare > 0.7 && Run.heroProfile('vex').apShare < 0.3 && Run.heroProfile('bastion').tank && !Run.heroProfile('kestrel').tank, 'v57: hero profiles (Feuer AP, Sica AD, Bjornar a tank)');
+  ok(Run.itemScore('vex', 'rod') < 0.2 && Run.itemScore('pyra', 'rod') > 1 && Run.itemScore('vex', 'longsword') > 1.5 && Run.itemScore('pyra', 'longsword') < 0.3, 'v57: an AP item is worth almost nothing to an AD hero, and the other way round');
+  let r = team(['pyra', 'vex', 'bastion'], 3, ['rod', 'longsword', 'warmog', 'chainmail', 'boots', 'h_iron']);
+  Run.autoEquip(r);
+  ok(on(r, 'pyra').includes('rod') && on(r, 'vex').includes('longsword') && on(r, 'bastion').includes('warmog'), 'v57: the AP rod goes to the mage, the sword to the assassin, the big armor to the tank');
+  ok(r.heroes.every(h => h.items.length <= Run.slots(r, h) && new Set(h.items.map(id => B.ITEM[id].type)).size === h.items.length), "v57: never past a hero's slots, one item per type");
+  r = team(['vex', 'kestrel'], 1, ['rod', 'longsword']); Run.autoEquip(r);
+  ok(r.bag.includes('rod') && !r.heroes.some(h => h.items.includes('rod')), 'v57: an all-AD team leaves the AP item in the bag');
+  r = team(['vex', 'pyra'], 1, []); r.heroes[0].items = ['rod']; r.heroes[1].items = ['longsword']; Run.autoEquip(r);
+  ok(on(r, 'vex').includes('longsword') && on(r, 'pyra').includes('rod'), 'v57: it also fixes gear worn by the wrong hero');
+  const s0 = JSON.stringify(r.heroes.map(h => h.items)); ok(Run.autoEquip(r) === 0 && JSON.stringify(r.heroes.map(h => h.items)) === s0, 'v57: pressing it again changes nothing');
+}
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);
