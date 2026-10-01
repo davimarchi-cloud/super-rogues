@@ -48,6 +48,19 @@
     pip: { splash: 'art/pip/splash.jpg', crop: { x: 0.34, y: 0.31, z: 1.2 }, flip: false, scale: 1 },   // Pimples
     lumen: { splash: 'art/lumen/splash.jpg', crop: { x: 0.5, y: 0.29, z: 1.2 }, flip: false, scale: 1 },   // Brigid
     bastion: { splash: 'art/bastion/splash.jpg', crop: { x: 0.38, y: 0.33, z: 1.2 }, flip: false, scale: 1 },   // Bjornar
+    // review #68 (PC boy): splash art for 12 more heroes (cards, banners, portraits; battle figures stay drawn)
+    sprocket: { splash: 'art/sprocket/splash.jpg', crop: { x: 0.37, y: 0.29, z: 1.15 }, flip: false, scale: 1 },   // Mercurio
+    zephyr: { splash: 'art/zephyr/splash.jpg', crop: { x: 0.4, y: 0.19, z: 1.2 }, flip: false, scale: 1 },   // Feng
+    pyra: { splash: 'art/pyra/splash.jpg', crop: { x: 0.42, y: 0.24, z: 1.2 }, flip: false, scale: 1 },   // Feuer
+    blaze: { splash: 'art/blaze/splash.jpg', crop: { x: 0.37, y: 0.23, z: 1.2 }, flip: false, scale: 1 },   // Pólvora
+    grok: { splash: 'art/grok/splash.jpg', crop: { x: 0.58, y: 0.4, z: 1.15 }, flip: false, scale: 1 },   // Kivi
+    leonidas: { splash: 'art/leonidas/splash.jpg', crop: { x: 0.55, y: 0.26, z: 1.15 }, flip: false, scale: 1 },   // Leonteus
+    morrow: { splash: 'art/morrow/splash.jpg', crop: { x: 0.43, y: 0.29, z: 1.2 }, flip: false, scale: 1 },   // Koschei
+    vex: { splash: 'art/vex/splash.jpg', crop: { x: 0.58, y: 0.21, z: 1.2 }, flip: false, scale: 1 },   // Sica
+    grimhook: { splash: 'art/grimhook/splash.jpg', crop: { x: 0.4, y: 0.32, z: 1.2 }, flip: false, scale: 1 },   // Krok
+    nyx: { splash: 'art/nyx/splash.jpg', crop: { x: 0.45, y: 0.2, z: 1.2 }, flip: false, scale: 1 },   // Umbra
+    harlequin: { splash: 'art/harlequin/splash.jpg', crop: { x: 0.45, y: 0.22, z: 1.2 }, flip: false, scale: 1 },   // Serra
+    deadshot: { splash: 'art/deadshot/splash.jpg', crop: { x: 0.45, y: 0.22, z: 1.2 }, flip: false, scale: 1 },   // Sokol
   };
   const LOCAL = 'balance.artlab';
   const live = {}, subs = [], cache = {};
