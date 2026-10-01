@@ -66,6 +66,11 @@
     hollowking: { type: 'wraith', body: '#2a1f3a', trim: '#a44dff', crown: '#ffcf5a' },
     mirewitch: H({ skin: '#7aa05a', body: '#2f4a2a', trim: '#9ad94a', robe: '#26391f', legs: '#1f2a18', bulk: 1.3, h: 1.15, head: 'hood', hood: '#1f2f18', weapon: 'staff', orb: '#9ad94a', eyes: '#d9ff7a' }),   // v52
     colossus: { type: 'golem', body: '#5a5f6a', trim: '#ffcf5a' },   // v52
+    // v60 (review #72): Prism, the Citadel and its soldiers
+    prism: H({ skin: '#e8d4c0', body: '#3a8aa8', trim: '#bff4ff', robe: '#2a6a88', head: 'hood', hood: '#1f5a78', weapon: 'staff', orb: '#bff4ff', eyes: '#bff4ff' }),
+    citadel: { type: 'tower', body: '#a89a86', trim: '#c9a26a', flag: '#4f7cff' },
+    footman: H({ skin: '#e0b48a', body: '#6a7a9a', trim: '#c9a26a', legs: '#3a3a42', bulk: 1, head: 'helm', weapon: 'sword', pauldrons: '#8a92a8' }),
+    bowman: H({ skin: '#e0b48a', body: '#4a6a3a', trim: '#c9a26a', legs: '#3a3a2a', bulk: 0.9, head: 'hood', hood: '#3a5a2a', weapon: 'bow', quiver: true }),
     // summons
     skeleton: H({ skin: '#e8e2d0', body: '#cfc8b4', trim: '#8a8474', legs: '#cfc8b4', bulk: 0.8, head: 'skull', weapon: 'sword', eyes: '#6effc4', bones: true }),
     turret: { type: 'turret', body: '#d9a441', trim: '#5a4a2a' },
@@ -391,7 +396,18 @@
     limb(c, s * 0.1 - rec, -s * 0.58, s * 0.5 - rec, -s * 0.62, s * 0.1, '#6e6e6e');
     ball(c, -s * 0.05, -s * 0.52, s * 0.06, Math.sin(p.t * 4) > 0 ? '#ff5d5d' : '#7a2a2a');
   }
-  const RIGS = { humanoid, beast, bomb, golem, serpent, wraith, turret };
+  // v60: a stone tower with battlements, a window that glows and a flag in the side's colour
+  function tower(c, m, S, p) {
+    const s = S * 1.05, sway = Math.sin(p.t * 3) * s * 0.03, hit = p.cast != null ? Math.sin(p.cast * Math.PI) : 0;
+    poly(c, [[-s * 0.32, 0], [s * 0.32, 0], [s * 0.27, -s * 0.95], [-s * 0.27, -s * 0.95]], m.body, OUT);
+    for (const [y, w] of [[-0.25, 0.3], [-0.55, 0.28], [-0.8, 0.27]]) { c.strokeStyle = shade(m.body, -0.3); c.lineWidth = 1; c.beginPath(); c.moveTo(-s * w, s * y); c.lineTo(s * w, s * y); c.stroke(); }
+    for (const x of [-0.27, -0.07, 0.13]) poly(c, [[s * x, -s * 0.95], [s * (x + 0.14), -s * 0.95], [s * (x + 0.14), -s * 1.1], [s * x, -s * 1.1]], shade(m.body, 0.1), OUT);
+    poly(c, [[-s * 0.08, -s * 0.55], [s * 0.08, -s * 0.55], [s * 0.08, -s * 0.4], [-s * 0.08, -s * 0.4]], hit > 0.2 ? '#fff6a0' : '#ffcf5a');
+    poly(c, [[-s * 0.12, 0], [s * 0.12, 0], [s * 0.12, -s * 0.2], [-s * 0.12, -s * 0.2]], shade(m.trim, -0.4), OUT);
+    limb(c, s * 0.2, -s * 1.1, s * 0.2, -s * 1.45, s * 0.03, '#5a4a2a');
+    poly(c, [[s * 0.2, -s * 1.45], [s * 0.5 + sway, -s * 1.38], [s * 0.2, -s * 1.3]], p.tint || m.flag);
+  }
+  const RIGS = { humanoid, beast, bomb, golem, serpent, wraith, turret, tower };
 
   // ------------------------------------------------------------------ public
   function get(key) { return M[key] || M.grunt; }

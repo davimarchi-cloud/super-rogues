@@ -541,6 +541,40 @@
         [{ id: 'ste5a', name: 'Supernova', desc: '+60% star damage.', ab: { dmg: 0.72, apdmg: 0.36 } },
          { id: 'ste5b', name: 'Starlight Veil', desc: 'When the star lands, allies within 2 hexes get a shield of 15% of their max HP.', ab: { veil: 0.15 } }],
       ] }),
+    // v60 (review #72, PC boy): "a hero that doesnt autoattack but casts a continuous ray that goes to the nearest target,
+    // friend or foe: if friend heal, if foe, deal damage. Option to have more than 1 ray. Gains mana as more damage or
+    // healing is dealt; ultimate is supercharging the beams"
+    prism: H({ name: 'Prism', glyph: '🔆', role: 'Channeler', color: '#5fe0ff', fl: ['beam'],
+      hp: 640, atk: 35, armor: 18, mr: 35, as: 1, range: 3, ms: 2, mana: 80, m0: 0,
+      abil: 'overcharge', abName: 'Overcharge', abDesc: 'Passive (Beam): no attacks. A beam locks onto the nearest unit in range: it heals a hurt ally for 20% AP per second or burns an enemy for 32% AP per second, and fills mana as it works. Active: for 4s the beams deal and heal double and split into one more beam.',
+      ab: { dmg: 0.32, heal: 0.2, rays: 1, dur: 4, mult: 2, extra: 1, gain: 1, shield: 0 },
+      specs: [
+        [{ id: 'pri2a', name: 'Twin Beam', desc: 'One more beam at all times.', ab: { rays: 1 } },
+         { id: 'pri2b', name: 'Focused Lens', desc: 'Beams burn enemies 40% harder.', ab: { dmg: 0.13 } }],
+        [{ id: 'pri3a', name: 'Mending Light', desc: 'Beams heal 50% more.', ab: { heal: 0.1 } },
+         { id: 'pri3b', name: 'Searing Ray', desc: 'Enemies in a beam are slowed by 25%.', fl: ['searslow'] }],
+        [{ id: 'pri4a', name: 'Long Lens', desc: '+1 range.', mods: { range: 1 } },
+         { id: 'pri4b', name: 'Feedback', desc: 'Beams fill mana 50% faster.', ab: { gain: 0.5 } }],
+        [{ id: 'pri5a', name: 'Prismatic Storm', desc: 'Overcharge splits into 2 more beams instead of 1.', ab: { extra: 1 } },
+         { id: 'pri5b', name: 'Radiance', desc: 'Overcharge also shields every ally for 15% of their max HP.', ab: { shield: 0.15 } }],
+      ] }),
+    // v60 (review #72, PC boy): "a literal tower that cannot move, but sends little soldiers, medieval, to fight (spawns
+    // them): melees or archers. Cannot move, but can be killed like others. No auto attack. When soldiers attack he
+    // charges mana. Ultimate is putting all his units in a frenzy"
+    citadel: H({ name: 'Citadel', glyph: '🏰', role: 'Fortress', color: '#c9a26a', fl: ['tower'],
+      hp: 1050, atk: 40, armor: 40, mr: 30, as: 0.5, range: 2, ms: 0, mana: 75, m0: 0,
+      abil: 'garrison', abName: 'Call to Arms', abDesc: 'Passive (Garrison): cannot move or attack. Every 7s it sends out a soldier, by turns a footman (165% AP as HP, 18% AP as attack) or an archer (100% AP as HP, 16% AP as attack, range 3), up to 3 at once. Its soldiers\' hits fill its mana. Active: every soldier goes into a frenzy for 5s (+50% attack speed, +25% attack) and heals 30%, and one more soldier marches out.',
+      ab: { every: 7, max: 3, frenzy: 5, fhp: 1.65, fatk: 0.18, ahp: 1.0, aatk: 0.16, vet: 0, shields: 0, champion: 0, last: 0 },
+      specs: [
+        [{ id: 'cit2a', name: 'Barracks', desc: 'A soldier every 5s instead of 7s.', ab: { every: -2 } },
+         { id: 'cit2b', name: 'Thick Walls', desc: '+30 armor and magic resist.', mods: { armor: 30, mr: 30 } }],
+        [{ id: 'cit3a', name: 'Veterans', desc: 'Soldiers have 30% more HP and attack.', ab: { vet: 0.3 } },
+         { id: 'cit3b', name: 'Bigger Garrison', desc: 'Up to 5 soldiers at once.', ab: { max: 2 } }],
+        [{ id: 'cit4a', name: 'Shield Wall', desc: 'Footmen march out with a shield of 30% of their HP.', ab: { shields: 0.3 } },
+         { id: 'cit4b', name: 'Volley Fire', desc: 'Archers attack 50% faster.', ab: { volley: 0.5 } }],
+        [{ id: 'cit5a', name: 'Champion', desc: 'Every third soldier is a champion with double HP and attack.', ab: { champion: 1 } },
+         { id: 'cit5b', name: 'Last Bastion', desc: 'When the Citadel falls, its soldiers stay in a frenzy until the end.', ab: { last: 1 } }],
+      ] }),
   };
   for (const k in B.HEROES) B.HEROES[k].key = k;
 
@@ -767,6 +801,7 @@
     coralie: 'Sends a wave that pushes enemies back',
     stellan: 'Drops a falling star on enemies',
   };
+  TAGS.prism = 'Beams that heal friends and burn foes'; TAGS.citadel = 'A tower that sends soldiers to fight';   // v60
   for (const k in TAGS) if (B.HEROES[k]) B.HEROES[k].tag = TAGS[k];
   // v59 (review #71, PC boy: "pep up the names"): every hero got a new name; the old one stays as h.was (the Art Lab still
   // recognises picture files named after it)

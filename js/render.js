@@ -284,6 +284,16 @@
     for (const x of (W.terrain || [])) if (x.k !== 'pond') us.push({ x, p: hexScreen(v, x.c, x.r), fade: x.k !== 'rock' && W.units.some(u => !u.dead && u.r === x.r - 1 && Hx.dist(u, x) === 1) });
     us.sort((a, b) => a.p.y - b.p.y);
     for (const e of us) if (e.x) drawTerrain(v, e.x, e.fade); else drawUnit(v, W, e.u, e.p, T, o, dt);
+    // v60 (review #72): Prism's beams, a glowing line to each unit it heals (green) or burns (cyan), thicker when overcharged
+    for (const u of W.units) if (!u.dead && u.beams && u.beams.length) {
+      const a0 = unitPos(v, W, u, T), ax = a0.x, ay = a0.y - size * 0.95;
+      for (const b of u.beams) {
+        const t = W.byId[b.id]; if (!t || t.dead) continue; const q = unitPos(v, W, t, T), qy = q.y - size * 0.7 * t.size, col = b.heal ? '#7dffb0' : '#5fe0ff', w = (b.over ? 5 : 3) + Math.sin(T * 1.7 + b.id) * 0.8;
+        ctx.save(); ctx.globalAlpha = 0.35; ctx.strokeStyle = col; ctx.lineWidth = w * 2.6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(q.x, qy); ctx.stroke();
+        ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = w * 0.45; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(q.x, qy); ctx.stroke();
+        ctx.fillStyle = col; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(q.x, qy, w * 1.6, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
+    }
     for (const f of W.fx) {
       if (f.k === 'ring' || T < f.t0 || T > f.t1 + 0.99) continue;
       const k = Math.min(1, (T - f.t0) / Math.max(1, f.t1 - f.t0));

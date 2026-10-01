@@ -73,6 +73,7 @@
     for (const u of W.units) {
       if (u.fl.has('dive')) dive(W, u);
       if (u.fl.has('factory')) A.turret(W, u, true);
+      if (u.fl.has('tower')) { soldier(W, u); u.nextSpawn = W.t + sec(u.ab.every); }   // v60: the Citadel opens with a soldier
       if (u.fl.has('prison')) {
         const t = enemies(W, u).sort((a, b) => b.maxHp - a.maxHp)[0];
         if (t) { cc(W, t, 'stun', 3); t.st.frozenU = W.t + sec(3); fxRing(W, t.c, t.r, 0, '#8ef', 12); }
@@ -352,6 +353,7 @@
     if (u.kind === 'hero' && flOf(W, u.side).lastbreath) { fxRing(W, u.c, u.r, 1, '#ff7a3d', 12); for (const e of enemies(W, u)) if (Hx.dist(e, u) <= 1) deal(W, u, e, 3 * atkOf(W, u), 'magic', {}); }
     if (u.kind === 'hero' && flOf(W, u.side).vengeance) for (const a of allies(W, u)) if (a.kind === 'hero') { buff(a, 'atkPct', 0.2, 1e9); fxText(W, a, 'VENGEANCE', '#f66'); }
     relicDeath(W, u);
+    if (u.fl.has('tower') && u.ab.last) for (const s of W.units) if (!s.dead && s.garrison === u.id) { buff(s, 'asPct', 0.5, 1e9); buff(s, 'atkPct', 0.25, 1e9); fxText(W, s, 'LAST BASTION', '#ff7a3d'); }
     if (u.kind === 'hero') {  // either side: gauntlet teams are heroes too
       const lum = allies(W, u).find(a => a.fl.has('resurrect') && !a.once.res);
       if (lum) { lum.once.res = 1; at(W, W.t + sec(1), () => { if (u.dead && !W.over) reviveAt(W, u, 0.5, 'RESURRECTED'); }); }
@@ -503,6 +505,7 @@
     const atk = atkOf(W, u);
     const dealt = deal(W, u, tgt, atk * mult, 'phys', { atk: true });
     u.atkN++;
+    if (u.garrison && dealt > 0) { const t = W.byId[u.garrison]; if (t && !t.dead && t.maxMana) t.mana = Math.min(t.maxMana, t.mana + 5); }   // v60: Citadel
     if (!u.dead) {
       u.mana = Math.min(u.maxMana, u.mana + (10 + (u.m.manaOnHit || 0)) * manaGain(W, u)); if (u.ab.focus) u.focus = Math.min(u.ab.focusCap || 15, u.focus + 1); if (u.m.titan) u.titan = Math.min(20, u.titan + 0.5);
       if (u.m.stackAtk && (u.sc.sa || 0) < u.m.stackAtkCap) { u.sc.sa = (u.sc.sa || 0) + 1; u.bAtk += u.m.stackAtk; }
@@ -1101,6 +1104,59 @@
     }
   }
 
+  // ------------------------------------------------------------------ v60 (review #72, PC boy): Prism and Citadel
+  // Prism: no attacks; every 0.25s each beam locks onto the nearest unit in range (a hurt ally, else an enemy), heals or
+  // burns it, and the work fills mana. Overcharge doubles the beams and adds more for a few seconds.
+  function beamAct(W, u) {
+    const ab = u.ab, over = u.st.overU > W.t, rays = ab.rays + (over ? ab.extra : 0), R = Math.max(1, u.range);
+    const pool = W.units.filter(v => !v.dead && v !== u && targetable(W, v) && Hx.dist(u, v) <= R && (v.side !== u.side || v.hp < v.maxHp * 0.98))
+      .sort((a, b) => Hx.dist(u, a) - Hx.dist(u, b) || (a.side === u.side ? -1 : 1));
+    if (!pool.length) {   // nobody in reach: walk toward the nearest enemy
+      const e = enemies(W, u).filter(x => targetable(W, x)).sort((a, b) => Hx.dist(u, a) - Hx.dist(u, b))[0];
+      if (e && !tryMove(W, u, e)) u.busy = W.t + 2; u.beams = []; return;
+    }
+    const k = (over ? ab.mult : 1) * 0.25, ts = pool.slice(0, rays); let work = 0;
+    for (const t of ts) {
+      // a beam works like a burn: no damage number every 0.25 s
+      if (t.side === u.side) work += heal(W, t, ab.heal * apOf(u) * k, false) || 0;
+      else { work += deal(W, u, t, ab.dmg * apOf(u) * k, 'magic', { ability: true, dot: true }); if (u.fl.has('searslow')) slow(W, t, 0.25, 0.6); }
+    }
+    u.beams = ts.map(t => ({ id: t.id, heal: t.side === u.side, over }));
+    if (!over && u.maxMana) u.mana = Math.min(u.maxMana, u.mana + work / 12 * ab.gain);
+    u.busy = W.t + 5;
+  }
+  // Citadel: never moves or attacks; it sends out a soldier every few seconds (footman, archer, by turns), up to a cap;
+  // its soldiers' hits fill its mana (onHit); Call to Arms sends every soldier into a frenzy and one more marches out
+  function soldier(W, u) {
+    const ab = u.ab, n = u.sent = (u.sent || 0) + 1, archer = n % 2 === 0, champ = ab.champion && n % 3 === 0, v = (1 + ab.vet) * (champ ? 2 : 1);
+    const d = { key: archer ? 'bowman' : 'footman', name: champ ? 'Champion' : archer ? 'Archer' : 'Footman', glyph: archer ? '🏹' : '🛡', color: u.color,
+      hp: (archer ? ab.ahp : ab.fhp) * apOf(u) * v, atk: (archer ? ab.aatk : ab.fatk) * apOf(u) * v, armor: archer ? 10 : 25, mr: archer ? 10 : 20,
+      as: archer ? 0.8 * (1 + (ab.volley || 0)) : 0.85, range: archer ? 3 : 1, ms: 2.2, size: champ ? 1 : 0.8 };
+    const s = summon(W, u, d);
+    if (s) { s.garrison = u.id; if (!archer && ab.shields) { s.shield = s.maxHp * ab.shields; s.shieldU = W.t + sec(30); } fxText(W, s, champ ? 'CHAMPION' : 'TO ARMS', '#ffe066'); }
+    return s;
+  }
+  function towerAct(W, u) {
+    const ab = u.ab;
+    if (W.t >= (u.nextSpawn || 0)) {
+      const mine = W.units.filter(v => !v.dead && v.garrison === u.id).length;
+      if (mine < ab.max) soldier(W, u);
+      u.nextSpawn = W.t + sec(Math.max(2, ab.every));
+    }
+    u.busy = W.t + 4;
+  }
+  A.overcharge = (W, u) => {
+    const ab = u.ab; u.st.overU = W.t + sec(ab.dur); fxText(W, u, 'OVERCHARGE', '#5fe0ff'); fxRing(W, u.c, u.r, 1, '#5fe0ff', 14);
+    if (ab.shield) for (const a of allies(W, u)) shield(W, a, a.maxHp * ab.shield, 5);
+    return true;
+  };
+  A.garrison = (W, u) => {
+    const ab = u.ab;
+    for (const s of W.units) if (!s.dead && s.garrison === u.id) { buff(s, 'asPct', 0.5, sec(ab.frenzy), W); buff(s, 'atkPct', 0.25, sec(ab.frenzy), W); heal(W, s, s.maxHp * 0.3, true); fxText(W, s, 'FRENZY', '#ff7a3d'); }
+    soldier(W, u); fxRing(W, u.c, u.r, 2, '#ffcf5a', 14);
+    return true;
+  };
+
   // ------------------------------------------------------------------ per-unit turn
   function act(W, u) {
     if (u.boss) bossPassives(W, u);
@@ -1118,6 +1174,8 @@
       }
       u.castFail = W.t + 10;
     }
+    if (u.fl.has('beam')) { beamAct(W, u); return; }      // v60: Prism
+    if (u.fl.has('tower')) { towerAct(W, u); return; }    // v60: Citadel
     const tgt = pickTarget(W, u);
     if (!tgt) return;
     if (u.abil === 'explode' && Hx.dist(u, tgt) <= 1) { A.explode(W, u); return; }

@@ -397,7 +397,7 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
     for (const kind of ['heroShop', 'itemShop', 'relicShop']) { r.fightNo = 9; if (Run.makeShop ? false : false) {} }
   }
   ok(!seenLocked, 'level 1: the 3 new heroes and the level relics never show up at the start');
-  const r0 = Run.newRun(7); ok(Object.keys(B.HEROES).length === 36 && (r0.locked || []).length === 0, 'without a lock list (bots, old saves) everything is open');
+  const r0 = Run.newRun(7); ok(Object.keys(B.HEROES).length === 38 && (r0.locked || []).length === 0, 'without a lock list (bots, old saves) everything is open');
   for (const k of ['buzzwell', 'coralie', 'stellan']) {
     const run = Run.newRun(11); Run.pickStart(run, [k]); Run.addHero(run, 'bastion');
     run.heroes.forEach(h => { h.lvl = 5; h.specs = B.HEROES[h.key].specs.map(p => p[1].id); });
@@ -665,6 +665,23 @@ ok(!B.RELIC.onslaught && !Run.onslaughtWorld && !B.CFG.seq.includes('O'), 'no On
   const H = Object.values(HEROES), names = H.map(h => h.name);
   ok(new Set(names).size === names.length && names.includes('Aegir') && names.includes('Jinx') && names.includes('Feuer') && names.includes('Maelstrom'), 'v59: every hero has its own new name (Feuer keeps his)');
   ok(!H.some(h => /(Bjornar|Pimples|Brigid|Koschei|Gizmund|Melissa|Ulfrik)/.test(h.abDesc + ' ' + h.specs.flat().map(s => s.desc).join(' '))), 'v59: no old name left in abilities and powers');
+}
+// ---- v60 (review #72, PC boy): Prism (beams, no attacks) and Citadel (a tower that sends soldiers)
+{
+  const def = (k, lvl) => Run.heroDef({ relics: [], heroes: [], bag: [] }, { key: k, lvl: lvl || 2, specs: [], items: [], bonus: {}, uid: 7 });
+  let W = Sim.create({ mode: 'fight', seed: 3, heroes: [{ def: def('prism'), c: 3, r: 6 }, { def: def('bastion'), c: 3, r: 5 }], enemies: [{ def: Sim.mobScaleDef('brute', 1), c: 3, r: 3 }] });
+  const pr = W.units.find(u => u.key === 'prism'), tank = W.units.find(u => u.key === 'bastion'), foe = W.units.find(u => u.side === 1);
+  for (let i = 0; i < 60; i++) Sim.step(W);
+  ok(pr.atkN === 0 && foe.dmgTaken > 0 && pr.mana > 0, 'v60 Prism: never attacks; its beam burns the enemy in range and fills its mana');
+  tank.hp = tank.maxHp * 0.5; const h0 = tank.hp; for (let i = 0; i < 20; i++) Sim.step(W);
+  ok(tank.hp > h0 || (pr.beams || []).some(b => b.heal), 'v60 Prism: a hurt ally next to it gets healed by the beam');
+  W = Sim.create({ mode: 'fight', seed: 4, heroes: [{ def: def('citadel', 3), c: 3, r: 7 }], enemies: [{ def: Sim.mobScaleDef('grunt', 1), c: 3, r: 1 }, { def: Sim.mobScaleDef('grunt', 1), c: 5, r: 1 }] });
+  const cit = W.units.find(u => u.key === 'citadel'), at0 = { c: cit.c, r: cit.r };
+  ok(W.units.filter(u => u.garrison === cit.id).length === 1, 'v60 Citadel: a soldier marches out when the fight starts');
+  let maxMana = 0; for (let i = 0; i < 20 * 20 && !W.over; i++) { Sim.step(W); maxMana = Math.max(maxMana, cit.mana); }
+  ok(cit.c === at0.c && cit.r === at0.r && cit.atkN === 0, 'v60 Citadel: never moves and never attacks');
+  ok(W.units.filter(u => u.garrison === cit.id).length >= 2 && maxMana > 0, 'v60 Citadel: more soldiers march out, and their hits fill its mana');
+  ok(Object.values(HEROES).length === 38 && HEROES.prism.tag && HEROES.citadel.tag, 'v60: 38 heroes, the two new ones with their short line');
 }
 console.log(`motor: ${oks} ok, ${fails} fail`);
 process.exit(fails ? 1 : 0);

@@ -194,6 +194,8 @@
     charge: ab => [['P', ab.dmg, 'to the enemies hit']],
     radiance: ab => [['H', ab.heal, 'the weakest ally'], ['H', ab.splash, 'allies next to it'], ab.smite && ['M', ab.smite, 'smite']],
     volley: ab => [['P', ab.dmg, `per arrow, ${ab.count} arrows, can crit`]],
+    overcharge: ab => [['M', ab.dmg, 'per second to the enemy in a beam'], ['H', ab.heal, 'per second to the hurt ally in a beam'], ['Z', `Overcharge: x${ab.mult} for ${ab.dur}s and +${ab.extra} beam`]],   // v60
+    garrison: ab => [['Z', d => `footman: ${Math.round(ab.fhp * (1 + ab.vet) * d.ap)} HP and ${Math.round(ab.fatk * (1 + ab.vet) * d.ap)} attack; archer: ${Math.round(ab.ahp * (1 + ab.vet) * d.ap)} HP and ${Math.round(ab.aatk * (1 + ab.vet) * d.ap)} attack`]],   // v60
     raise: ab => [['Z', d => `each skeleton: ${Math.round(3 * d.ap * ab.hpMul)} HP (${pct(3 * ab.hpMul)} AP) and ${Math.round(0.3 * d.ap)} attack (30% AP)`], ab.explode && ['M', ab.explode, 'when a skeleton dies, 1 hex']],
     chain: ab => [['M', ab.dmg, `per bounce, ${ab.bounces} enemies, ${pct(ab.falloff)} less each bounce`]],
     hook: ab => [['P', ab.dmg, 'to the pulled enemy']],

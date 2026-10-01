@@ -5,7 +5,7 @@ const root = require('path').join(__dirname, '..'), ROUNDS = +(process.argv[2] |
 for (const f of ['hex', 'data', 'sim', 'run']) require(root + '/js/' + f + '.js');
 const { Run, Sim } = B; const keys = Object.keys(B.HEROES);
 const BASE = Object.fromEntries(keys.map(k => [k, { hp: B.HEROES[k].hp, atk: B.HEROES[k].atk, mana: B.HEROES[k].mana }]));
-const AP = new Set(['buzzwell', 'coralie', 'stellan', 'pyra', 'glacia', 'lumen', 'morrow', 'tempest', 'seraph', 'bramble', 'echo', 'vey', 'sprocket', 'vesper', 'azgul', 'pip']);
+const AP = new Set(['prism', 'citadel', 'buzzwell', 'coralie', 'stellan', 'pyra', 'glacia', 'lumen', 'morrow', 'tempest', 'seraph', 'bramble', 'echo', 'vey', 'sprocket', 'vesper', 'azgul', 'pip']);
 const LOAD = { 2: { items: ['longsword', 'chainmail', 'rod', 'boots', 'buckler', 'fang'], ap: ['rod', 'boots'], relics: ['whetset'] },
                3: { items: ['bloodthirster', 'warmog', 'deathcap', 'b_greaves', 'guardplate', 'infinity'], ap: ['deathcap', 'b_greaves', 'bluecrystal'], relics: ['whetset', 'standard'] } };
 const FIGHTS = [['boss', 4, 2], ['boss', 8, 3]];  // hard fights are cleared ~95% by everyone: the bosses are where heroes fail
@@ -13,7 +13,7 @@ function apply(P) { for (const k of keys) { const h = B.HEROES[k], b = BASE[k], 
 function measure(P) {
   apply(P); let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const res = {};
-  for (const k of keys) {
+  for (const k of (process.env.ONLY ? process.env.ONLY.split(',') : keys)) {   // ONLY=a,b measures just those heroes
     const others = keys.filter(x => x !== k); let w = 0, n = 0;
     for (let t = 0; t < T; t++) {
       const a = others[Math.floor(rnd() * others.length)]; let b; do b = others[Math.floor(rnd() * others.length)]; while (b === a);
